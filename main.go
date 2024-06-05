@@ -661,6 +661,11 @@ func main() {
 				for _, evaporation := range generateRange(0.8, 0.8, 0.1) {
 					for _, exploration := range generateRange(10.0, 10.0, 1.0) {
 						for _, q := range generateRange(0.0, 1.0, 0.25) {
+
+							// 1. Analiza grafów
+							// 2. Thin spanning trees
+							// 3. Parametry + dopracowanie heurystyki
+
 							runExperiment(file, iterations, numRuns, alpha, beta, evaporation, exploration, q)
 						}
 					}
