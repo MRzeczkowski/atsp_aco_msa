@@ -7,8 +7,9 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime/pprof"
-	"strings"
+	"strconv"
 	"sync"
 	"time"
 
@@ -458,6 +459,34 @@ type Edge struct {
 	from, to int
 }
 
+// Function to count leaves in a tree represented by edges
+func countLeaves(edges []Edge) float64 {
+	if len(edges) == 0 {
+		return 0
+	}
+
+	// Create a map to hold child nodes for each node
+	children := make(map[int][]int)
+	allNodes := make(map[int]bool)
+
+	// Populate the children map
+	for _, edge := range edges {
+		children[edge.from] = append(children[edge.from], edge.to)
+		allNodes[edge.from] = true
+		allNodes[edge.to] = true
+	}
+
+	// Count leaves
+	leafCount := 0.0
+	for node := range allNodes {
+		if len(children[node]) == 0 {
+			leafCount++
+		}
+	}
+
+	return leafCount
+}
+
 func convertToEdges(matrix [][]float64) ([]int, []Edge, map[Edge]float64) {
 	var vertices []int
 	edges := make([]Edge, 0)
@@ -486,79 +515,120 @@ func convertToMatrix(edges []Edge, size int) [][]float64 {
 	return matrix
 }
 
-func runExperiment(file string, iterations, numRuns int, alpha, beta, evaporation, exploration, q float64) {
+func calculateTreeStats(edges []Edge, weights map[Edge]float64) (stats GraphStats) {
+	var totalWeight float64
+	var count int
+	minWeight := math.MaxFloat64
+	maxWeight := -math.MaxFloat64
 
-	name, dimension, matrix, err := parsing.ParseTSPLIBFile(file)
-	if err != nil {
-		fmt.Println("Error parsing file:", file, err)
-		return
+	for _, edge := range edges {
+		weight := weights[edge]
+		totalWeight += weight
+		if weight < minWeight {
+			minWeight = weight
+		}
+		if weight > maxWeight {
+			maxWeight = weight
+		}
+		count++
 	}
 
-	// https://sci-hub.se/10.1109/ICICTA.2010.731
-	// "If the number of cities is less than 50, t_max=100; if it is between 50 and 100, t_max=500; and if the problem has more than 100 cities, t_max is set to 5000."
-	if dimension < 50 {
-		iterations = 100
+	// Calculate average
+	avgWeight := totalWeight / float64(count)
+
+	// Calculate standard deviation, skewness, and kurtosis
+	var sumOfSquares, sumOfCubes, sumOfFourthPowers float64
+	for _, edge := range edges {
+
+		diff := weights[edge] - avgWeight
+		square := diff * diff
+		cube := square * diff
+		fourthPower := cube * diff
+
+		sumOfSquares += square
+		sumOfCubes += cube
+		sumOfFourthPowers += fourthPower
+
 	}
 
-	if 50 <= dimension && dimension < 100 {
-		iterations = 500
+	n := float64(count)
+	stdDevWeight := math.Sqrt(sumOfSquares / n)
+	skewness := (sumOfCubes / n) / math.Pow(stdDevWeight, 3)
+	kurtosis := (sumOfFourthPowers/n)/math.Pow(stdDevWeight, 4) - 3
+
+	return GraphStats{
+		minWeight:    minWeight,
+		maxWeight:    maxWeight,
+		avgWeight:    avgWeight,
+		stdDevWeight: stdDevWeight,
+		skewness:     skewness,
+		kurtosis:     kurtosis,
 	}
+}
 
-	if dimension >= 100 {
-		iterations = 1000
-	}
+func calculateStats(matrix [][]float64) (stats GraphStats) {
+	var totalWeight float64
+	var count int
+	minWeight := math.MaxFloat64
+	maxWeight := -math.MaxFloat64
 
-	vertices, edges, weights := convertToEdges(matrix)
-
-	cmsa := make([][]float64, dimension)
-	for i := range dimension {
-		cmsa[i] = make([]float64, dimension)
-	}
-
-	msas := make([][]Edge, dimension)
-	ocurrance := make(map[Edge]float64)
-	lengths := make([]float64, dimension)
-
-	for i := 0; i < dimension; i++ {
-
-		msa := findMSA(vertices, edges, i, weights)
-
-		msas[i] = msa
-
-		for _, edge := range msa {
-			ocurrance[edge]++
-			lengths[i] += weights[edge]
+	// Iterate over the matrix to calculate sum, min, and max
+	for i := range matrix {
+		for j := range matrix[i] {
+			if i != j { // avoiding diagonal elements which may not represent valid edges
+				weight := matrix[i][j]
+				totalWeight += weight
+				if weight < minWeight {
+					minWeight = weight
+				}
+				if weight > maxWeight {
+					maxWeight = weight
+				}
+				count++
+			}
 		}
 	}
 
-	// for i, msa := range msas {
-	// 	for _, edge := range msa {
-	// 		cmsa[edge.from][edge.to] += pow(1/weights[edge], 5)
-	// 		cmsa[edge.from][edge.to] += pow(1/lengths[i], 5)
-	// 	}
-	// }
+	// Calculate average
+	avgWeight := totalWeight / float64(count)
 
-	for _, msa := range msas {
-		for _, edge := range msa {
-			//cmsa[edge.from][edge.to] /= ocurrance[edge]
-			cmsa[edge.from][edge.to] = pow(ocurrance[edge], 1)
+	// Calculate standard deviation, skewness, and kurtosis
+	var sumOfSquares, sumOfCubes, sumOfFourthPowers float64
+	for i := range matrix {
+		for j := range matrix[i] {
+			if i != j {
+				diff := matrix[i][j] - avgWeight
+				square := diff * diff
+				cube := square * diff
+				fourthPower := cube * diff
+
+				sumOfSquares += square
+				sumOfCubes += cube
+				sumOfFourthPowers += fourthPower
+			}
 		}
 	}
 
-	for i := 0; i < dimension; i++ {
+	n := float64(count)
+	stdDevWeight := math.Sqrt(sumOfSquares / n)
+	skewness := (sumOfCubes / n) / math.Pow(stdDevWeight, 3)
+	kurtosis := (sumOfFourthPowers/n)/math.Pow(stdDevWeight, 4) - 3
 
-		// sum := 0.0
-
-		// for j := 0; j < dimension; j++ {
-		// 	sum += cmsa[i][j]
-		// }
-
-		// for j := 0; j < dimension; j++ {
-		// 	cmsa[i][j] /= sum
-		// }
-
-		fmt.Println(cmsa[i])
+	return GraphStats{
+		minWeight:    minWeight,
+		maxWeight:    maxWeight,
+		avgWeight:    avgWeight,
+		stdDevWeight: stdDevWeight,
+		skewness:     skewness,
+		kurtosis:     kurtosis,
 	}
+}
+
+type GraphStats struct {
+	minWeight, maxWeight, avgWeight, stdDevWeight, skewness, kurtosis float64
+}
+
+func runExperiment(name string, dimension, iterations, numRuns int, alpha, beta, evaporation, exploration, q float64, matrix, cmsa [][]float64) {
 
 	var totalBestLength float64
 	var totalElapsedTime time.Duration
@@ -631,6 +701,26 @@ func runExperiment(file string, iterations, numRuns int, alpha, beta, evaporatio
 		name, alpha, beta, evaporation, exploration, q, ants, iterations, averageBestLength, bestLength, bestAtIteration, knownOptimal, deviation, successRate, commonalityWithCmsa, averageTime.Milliseconds())
 }
 
+func extractNumber(input string) (int, error) {
+	// Compile the regular expression to find numbers
+	re := regexp.MustCompile(`\d+`)
+
+	// Find the first match
+	match := re.FindString(input)
+
+	if match == "" {
+		return 0, fmt.Errorf("no number found in the string")
+	}
+
+	// Convert the matched string to an integer
+	number, err := strconv.Atoi(match)
+	if err != nil {
+		return 0, err
+	}
+
+	return number, nil
+}
+
 func main() {
 	dir := "tsp_files"
 	files, err := filepath.Glob(filepath.Join(dir, "*.atsp"))
@@ -645,28 +735,159 @@ func main() {
 	}
 
 	iterations := 100
-	numRuns := 1000
+	numRuns := 100
 
 	for _, file := range files {
 
-		if !strings.Contains(file, "ftv3") {
+		var problemSize, _ = extractNumber(file)
+
+		if problemSize > 100 {
 			continue
+		}
+
+		name, dimension, matrix, err := parsing.ParseTSPLIBFile(file)
+
+		// graphStats := calculateStats(matrix)
+
+		// fmt.Println(name)
+		// fmt.Println("Min:", graphStats.minWeight)
+		// fmt.Println("Max:", graphStats.maxWeight)
+		// fmt.Println("Avg:", graphStats.avgWeight)
+		// fmt.Println("StdDev:", graphStats.stdDevWeight)
+		// fmt.Println("Skewness:", graphStats.skewness)
+		// fmt.Println("Kurtosis:", graphStats.kurtosis)
+
+		// return
+
+		if err != nil {
+			fmt.Println("Error parsing file:", file, err)
+			return
+		}
+
+		// https://sci-hub.se/10.1109/ICICTA.2010.731
+		// "If the number of cities is less than 50, t_max=100; if it is between 50 and 100, t_max=500; and if the problem has more than 100 cities, t_max is set to 5000."
+		if dimension < 50 {
+			iterations = 100
+		}
+
+		if 50 <= dimension && dimension < 100 {
+			iterations = 500
+		}
+
+		if dimension >= 100 {
+			iterations = 1000
+		}
+
+		vertices, edges, weights := convertToEdges(matrix)
+
+		cmsa := make([][]float64, dimension)
+		for i := range dimension {
+			cmsa[i] = make([]float64, dimension)
+		}
+
+		msas := make([][]Edge, dimension)
+		//msaStats := make([]GraphStats, dimension)
+		//leafCounts := make([]float64, dimension)
+		occurrence := make(map[Edge]float64)
+		lengths := make([]float64, dimension)
+
+		for i := 0; i < dimension; i++ {
+
+			msa := findMSA(vertices, edges, i, weights)
+
+			msas[i] = msa
+			//msaStats[i] = calculateTreeStats(msa, weights)
+			//leafCounts[i] = countLeaves(msa)
+
+			for _, edge := range msa {
+				occurrence[edge]++
+				lengths[i] += weights[edge]
+			}
+		}
+
+		// minLeafCount := math.MaxFloat64
+
+		// for _, count := range leafCounts {
+		// 	if count < minLeafCount {
+		// 		minLeafCount = count
+		// 	}
+		// }
+
+		// for i, msa := range msas {
+		// 	for _, edge := range msa {
+		// 		cmsa[edge.from][edge.to] += pow(1/weights[edge], 5)
+		// 		cmsa[edge.from][edge.to] += pow(1/lengths[i], 5)
+		// 	}
+		// }
+
+		for _, msa := range msas {
+
+			// msaStats[i].stdDevWeight > 0.1*msaStats[i].avgWeight || msaStats[i].maxWeight > 1.5*msaStats[i].avgWeight
+
+			// if math.Abs(msaStats[i].skewness) > 0.8 ||
+			// 	msaStats[i].kurtosis > 5.0 {
+			// 	continue
+			// }
+
+			for _, edge := range msa {
+				cmsa[edge.from][edge.to] = pow(occurrence[edge], 1)
+				//cmsa[edge.from][edge.to] += pow(1/msaStats[i].stdDevWeight, 1)
+				//cmsa[edge.from][edge.to] += pow(1/msaStats[i].skewness, 1)
+				//cmsa[edge.from][edge.to] = pow(1/msaStats[i].kurtosis, 1)
+				//cmsa[edge.from][edge.to] += pow(1/weights[edge], 1)
+				//cmsa[edge.from][edge.to] += pow(1/lengths[i], 1)
+				//cmsa[edge.from][edge.to] += pow(1/leafCounts[i], 1)
+
+				//cmsa[edge.from][edge.to] /= occurrence[edge]
+			}
+
+			//fmt.Println(i, leafCounts[i])
+		}
+
+		// cmsaStats := calculateStats(cmsa)
+
+		// fmt.Println("Min:", cmsaStats.minWeight)
+		// fmt.Println("Max:", cmsaStats.maxWeight)
+		// fmt.Println("Avg:", cmsaStats.avgWeight)
+		// fmt.Println("StdDev:", cmsaStats.stdDevWeight)
+		// fmt.Println("Skewness:", cmsaStats.skewness)
+		// fmt.Println("Kurtosis:", cmsaStats.kurtosis)
+
+		//return
+
+		for i := 0; i < dimension; i++ {
+
+			// sum := 0.0
+
+			// for j := 0; j < dimension; j++ {
+			// 	sum += cmsa[i][j]
+			// }
+
+			// for j := 0; j < dimension; j++ {
+			// 	cmsa[i][j] /= sum
+			// }
+
+			//fmt.Println(cmsa[i])
 		}
 
 		fmt.Println("| Instance | Alpha | Beta | Evaporation | Exploration | q | Ants | Iterations | Average Result | Best found | Best found at iteration | Known Optimal | Deviation (%) | Success rate (%) | Commonality with CMSA (%) | Time (ms) |")
 		fmt.Println("|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|-|")
 
-		for _, alpha := range generateRange(1.0, 1.0, 0.5) {
-			for _, beta := range generateRange(5.0, 5.0, 0.5) {
-				for _, evaporation := range generateRange(0.8, 0.8, 0.1) {
-					for _, exploration := range generateRange(10.0, 10.0, 1.0) {
+		// Alpha: 0.75
+		// Beta: 4.00
+		// Evaporation: 0.50
+		// Exploration: 8.00
+
+		for _, alpha := range generateRange(0.75, 1.25, 0.25) {
+			for _, beta := range generateRange(3.0, 5.0, 1.0) {
+				for _, evaporation := range generateRange(0.5, 0.8, 0.1) {
+					for _, exploration := range generateRange(8.0, 10.0, 1.0) {
 						for _, q := range generateRange(0.0, 1.0, 0.25) {
 
 							// 1. Analiza grafów
-							// 2. Thin spanning trees
 							// 3. Parametry + dopracowanie heurystyki
 
-							runExperiment(file, iterations, numRuns, alpha, beta, evaporation, exploration, q)
+							runExperiment(name, dimension, iterations, numRuns, alpha, beta, evaporation, exploration, q, matrix, cmsa)
 						}
 					}
 				}
