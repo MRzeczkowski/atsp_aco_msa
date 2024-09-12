@@ -8,8 +8,7 @@ import (
 )
 
 type ACO struct {
-	alpha, beta, evaporation                            float64
-	minPheromone, maxPheromone, exploration, q          float64
+	alpha, beta, evaporation, q                         float64
 	ants, iterations, currentIteration, BestAtIteration int
 	distances, pheromone                                [][]float64
 	cmsa                                                [][]float64
@@ -17,8 +16,7 @@ type ACO struct {
 	BestPath                                            []int
 }
 
-// NewACO initializes a new ACO instance with initial pheromone levels set to an estimated best value
-func NewACO(alpha, beta, evaporation, exploration, q float64, ants, iterations int, distances, cmsa [][]float64) *ACO {
+func NewACO(alpha, beta, evaporation, q float64, ants, iterations int, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
 	pheromone := make([][]float64, dimension)
 	initialPheromone := 1.0
@@ -30,19 +28,16 @@ func NewACO(alpha, beta, evaporation, exploration, q float64, ants, iterations i
 	}
 
 	return &ACO{
-		alpha:        alpha,
-		beta:         beta,
-		evaporation:  evaporation,
-		exploration:  exploration,
-		q:            q,
-		ants:         ants,
-		iterations:   iterations,
-		distances:    distances,
-		cmsa:         cmsa,
-		pheromone:    pheromone,
-		BestLength:   math.Inf(1),
-		maxPheromone: initialPheromone,
-		minPheromone: initialPheromone / (exploration * float64(ants)),
+		alpha:       alpha,
+		beta:        beta,
+		evaporation: evaporation,
+		q:           q,
+		ants:        ants,
+		iterations:  iterations,
+		distances:   distances,
+		cmsa:        cmsa,
+		pheromone:   pheromone,
+		BestLength:  math.Inf(1),
 	}
 }
 
@@ -61,14 +56,19 @@ func (aco *ACO) Run() {
 		}
 		wg.Wait()
 
-		aco.updatePheromoneLevels() // Recalculate pheromone limits based on the new best solution
+		for i := 0; i < aco.ants; i++ {
+			path := paths[i]
+			length := lengths[i]
+
+			if length < aco.BestLength {
+				aco.BestLength = length
+				aco.BestPath = append([]int(nil), path...)
+				aco.BestAtIteration = aco.currentIteration
+			}
+		}
+
 		aco.updatePheromone(paths, lengths)
 	}
-}
-
-func (aco *ACO) updatePheromoneLevels() {
-	aco.maxPheromone = 1.0 / ((1 - aco.evaporation) * aco.BestLength)
-	aco.minPheromone = aco.maxPheromone / (aco.exploration * float64(aco.ants))
 }
 
 func (aco *ACO) constructPath(antNumber int) ([]int, float64) {
@@ -92,11 +92,6 @@ func (aco *ACO) constructPath(antNumber int) ([]int, float64) {
 	}
 
 	length := aco.pathLength(path)
-	if length < aco.BestLength {
-		aco.BestLength = length
-		aco.BestPath = append([]int(nil), path...)
-		aco.BestAtIteration = aco.currentIteration
-	}
 
 	return path, length
 }
@@ -142,35 +137,27 @@ func (aco *ACO) selectNextCity(current int, visited []bool) int {
 }
 
 func (aco *ACO) updatePheromone(paths [][]int, lengths []float64) {
-	// Find the best path of this iteration
-	bestIdx := 0
-	for i := 1; i < len(lengths); i++ {
-		if lengths[i] < lengths[bestIdx] {
-			bestIdx = i
-		}
-	}
-
-	// Evaporate pheromone first
 	for i := range aco.pheromone {
 		for j := range aco.pheromone[i] {
 			aco.pheromone[i][j] *= (1 - aco.evaporation)
-			aco.pheromone[i][j] = math.Max(aco.pheromone[i][j], aco.minPheromone) // Enforce minimum pheromone level
 		}
 	}
 
-	// Strengthen pheromone trail for the best ant's path
-	path := paths[bestIdx]
-	delta := 1.0 / lengths[bestIdx]
-	for i := 0; i < len(path)-1; i++ {
-		start, end := path[i], path[i+1]
-		aco.pheromone[start][end] += delta
-		aco.pheromone[start][end] = math.Min(aco.pheromone[start][end], aco.maxPheromone) // Enforce maximum pheromone level
-	}
+	for i, path := range paths {
+		p := len(path)
 
-	if len(path) > 0 {
-		last, first := path[len(path)-1], path[0]
-		aco.pheromone[last][first] += delta
-		aco.pheromone[last][first] = math.Min(aco.pheromone[last][first], aco.maxPheromone)
+		delta := aco.q / lengths[i]
+
+		for j := 0; j < p-1; j++ {
+			start, end := path[j], path[j+1]
+			aco.pheromone[start][end] += delta
+		}
+
+		// Handle the wrap-around from the last to the first node separately.
+		if p > 0 {
+			last, first := path[p-1], path[0]
+			aco.pheromone[last][first] += delta
+		}
 	}
 }
 

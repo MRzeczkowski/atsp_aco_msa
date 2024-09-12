@@ -16,12 +16,12 @@ import (
 	"time"
 )
 
-const NumberOfRuns int = 100
+const NumberOfRuns int = 10
 
 type Edge = models.Edge
 
 type ExperimentData struct {
-	alpha, beta, evaporation, exploration, q float64
+	alpha, beta, evaporation, q float64
 	ExperimentResult
 }
 
@@ -36,7 +36,6 @@ func (f ExperimentData) ToCSVRow() []string {
 		fmt.Sprintf("%f", f.alpha),
 		fmt.Sprintf("%f", f.beta),
 		fmt.Sprintf("%f", f.evaporation),
-		fmt.Sprintf("%f", f.exploration),
 		fmt.Sprintf("%f", f.q),
 		strconv.Itoa(f.ExperimentResult.bestAtIteration),
 		fmt.Sprintf("%f", f.ExperimentResult.bestLength),
@@ -67,7 +66,7 @@ var optimalSolutions = map[string]float64{
 	"ry48p":  14422,
 }
 
-func runExperiment(name string, dimension, iterations int, alpha, beta, evaporation, exploration, q float64, matrix, cmsa [][]float64) ExperimentResult {
+func runExperiment(name string, dimension, iterations int, alpha, beta, evaporation, q float64, matrix, cmsa [][]float64) ExperimentResult {
 
 	var totalBestLength float64
 	var totalElapsedTime time.Duration
@@ -82,7 +81,7 @@ func runExperiment(name string, dimension, iterations int, alpha, beta, evaporat
 	ants := dimension
 
 	for i := 0; i < NumberOfRuns; i++ {
-		aco := aco.NewACO(alpha, beta, evaporation, exploration, q, ants, iterations, matrix, cmsa)
+		aco := aco.NewACO(alpha, beta, evaporation, q, ants, iterations, matrix, cmsa)
 		start := time.Now()
 		aco.Run()
 		elapsed := time.Since(start)
@@ -162,10 +161,10 @@ func tryFindSolution(path string) {
 
 	writer := csv.NewWriter(file)
 
-	header := []string{"Alpha",
+	header := []string{
+		"Alpha",
 		"Beta",
 		"Evaporation",
-		"Exploration",
 		"Q",
 		"Best at iteration",
 		"Best length",
@@ -181,22 +180,20 @@ func tryFindSolution(path string) {
 	for _, alpha := range utilities.GenerateRange(0.75, 1.25, 0.25) {
 		for _, beta := range utilities.GenerateRange(3.0, 5.0, 1.0) {
 			for _, evaporation := range utilities.GenerateRange(0.5, 0.8, 0.1) {
-				for _, exploration := range utilities.GenerateRange(8.0, 10.0, 1.0) {
-					for _, q := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+				for _, q := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 
-						// 1. Analiza grafów
-						// 3. Parametry + dopracowanie heurystyki
+					// 1. Analiza grafów
+					// 3. Parametry + dopracowanie heurystyki
 
-						result := runExperiment(name, dimension, iterations, alpha, beta, evaporation, exploration, q, matrix, cmsa)
+					result := runExperiment(name, dimension, iterations, alpha, beta, evaporation, q, matrix, cmsa)
 
-						data := ExperimentData{
-							alpha, beta, evaporation, exploration, q, result,
-						}
+					data := ExperimentData{
+						alpha, beta, evaporation, q, result,
+					}
 
-						err := writer.Write(data.ToCSVRow())
-						if err != nil {
-							log.Fatalf("Failed to write record: %s", err)
-						}
+					err := writer.Write(data.ToCSVRow())
+					if err != nil {
+						log.Fatalf("Failed to write record: %s", err)
 					}
 				}
 			}
@@ -227,7 +224,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize > 30 && problemSize < 40
+			return problemSize > 30 && problemSize < 200
 		})
 
 	for _, path := range paths {
