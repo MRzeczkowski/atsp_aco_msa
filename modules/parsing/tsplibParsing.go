@@ -8,11 +8,12 @@ import (
 	"strings"
 )
 
-func ParseTSPLIBFile(filename string) (name string, dimension int, matrix [][]float64, err error) {
-	file, err := os.Open(filename)
+func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float64, err error) {
+	file, err := os.Open(path)
 	if err != nil {
 		return "", 0, nil, err
 	}
+
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
@@ -38,6 +39,7 @@ func ParseTSPLIBFile(filename string) (name string, dimension int, matrix [][]fl
 			if err != nil {
 				return "", 0, nil, err
 			}
+
 			matrix = make([][]float64, dimension)
 			for i := range matrix {
 				matrix[i] = make([]float64, dimension)
@@ -52,6 +54,7 @@ func ParseTSPLIBFile(filename string) (name string, dimension int, matrix [][]fl
 				if err != nil {
 					return "", 0, nil, err
 				}
+
 				valuesInMatrix = append(valuesInMatrix, num)
 			}
 		}
