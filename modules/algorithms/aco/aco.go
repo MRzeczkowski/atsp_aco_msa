@@ -227,12 +227,12 @@ func (aco *ACO) globalPheromoneUpdate(iterationBestPath []int, iterationBestLeng
 
 	// Decide whether to use best-so-far or iteration-best ant for pheromone update
 	// Here, we'll use the best-so-far ant
-	pheromoneDeposit := 1.0 / aco.BestLength // Inverse of best tour length
-	bestPath := aco.BestPath
+	// pheromoneDeposit := 1.0 / aco.BestLength // Inverse of best tour length
+	// bestPath := aco.BestPath
 
 	// Optionally, you can switch to iteration-best ant:
-	// pheromoneDeposit := 1.0 / iterationBestLength
-	// bestPath := iterationBestPath
+	pheromoneDeposit := 1.0 / iterationBestLength
+	bestPath := iterationBestPath
 
 	// Global update: Only the best path deposits pheromone
 	for j := 0; j < len(bestPath)-1; j++ {
