@@ -21,7 +21,7 @@ const NumberOfRuns int = 50
 type Edge = models.Edge
 
 type ExperimentData struct {
-	alpha, beta, alpha1, rho, q0, cmsaP float64
+	alpha, beta, rho, cmsaP float64
 	ExperimentResult
 }
 
@@ -35,9 +35,7 @@ func (f ExperimentData) ToCSVRow() []string {
 	return []string{
 		fmt.Sprintf("%.2f", f.alpha),
 		fmt.Sprintf("%.2f", f.beta),
-		fmt.Sprintf("%.2f", f.alpha1),
 		fmt.Sprintf("%.2f", f.rho),
-		fmt.Sprintf("%.2f", f.q0),
 		fmt.Sprintf("%.2f", f.cmsaP),
 		strconv.Itoa(f.ExperimentResult.bestAtIteration),
 		fmt.Sprintf("%.2f", f.ExperimentResult.bestLength),
@@ -68,7 +66,7 @@ var optimalSolutions = map[string]float64{
 	"ry48p":  14422,
 }
 
-func runExperiment(name string, dimension, iterations int, alpha, beta, alpha1, rho, q0, cmsaP float64, matrix, cmsa [][]float64) ExperimentResult {
+func runExperiment(name string, dimension, iterations int, alpha, beta, rho, cmsaP float64, matrix, cmsa [][]float64) ExperimentResult {
 
 	var totalBestLength float64
 	var totalElapsedTime time.Duration
@@ -83,7 +81,7 @@ func runExperiment(name string, dimension, iterations int, alpha, beta, alpha1, 
 	ants := dimension
 
 	for i := 0; i < NumberOfRuns; i++ {
-		aco := aco.NewACO(alpha, beta, alpha1, rho, q0, cmsaP, ants, iterations, matrix, cmsa)
+		aco := aco.NewACO(alpha, beta, rho, cmsaP, ants, iterations, matrix, cmsa)
 		start := time.Now()
 		aco.Run()
 		elapsed := time.Since(start)
@@ -166,9 +164,7 @@ func tryFindSolution(path string) {
 	header := []string{
 		"Alpha",
 		"Beta",
-		"Alpha1",
 		"Rho",
-		"Q0",
 		"CMSA probability",
 		"Best at iteration",
 		"Best length",
@@ -183,27 +179,23 @@ func tryFindSolution(path string) {
 
 	for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 		for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
-			for _, alpha1 := range utilities.GenerateRange(0.9, 0.9, 0.1) {
-				for _, rho := range utilities.GenerateRange(0.5, 0.5, 0.25) {
-					for _, q0 := range utilities.GenerateRange(0.1, 0.1, 0.25) {
-						for _, cmsaP := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+			for _, rho := range utilities.GenerateRange(0.5, 0.5, 0.25) {
+				for _, cmsaP := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 
-							// 1. Analiza grafów
-							// 3. Parametry + dopracowanie heurystyki
+					// 1. Analiza grafów
+					// 3. Parametry + dopracowanie heurystyki
 
-							result := runExperiment(name, dimension, iterations, alpha, beta, alpha1, q0, rho, cmsaP, matrix, cmsa)
+					result := runExperiment(name, dimension, iterations, alpha, beta, rho, cmsaP, matrix, cmsa)
 
-							data := ExperimentData{
-								alpha, beta, alpha1, rho, q0, cmsaP, result,
-							}
+					data := ExperimentData{
+						alpha, beta, rho, cmsaP, result,
+					}
 
-							cswRow := data.ToCSVRow()
+					cswRow := data.ToCSVRow()
 
-							err := writer.Write(cswRow)
-							if err != nil {
-								log.Fatalf("Failed to write record: %s", err)
-							}
-						}
+					err := writer.Write(cswRow)
+					if err != nil {
+						log.Fatalf("Failed to write record: %s", err)
 					}
 				}
 			}
