@@ -140,7 +140,7 @@ func (aco *ACO) selectNextCity(current int, visited []bool) int {
 
 	// Apply CMSA logic to bias towards better paths, especially in the beginning.
 	adaptiveCmsaProbability := aco.cmsaP * (1.0 - float64(aco.currentIteration)/float64(aco.iterations))
-	if q > adaptiveCmsaProbability {
+	if q < adaptiveCmsaProbability {
 		for i := 0; i < dimension; i++ {
 			if !visited[i] && aco.cmsa[current][i] > 0 {
 				probabilities[i] = aco.cmsa[current][i]
