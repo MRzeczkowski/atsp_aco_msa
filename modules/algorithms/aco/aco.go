@@ -4,31 +4,27 @@ import (
 	"atsp_aco_msa/modules/utilities"
 	"math"
 	"math/rand"
+	"sync"
 )
 
 type ACO struct {
-	alpha, beta, rho, cmsaP                             float64
+	alpha, beta, rho, pDec, pCmsa                       float64
 	ants, iterations, currentIteration, BestAtIteration int
-	distances, pheromone                                [][]float64
+	distances, pheromones                               [][]float64
 	cmsa                                                [][]float64
 	tauMin, tauMax, BestLength                          float64
 	BestPath                                            []int
 }
 
-func NewACO(alpha, beta, rho, cmsaP float64, ants, iterations int, distances, cmsa [][]float64) *ACO {
+func NewACO(alpha, beta, rho, pBest, pCmsa float64, ants, iterations int, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
-	pheromone := make([][]float64, dimension)
+	pheromones := make([][]float64, dimension)
 
-	// Calculate tauMax using nearest neighbor heuristic
-	L_nn := nearestNeighborTourLength(distances)
-	tauMax := 1.0 / (rho * L_nn)
-	// Set tauMin relative to tauMax
-	tauMin := tauMax / (2.0 * float64(dimension))
-
-	for i := range pheromone {
-		pheromone[i] = make([]float64, dimension)
-		for j := range pheromone[i] {
-			pheromone[i][j] = tauMax
+	// Arbitrary high value: `4.3. Pheromone trail initialization`
+	for i := range pheromones {
+		pheromones[i] = make([]float64, dimension)
+		for j := range pheromones[i] {
+			pheromones[i][j] = 1.0
 		}
 	}
 
@@ -36,44 +32,15 @@ func NewACO(alpha, beta, rho, cmsaP float64, ants, iterations int, distances, cm
 		alpha:      alpha,
 		beta:       beta,
 		rho:        rho,
-		cmsaP:      cmsaP,
+		pDec:       math.Pow(pBest, 1.0/float64(dimension)),
+		pCmsa:      pCmsa,
 		ants:       ants,
 		iterations: iterations,
 		distances:  distances,
 		cmsa:       cmsa,
-		pheromone:  pheromone,
-		tauMin:     tauMin,
-		tauMax:     tauMax,
+		pheromones: pheromones,
 		BestLength: math.Inf(1),
 	}
-}
-
-func nearestNeighborTourLength(distances [][]float64) float64 {
-	n := len(distances)
-	visited := make([]bool, n)
-	currentCity := 0
-	visited[currentCity] = true
-	totalLength := 0.0
-
-	for i := 1; i < n; i++ {
-		nextCity := -1
-		minDistance := math.Inf(1)
-
-		for j := 0; j < n; j++ {
-			if !visited[j] && distances[currentCity][j] < minDistance {
-				minDistance = distances[currentCity][j]
-				nextCity = j
-			}
-		}
-
-		totalLength += minDistance
-		visited[nextCity] = true
-		currentCity = nextCity
-	}
-
-	// Return to the starting city
-	totalLength += distances[currentCity][0]
-	return totalLength
 }
 
 // Main loop to run MMAS
@@ -82,9 +49,15 @@ func (aco *ACO) Run() {
 		paths := make([][]int, aco.ants)
 		lengths := make([]float64, aco.ants)
 
+		var wg sync.WaitGroup
+		wg.Add(aco.ants)
 		for i := 0; i < aco.ants; i++ {
-			paths[i], lengths[i] = aco.constructPath(i)
+			go func(i int) {
+				paths[i], lengths[i] = aco.constructPath(i)
+				wg.Done()
+			}(i)
 		}
+		wg.Wait()
 
 		// Find the best path in this iteration
 		iterationBestLength := math.Inf(1)
@@ -106,6 +79,8 @@ func (aco *ACO) Run() {
 		}
 
 		aco.globalPheromoneUpdate(iterationBestPath, iterationBestLength)
+		aco.updateLimits()
+		aco.clampPheromoneLevels()
 	}
 }
 
@@ -120,23 +95,6 @@ func (aco *ACO) constructPath(antNumber int) ([]int, float64) {
 
 	for i := 1; i < dimension; i++ {
 		next := aco.selectNextCity(current, visited)
-
-		if next == -1 {
-			// Select a random unvisited city if none was selected
-			unvisited := []int{}
-
-			for j := 0; j < dimension; j++ {
-				if !visited[j] {
-					unvisited = append(unvisited, j)
-				}
-			}
-
-			if len(unvisited) == 0 {
-				break
-			}
-
-			next = unvisited[rand.Intn(len(unvisited))]
-		}
 
 		path[i] = next
 		visited[next] = true
@@ -154,9 +112,9 @@ func (aco *ACO) selectNextCity(current int, visited []bool) int {
 	probabilities := make([]float64, dimension)
 	total := 0.0
 
-	// Apply CMSA logic to bias towards better paths, especially in the beginning.
+	// Apply CMSA logic to bias towards better paths. Other paths will also take part in roulette-wheel selection.
 	q := rand.Float64()
-	adaptiveCmsaProbability := aco.cmsaP * (1.0 - float64(aco.currentIteration)/float64(aco.iterations))
+	adaptiveCmsaProbability := aco.pCmsa * (1.0 - float64(aco.currentIteration)/float64(aco.iterations))
 	if q < adaptiveCmsaProbability {
 		for i := 0; i < dimension; i++ {
 			if !visited[i] && aco.cmsa[current][i] > 0 {
@@ -164,101 +122,85 @@ func (aco *ACO) selectNextCity(current int, visited []bool) int {
 				total += probabilities[i]
 			}
 		}
-
-		// If we use CMSA probabilities, apply roulette-wheel selection.
-		if total > 0 {
-			r := rand.Float64()
-			cumulativeProbability := 0.0
-			for i := 0; i < dimension; i++ {
-				if !visited[i] && probabilities[i] > 0 {
-					cumulativeProbability += probabilities[i] / total
-					if r < cumulativeProbability {
-						return i
-					}
-				}
-			}
-		}
 	}
 
-	// Purely probabilistic selection of the next city.
 	for i := 0; i < dimension; i++ {
-		if !visited[i] {
-			pheromone := utilities.FastPow(aco.pheromone[current][i], aco.alpha)
-			heuristic := utilities.FastPow(1.0/aco.distances[current][i], aco.beta)
-			probabilities[i] = pheromone * heuristic
+		if !visited[i] && probabilities[i] == 0.0 {
+			pheromone := utilities.FastPow(aco.pheromones[current][i], aco.alpha)
+
+			// Adding 1 to each distance in calculation to avoid division by 0.
+			heuristic := 1.0 / (aco.distances[current][i] + 1.0)
+			desirability := utilities.FastPow(heuristic, aco.beta)
+			probabilities[i] = pheromone * desirability
 			total += probabilities[i]
 		}
 	}
 
-	if total == 0 {
-		return -1
-	}
-
-	// Roulette-wheel selection.
 	r := rand.Float64()
 	cumulativeProbability := 0.0
 	for i := 0; i < dimension; i++ {
 		if !visited[i] && probabilities[i] > 0.0 {
 			cumulativeProbability += probabilities[i] / total
+
 			if r < cumulativeProbability {
 				return i
 			}
 		}
 	}
 
-	return -1 // In case no city is selected
+	return -1 // In case no city is selected. This will never happen.
 }
 
-// Global pheromone update (best ant)
-func (aco *ACO) globalPheromoneUpdate(iterationBestPath []int, iterationBestLength float64) {
-	// Evaporate pheromones globally
-	for i := range aco.pheromone {
-		for j := range aco.pheromone[i] {
-			aco.pheromone[i][j] *= (1 - aco.rho)
-			// Apply pheromone limits
-			if aco.pheromone[i][j] < aco.tauMin {
-				aco.pheromone[i][j] = aco.tauMin
-			}
-			if aco.pheromone[i][j] > aco.tauMax {
-				aco.pheromone[i][j] = aco.tauMax
+func (aco *ACO) updateLimits() {
+	aco.tauMax = 1.0 / ((1 - aco.rho) * aco.BestLength)
+
+	pDec := aco.pDec
+	nEffective := float64(len(aco.distances)) / 2.0 // Average possible choices.
+
+	numerator := aco.tauMax * (1.0 - pDec)
+	denominator := (nEffective - 1.0) * pDec
+	aco.tauMin = numerator / denominator
+}
+
+func (aco *ACO) clampPheromoneLevels() {
+	for i := range aco.pheromones {
+		for j := range aco.pheromones[i] {
+			if aco.pheromones[i][j] > aco.tauMax {
+				aco.pheromones[i][j] = aco.tauMax
+			} else if aco.pheromones[i][j] < aco.tauMin {
+				aco.pheromones[i][j] = aco.tauMin
 			}
 		}
 	}
+}
 
-	// Decide whether to use best-so-far or iteration-best ant for pheromone update
-	// Here, we'll use the best-so-far ant
-	// pheromoneDeposit := 1.0 / aco.BestLength // Inverse of best tour length
-	// bestPath := aco.BestPath
+// Global pheromones update (best ant)
+func (aco *ACO) globalPheromoneUpdate(iterationBestPath []int, iterationBestLength float64) {
+	// Evaporate pheromones globally
+	for i := range aco.pheromones {
+		for j := range aco.pheromones[i] {
+			aco.pheromones[i][j] *= (1 - aco.rho)
+		}
+	}
 
-	// Optionally, you can switch to iteration-best ant:
 	pheromoneDeposit := 1.0 / iterationBestLength
 	bestPath := iterationBestPath
 
-	// Global update: Only the best path deposits pheromone
+	// https://sci-hub.se/https://doi.org/10.1016/S0167-739X(00)00043-1
+	if aco.currentIteration%10 == 0 {
+		pheromoneDeposit = 1.0 / aco.BestLength
+		bestPath = aco.BestPath
+	}
+
+	// Global update: Only the best path deposits pheromones
 	for j := 0; j < len(bestPath)-1; j++ {
 		start, end := bestPath[j], bestPath[j+1]
-		aco.pheromone[start][end] += aco.rho * pheromoneDeposit
-
-		// Apply pheromone limits
-		if aco.pheromone[start][end] > aco.tauMax {
-			aco.pheromone[start][end] = aco.tauMax
-		}
-		if aco.pheromone[start][end] < aco.tauMin {
-			aco.pheromone[start][end] = aco.tauMin
-		}
+		aco.pheromones[start][end] += aco.rho * pheromoneDeposit
 	}
 
 	// Handle the wrap-around from the last to the first node
 	last, first := bestPath[len(bestPath)-1], bestPath[0]
-	aco.pheromone[last][first] += aco.rho * pheromoneDeposit
-
-	// Apply pheromone limits
-	if aco.pheromone[last][first] > aco.tauMax {
-		aco.pheromone[last][first] = aco.tauMax
-	}
-	if aco.pheromone[last][first] < aco.tauMin {
-		aco.pheromone[last][first] = aco.tauMin
-	}
+	aco.pheromones[last][first] += aco.rho * pheromoneDeposit
 }
 
 // Function to calculate the length of a path

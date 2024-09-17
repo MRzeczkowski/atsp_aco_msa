@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -21,7 +22,7 @@ const NumberOfRuns int = 50
 type Edge = models.Edge
 
 type ExperimentData struct {
-	alpha, beta, rho, cmsaP float64
+	alpha, beta, rho, pBest, cmsaP float64
 	ExperimentResult
 }
 
@@ -36,6 +37,7 @@ func (f ExperimentData) ToCSVRow() []string {
 		fmt.Sprintf("%.2f", f.alpha),
 		fmt.Sprintf("%.2f", f.beta),
 		fmt.Sprintf("%.2f", f.rho),
+		fmt.Sprintf("%.2f", f.pBest),
 		fmt.Sprintf("%.2f", f.cmsaP),
 		strconv.Itoa(f.ExperimentResult.bestAtIteration),
 		fmt.Sprintf("%.2f", f.ExperimentResult.bestLength),
@@ -66,7 +68,7 @@ var optimalSolutions = map[string]float64{
 	"ry48p":  14422,
 }
 
-func runExperiment(name string, dimension, iterations int, alpha, beta, rho, cmsaP float64, matrix, cmsa [][]float64) ExperimentResult {
+func runExperiment(name string, dimension, iterations int, alpha, beta, rho, pBest, pCmsa float64, matrix, cmsa [][]float64) ExperimentResult {
 
 	var totalBestLength float64
 	var totalElapsedTime time.Duration
@@ -81,7 +83,7 @@ func runExperiment(name string, dimension, iterations int, alpha, beta, rho, cms
 	ants := dimension
 
 	for i := 0; i < NumberOfRuns; i++ {
-		aco := aco.NewACO(alpha, beta, rho, cmsaP, ants, iterations, matrix, cmsa)
+		aco := aco.NewACO(alpha, beta, rho, pBest, pCmsa, ants, iterations, matrix, cmsa)
 		start := time.Now()
 		aco.Run()
 		elapsed := time.Since(start)
@@ -165,6 +167,7 @@ func tryFindSolution(path string) {
 		"Alpha",
 		"Beta",
 		"Rho",
+		"pBest",
 		"CMSA probability",
 		"Best at iteration",
 		"Best length",
@@ -179,23 +182,25 @@ func tryFindSolution(path string) {
 
 	for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 		for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
-			for _, rho := range utilities.GenerateRange(0.5, 0.5, 0.25) {
-				for _, cmsaP := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+			for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.25) {
+				for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.01) {
+					for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 
-					// 1. Analiza grafów
-					// 3. Parametry + dopracowanie heurystyki
+						// 1. Analiza grafów
+						// 3. Parametry + dopracowanie heurystyki
 
-					result := runExperiment(name, dimension, iterations, alpha, beta, rho, cmsaP, matrix, cmsa)
+						result := runExperiment(name, dimension, iterations, alpha, beta, rho, pBest, pCmsa, matrix, cmsa)
 
-					data := ExperimentData{
-						alpha, beta, rho, cmsaP, result,
-					}
+						data := ExperimentData{
+							alpha, beta, rho, pBest, pCmsa, result,
+						}
 
-					cswRow := data.ToCSVRow()
+						cswRow := data.ToCSVRow()
 
-					err := writer.Write(cswRow)
-					if err != nil {
-						log.Fatalf("Failed to write record: %s", err)
+						err := writer.Write(cswRow)
+						if err != nil {
+							log.Fatalf("Failed to write record: %s", err)
+						}
 					}
 				}
 			}
@@ -226,10 +231,19 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 170
+			return problemSize > 30 && problemSize < 50
 		})
 
+	var wg sync.WaitGroup
+
 	for _, path := range paths {
-		tryFindSolution(path)
+		p := path // Capture the current path
+		wg.Add(1)
+		go func(p string) {
+			defer wg.Done()
+			tryFindSolution(p)
+		}(p)
 	}
+
+	wg.Wait()
 }
