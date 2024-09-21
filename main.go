@@ -91,7 +91,7 @@ func runExperiment(name string, dimension, iterations int, alpha, beta, rho, pBe
 		totalBestLength += aco.BestLength
 		totalElapsedTime += elapsed
 
-		if aco.BestAtIteration < bestAtIteration && aco.BestLength < bestLength {
+		if aco.BestLength < bestLength {
 			bestAtIteration = aco.BestAtIteration
 			bestLength = aco.BestLength
 			bestPath = aco.BestPath
@@ -182,7 +182,7 @@ func tryFindSolution(path string) {
 
 	for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 		for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
-			for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.25) {
+			for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
 				for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.01) {
 					for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 
@@ -231,7 +231,8 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize > 30 && problemSize < 50
+			return problemSize < 50
+			// return problemSize == 33
 		})
 
 	var wg sync.WaitGroup
