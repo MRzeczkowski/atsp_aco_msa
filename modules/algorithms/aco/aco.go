@@ -1,18 +1,16 @@
 package aco
 
 import (
+	"atsp_aco_msa/modules/algorithms/threeOpt"
 	"atsp_aco_msa/modules/utilities"
-	"fmt"
 	"math"
 	"math/rand"
-	"slices"
 	"sort"
-	"strconv"
-	"strings"
 	"sync"
 )
 
 type ACO struct {
+	useLocalSearch                                      bool
 	alpha, beta, rho, pDec, pCmsa                       float64
 	ants, iterations, currentIteration, BestAtIteration int
 	distances, pheromones                               [][]float64
@@ -22,7 +20,7 @@ type ACO struct {
 	neighborList                                        [][]int
 }
 
-func NewACO(alpha, beta, rho, pBest, pCmsa float64, ants, iterations int, distances, cmsa [][]float64) *ACO {
+func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants, iterations int, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
 
@@ -38,18 +36,19 @@ func NewACO(alpha, beta, rho, pBest, pCmsa float64, ants, iterations int, distan
 	}
 
 	return &ACO{
-		alpha:        alpha,
-		beta:         beta,
-		rho:          rho,
-		pDec:         math.Pow(pBest, 1.0/float64(dimension)),
-		pCmsa:        pCmsa,
-		ants:         ants,
-		iterations:   iterations,
-		distances:    distances,
-		cmsa:         cmsa,
-		pheromones:   pheromones,
-		BestLength:   math.Inf(1),
-		neighborList: neighborList,
+		useLocalSearch: useLocalSearch,
+		alpha:          alpha,
+		beta:           beta,
+		rho:            rho,
+		pDec:           math.Pow(pBest, 1.0/float64(dimension)),
+		pCmsa:          pCmsa,
+		ants:           ants,
+		iterations:     iterations,
+		distances:      distances,
+		cmsa:           cmsa,
+		pheromones:     pheromones,
+		BestLength:     math.Inf(1),
+		neighborList:   neighborList,
 	}
 }
 
@@ -60,9 +59,9 @@ func (aco *ACO) Run() {
 
 	// tour := []int{13, 1, 8, 4, 3, 15, 5, 14, 6, 16, 0, 11, 7, 2, 10, 9, 12}
 
-	// fmt.Println(aco.tourLength(tour))
-	// aco.threeOpt(tour)
-	// fmt.Println(aco.tourLength(tour))
+	// fmt.Println(utilities.TourLength(tour, aco.distances))
+	// threeOpt.ReducedThreeOpt(tour, aco.distances)
+	// fmt.Println(utilities.TourLength(tour, aco.distances))
 
 	for aco.currentIteration = 0; aco.currentIteration < aco.iterations; aco.currentIteration++ {
 		tours := make([][]int, aco.ants)
@@ -125,9 +124,11 @@ func (aco *ACO) constructTour(antNumber int) ([]int, float64) {
 		current = next
 	}
 
-	// Apply Reduced 3-opt to improve the tour
-	aco.threeOpt(tour)
-	length := aco.tourLength(tour)
+	if aco.useLocalSearch {
+		threeOpt.ReducedThreeOpt(tour, aco.distances)
+	}
+
+	length := utilities.TourLength(tour, aco.distances)
 	return tour, length
 }
 
@@ -176,13 +177,7 @@ func (aco *ACO) selectNextCity(current int, visited []bool) int {
 	return -1 // In case no city is selected. This will never happen.
 }
 
-// Initialize the don't look bits (one for each city)
-func initializeDontLookBits(n int) []bool {
-	dontLook := make([]bool, n) // All bits start as false (look at all cities)
-	return dontLook
-}
-
-// Build the nearest neighbor list for each city
+// Build the nearest k neighbors list for each city
 func buildNearestNeighborList(distances [][]float64, k int) [][]int {
 	n := len(distances)
 	neighborList := make([][]int, n)
@@ -214,272 +209,6 @@ func buildNearestNeighborList(distances [][]float64, k int) [][]int {
 	}
 
 	return neighborList
-}
-
-// reduced threeOpt optimization that doesn't use segment reversal
-func (aco *ACO) threeOpt(tour []int) {
-	n := len(tour)
-	s := 3 // Minimal spacing between indices
-
-	improves := true
-
-	// Continue iterating until no improvements are found
-	for improves {
-		improves = false
-
-	loops:
-		for i := 0; i < n; i++ {
-			for jOffset := s; jOffset < n-s; jOffset++ {
-				j := (i + jOffset) % n
-				for kOffset := jOffset + s; kOffset < n-s+1; kOffset++ {
-					k := (i + kOffset) % n
-
-					aIdx := i
-					bIdx := (i + 1) % n
-					cIdx := j
-					dIdx := (j + 1) % n
-					eIdx := k
-					fIdx := (k + 1) % n
-
-					a := tour[aIdx]
-					b := tour[bIdx]
-					c := tour[cIdx]
-					d := tour[dIdx]
-					e := tour[eIdx]
-					f := tour[fIdx]
-
-					costRemoved := aco.distances[a][b] + aco.distances[c][d] + aco.distances[e][f]
-
-					costAdded := aco.distances[a][d] + aco.distances[e][b] + aco.distances[c][f]
-
-					gain := costAdded - costRemoved
-
-					if gain < 0 {
-						beforeMoveLength := aco.tourLength(tour)
-
-						var firstSegment []int
-						var secondSegment []int
-						var thirdSegment []int
-
-						if aIdx < fIdx {
-							firstSegment = slices.Concat(tour[fIdx:], tour[:bIdx])
-						} else {
-							firstSegment = tour[fIdx:bIdx]
-						}
-
-						if bIdx > cIdx {
-							secondSegment = slices.Concat(tour[bIdx:], tour[:dIdx])
-						} else {
-							secondSegment = tour[bIdx:dIdx]
-						}
-
-						if cIdx > fIdx {
-							thirdSegment = slices.Concat(tour[dIdx:], tour[:fIdx])
-						} else {
-							thirdSegment = tour[dIdx:fIdx]
-						}
-
-						newTour := slices.Concat(firstSegment, thirdSegment, secondSegment)
-
-						afterMoveLength := aco.tourLength(newTour)
-
-						for z := 0; z < n; z++ {
-
-							if indexOf(z, newTour) == -1 {
-								fmt.Printf("Missing element %d in new tour!\n", i)
-
-								fmt.Printf("\tMade move for gain %.2f: i=%d (Node %d), j=%d (Node %d), k=%d (Node %d)\n", gain, i, a, j, c, k, e)
-
-								fmt.Println()
-
-								ab := aco.distances[a][b]
-								cd := aco.distances[c][d]
-								ef := aco.distances[e][f]
-
-								previousCost := ab + cd + ef
-
-								fmt.Printf("\tPrevious cost = ab + cd + ef : %.0f = %.0f + %.0f + %.0f\n", previousCost, ab, cd, ef)
-
-								ad := aco.distances[a][d]
-								eb := aco.distances[e][b]
-								cf := aco.distances[c][f]
-
-								newCost := ad + eb + cf
-
-								fmt.Printf("\tNew cost =      ad + eb + cf : %.0f = %.0f + %.0f + %.0f\n", newCost, ad, eb, cf)
-
-								previousWraparoundCost := aco.distances[tour[n-1]][tour[0]]
-
-								fmt.Println("\tPrevious wraparound cost = ", previousWraparoundCost)
-
-								newWraparoundCost := aco.distances[newTour[n-1]][newTour[0]]
-
-								fmt.Println("\tNew wraparound cost =      ", newWraparoundCost)
-
-								fmt.Println()
-
-								test := make([]string, n)
-
-								for i := 0; i < n; i++ {
-									len := len(strconv.Itoa(tour[i]))
-									test[i] = strings.Repeat(" ", len)
-								}
-
-								test[i] = "a" + strings.Repeat(" ", len(strconv.Itoa(tour[i]))-1)
-								test[(i+1)%n] = "b" + strings.Repeat(" ", len(strconv.Itoa(tour[(i+1)%n]))-1)
-								test[j] = "c" + strings.Repeat(" ", len(strconv.Itoa(tour[j]))-1)
-								test[(j+1)%n] = "d" + strings.Repeat(" ", len(strconv.Itoa(tour[(j+1)%n]))-1)
-								test[k] = "e" + strings.Repeat(" ", len(strconv.Itoa(tour[k]))-1)
-								test[(k+1)%n] = "f" + strings.Repeat(" ", len(strconv.Itoa(tour[(k+1)%n]))-1)
-								fmt.Println("\t            ", test)
-
-								fmt.Println("\tBefore Move:", tour)
-								fmt.Println()
-
-								for i := 0; i < n; i++ {
-									len := len(strconv.Itoa(newTour[i]))
-									test[i] = strings.Repeat(" ", len)
-								}
-
-								aIdx := indexOf(a, newTour)
-								bIdx := indexOf(b, newTour)
-								cIdx := indexOf(c, newTour)
-								dIdx := indexOf(d, newTour)
-								eIdx := indexOf(e, newTour)
-								fIdx := indexOf(f, newTour)
-
-								if aIdx != -1 {
-									test[aIdx] = "a" + strings.Repeat(" ", len(strconv.Itoa(newTour[aIdx]))-1)
-								}
-								if bIdx != -1 {
-									test[bIdx] = "b" + strings.Repeat(" ", len(strconv.Itoa(newTour[bIdx]))-1)
-								}
-								if cIdx != -1 {
-									test[cIdx] = "c" + strings.Repeat(" ", len(strconv.Itoa(newTour[cIdx]))-1)
-								}
-								if dIdx != -1 {
-									test[dIdx] = "d" + strings.Repeat(" ", len(strconv.Itoa(newTour[dIdx]))-1)
-								}
-								if eIdx != -1 {
-									test[eIdx] = "e" + strings.Repeat(" ", len(strconv.Itoa(newTour[eIdx]))-1)
-								}
-								if fIdx != -1 {
-									test[fIdx] = "f" + strings.Repeat(" ", len(strconv.Itoa(newTour[fIdx]))-1)
-								}
-
-								fmt.Println("\t            ", test)
-
-								fmt.Println("\tAfter Move: ", newTour)
-
-								fmt.Println()
-
-								fmt.Println("\tTour length before move:", beforeMoveLength)
-								fmt.Println("\tTour length after move:", afterMoveLength)
-
-								fmt.Println()
-							}
-						}
-
-						if afterMoveLength != beforeMoveLength+gain {
-							fmt.Println("Error in gain calculation!")
-
-							fmt.Printf("\tMade move for gain %.2f: i=%d (Node %d), j=%d (Node %d), k=%d (Node %d)\n", gain, i, a, j, c, k, e)
-
-							fmt.Println()
-
-							ab := aco.distances[a][b]
-							cd := aco.distances[c][d]
-							ef := aco.distances[e][f]
-
-							previousCost := ab + cd + ef
-
-							fmt.Printf("\tPrevious cost = ab + cd + ef : %.0f = %.0f + %.0f + %.0f\n", previousCost, ab, cd, ef)
-
-							ad := aco.distances[a][d]
-							eb := aco.distances[e][b]
-							cf := aco.distances[c][f]
-
-							newCost := ad + eb + cf
-
-							fmt.Printf("\tNew cost =      ad + eb + cf : %.0f = %.0f + %.0f + %.0f\n", newCost, ad, eb, cf)
-
-							previousWraparoundCost := aco.distances[tour[n-1]][tour[0]]
-
-							fmt.Println("\tPrevious wraparound cost = ", previousWraparoundCost)
-
-							newWraparoundCost := aco.distances[newTour[n-1]][newTour[0]]
-
-							fmt.Println("\tNew wraparound cost =      ", newWraparoundCost)
-
-							fmt.Println()
-
-							test := make([]string, n)
-
-							for i := 0; i < n; i++ {
-								len := len(strconv.Itoa(tour[i]))
-								test[i] = strings.Repeat(" ", len)
-							}
-
-							test[i] = "a" + strings.Repeat(" ", len(strconv.Itoa(tour[i]))-1)
-							test[(i+1)%n] = "b" + strings.Repeat(" ", len(strconv.Itoa(tour[(i+1)%n]))-1)
-							test[j] = "c" + strings.Repeat(" ", len(strconv.Itoa(tour[j]))-1)
-							test[(j+1)%n] = "d" + strings.Repeat(" ", len(strconv.Itoa(tour[(j+1)%n]))-1)
-							test[k] = "e" + strings.Repeat(" ", len(strconv.Itoa(tour[k]))-1)
-							test[(k+1)%n] = "f" + strings.Repeat(" ", len(strconv.Itoa(tour[(k+1)%n]))-1)
-							fmt.Println("\t            ", test)
-
-							fmt.Println("\tBefore Move:", tour)
-							fmt.Println()
-
-							for i := 0; i < n; i++ {
-								len := len(strconv.Itoa(newTour[i]))
-								test[i] = strings.Repeat(" ", len)
-							}
-
-							aIdx := indexOf(a, newTour)
-							bIdx := indexOf(b, newTour)
-							cIdx := indexOf(c, newTour)
-							dIdx := indexOf(d, newTour)
-							eIdx := indexOf(e, newTour)
-							fIdx := indexOf(f, newTour)
-
-							test[aIdx] = "a" + strings.Repeat(" ", len(strconv.Itoa(newTour[aIdx]))-1)
-							test[bIdx] = "b" + strings.Repeat(" ", len(strconv.Itoa(newTour[bIdx]))-1)
-							test[cIdx] = "c" + strings.Repeat(" ", len(strconv.Itoa(newTour[cIdx]))-1)
-							test[dIdx] = "d" + strings.Repeat(" ", len(strconv.Itoa(newTour[dIdx]))-1)
-							test[eIdx] = "e" + strings.Repeat(" ", len(strconv.Itoa(newTour[eIdx]))-1)
-							test[fIdx] = "f" + strings.Repeat(" ", len(strconv.Itoa(newTour[fIdx]))-1)
-							fmt.Println("\t            ", test)
-
-							fmt.Println("\tAfter Move: ", newTour)
-
-							fmt.Println()
-
-							fmt.Println("\tTour length before move:", beforeMoveLength)
-							fmt.Println("\tTour length after move:", afterMoveLength)
-
-							fmt.Println()
-						}
-
-						copy(tour, newTour)
-
-						improves = true
-						break loops // Exit loops after applying a move
-					}
-				}
-			}
-		}
-	}
-}
-
-func indexOf(element int, data []int) int {
-	for k, v := range data {
-		if element == v {
-			return k
-		}
-	}
-
-	return -1 //not found.
 }
 
 func (aco *ACO) updateLimits() {
@@ -557,22 +286,4 @@ func (aco *ACO) globalPheromoneUpdate(iterationBestTour []int, iterationBestLeng
 	// Handle the wrap-around from the last to the first node
 	last, first := bestTour[len(bestTour)-1], bestTour[0]
 	aco.pheromones[last][first] += aco.rho * pheromoneDeposit
-}
-
-// Function to calculate the length of a tour
-func (aco *ACO) tourLength(tour []int) float64 {
-	sum := 0.0
-	p := len(tour)
-
-	for i := 0; i < p-1; i++ {
-		start, end := tour[i], tour[i+1]
-		sum += aco.distances[start][end]
-	}
-
-	if p > 0 {
-		last, first := tour[p-1], tour[0]
-		sum += aco.distances[last][first]
-	}
-
-	return sum
 }

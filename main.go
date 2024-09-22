@@ -22,6 +22,7 @@ const NumberOfRuns int = 50
 type Edge = models.Edge
 
 type ExperimentData struct {
+	useLocalSearch                 bool
 	alpha, beta, rho, pBest, cmsaP float64
 	ExperimentResult
 }
@@ -34,6 +35,7 @@ type ExperimentResult struct {
 
 func (f ExperimentData) ToCSVRow() []string {
 	return []string{
+		strconv.FormatBool(f.useLocalSearch),
 		fmt.Sprintf("%.2f", f.alpha),
 		fmt.Sprintf("%.2f", f.beta),
 		fmt.Sprintf("%.2f", f.rho),
@@ -68,7 +70,7 @@ var optimalSolutions = map[string]float64{
 	"ry48p":  14422,
 }
 
-func runExperiment(name string, dimension, iterations int, alpha, beta, rho, pBest, pCmsa float64, matrix, cmsa [][]float64) ExperimentResult {
+func runExperiment(name string, dimension, iterations int, useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, matrix, cmsa [][]float64) ExperimentResult {
 
 	var totalBestLength float64
 	var totalElapsedTime time.Duration
@@ -83,7 +85,7 @@ func runExperiment(name string, dimension, iterations int, alpha, beta, rho, pBe
 	ants := dimension
 
 	for i := 0; i < NumberOfRuns; i++ {
-		aco := aco.NewACO(alpha, beta, rho, pBest, pCmsa, ants, iterations, matrix, cmsa)
+		aco := aco.NewACO(useLocalSearch, alpha, beta, rho, pBest, pCmsa, ants, iterations, matrix, cmsa)
 		start := time.Now()
 		aco.Run()
 		elapsed := time.Since(start)
@@ -164,6 +166,7 @@ func tryFindSolution(path string) {
 	writer := csv.NewWriter(file)
 
 	header := []string{
+		"Used local search",
 		"Alpha",
 		"Beta",
 		"Rho",
@@ -180,26 +183,25 @@ func tryFindSolution(path string) {
 		log.Fatalf("Failed to write header: %s", err)
 	}
 
-	for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
-		for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
-			for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
-				for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.01) {
-					for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+	for _, useLocalSearch := range []bool{false, true} {
+		for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
+			for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
+				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
+					for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.01) {
+						for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 
-						// 1. Analiza grafów
-						// 3. Parametry + dopracowanie heurystyki
+							result := runExperiment(name, dimension, iterations, useLocalSearch, alpha, beta, rho, pBest, pCmsa, matrix, cmsa)
 
-						result := runExperiment(name, dimension, iterations, alpha, beta, rho, pBest, pCmsa, matrix, cmsa)
+							data := ExperimentData{
+								useLocalSearch, alpha, beta, rho, pBest, pCmsa, result,
+							}
 
-						data := ExperimentData{
-							alpha, beta, rho, pBest, pCmsa, result,
-						}
+							cswRow := data.ToCSVRow()
 
-						cswRow := data.ToCSVRow()
-
-						err := writer.Write(cswRow)
-						if err != nil {
-							log.Fatalf("Failed to write record: %s", err)
+							err := writer.Write(cswRow)
+							if err != nil {
+								log.Fatalf("Failed to write record: %s", err)
+							}
 						}
 					}
 				}
