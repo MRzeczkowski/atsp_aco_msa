@@ -55,14 +55,6 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants, i
 // Main loop to run MMAS
 func (aco *ACO) Run() {
 
-	// tour := []int{0, 13, 9, 32, 7, 8, 12, 14, 15, 16, 1, 3, 24, 23, 19, 17, 10, 18, 31, 21, 20, 22, 26, 27, 28, 29, 25, 2, 33, 30, 4, 6, 5, 11}
-
-	// tour := []int{13, 1, 8, 4, 3, 15, 5, 14, 6, 16, 0, 11, 7, 2, 10, 9, 12}
-
-	// fmt.Println(utilities.TourLength(tour, aco.distances))
-	// threeOpt.ReducedThreeOpt(tour, aco.distances)
-	// fmt.Println(utilities.TourLength(tour, aco.distances))
-
 	for aco.currentIteration = 0; aco.currentIteration < aco.iterations; aco.currentIteration++ {
 		tours := make([][]int, aco.ants)
 		lengths := make([]float64, aco.ants)
@@ -81,7 +73,6 @@ func (aco *ACO) Run() {
 		}
 		wg.Wait()
 
-		// Find the best tour in this iteration
 		iterationBestLength := math.Inf(1)
 		iterationBestTour := []int{}
 		for i := 0; i < aco.ants; i++ {

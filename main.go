@@ -30,7 +30,7 @@ type ExperimentData struct {
 type ExperimentResult struct {
 	bestAtIteration                                         int
 	bestLength, deviation, successRate, commonalityWithCmsa float64
-	averageTime                                             int64
+	computationTime                                         int64
 }
 
 func (f ExperimentData) ToCSVRow() []string {
@@ -46,6 +46,7 @@ func (f ExperimentData) ToCSVRow() []string {
 		fmt.Sprintf("%f", f.ExperimentResult.deviation),
 		fmt.Sprintf("%.2f", f.ExperimentResult.successRate),
 		fmt.Sprintf("%f", f.ExperimentResult.commonalityWithCmsa),
+		strconv.Itoa(int(f.ExperimentResult.computationTime)),
 	}
 }
 
@@ -154,7 +155,7 @@ func tryFindSolution(path string) {
 	}
 
 	if dimension >= 100 {
-		iterations = 5000
+		iterations = 1000
 	}
 
 	file, err := os.Create(filepath.Join("results", name) + ".csv")
@@ -176,14 +177,15 @@ func tryFindSolution(path string) {
 		"Best length",
 		"Deviation",
 		"Success rate",
-		"Commonality with CMSA"}
+		"Commonality with CMSA",
+		"Computation time [ms]"}
 
 	err = writer.Write(header)
 	if err != nil {
 		log.Fatalf("Failed to write header: %s", err)
 	}
 
-	for _, useLocalSearch := range []bool{false, true} {
+	for _, useLocalSearch := range []bool{false} {
 		for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 			for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
 				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
@@ -233,8 +235,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 50
-			// return problemSize == 33
+			return problemSize < 170
 		})
 
 	var wg sync.WaitGroup

@@ -14,6 +14,9 @@ import (
 // Input `tour` is changed in-place.
 func ReducedThreeOpt(tour []int, distances [][]float64) {
 	n := len(tour)
+
+	// dontLookBits := make([]bool, n)
+
 	s := 3 // Minimal spacing between indices
 
 	improves := true
@@ -23,22 +26,32 @@ func ReducedThreeOpt(tour []int, distances [][]float64) {
 
 	loops:
 		for i := 0; i < n; i++ {
+
+			aIdx := i
+			bIdx := (i + 1) % n
+
+			a := tour[aIdx]
+			b := tour[bIdx]
+
+			// if dontLookBits[a] {
+			// 	continue
+			// }
+
 			for jOffset := s; jOffset < n-s; jOffset++ {
 				j := (i + jOffset) % n
+
+				cIdx := j
+				dIdx := (j + 1) % n
+
+				c := tour[cIdx]
+				d := tour[dIdx]
+
 				for kOffset := jOffset + s; kOffset < n-s+1; kOffset++ {
 					k := (i + kOffset) % n
 
-					aIdx := i
-					bIdx := (i + 1) % n
-					cIdx := j
-					dIdx := (j + 1) % n
 					eIdx := k
 					fIdx := (k + 1) % n
 
-					a := tour[aIdx]
-					b := tour[bIdx]
-					c := tour[cIdx]
-					d := tour[dIdx]
 					e := tour[eIdx]
 					f := tour[fIdx]
 
@@ -49,25 +62,24 @@ func ReducedThreeOpt(tour []int, distances [][]float64) {
 					gain := costAdded - costRemoved
 
 					if gain < 0 {
-						beforeMoveLength := utilities.TourLength(tour, distances)
 
 						var firstSegment []int
 						var secondSegment []int
 						var thirdSegment []int
 
-						if aIdx < fIdx {
+						if aIdx < fIdx || bIdx < fIdx {
 							firstSegment = slices.Concat(tour[fIdx:], tour[:bIdx])
 						} else {
 							firstSegment = tour[fIdx:bIdx]
 						}
 
-						if bIdx > cIdx {
+						if bIdx > dIdx {
 							secondSegment = slices.Concat(tour[bIdx:], tour[:dIdx])
 						} else {
 							secondSegment = tour[bIdx:dIdx]
 						}
 
-						if cIdx > fIdx {
+						if dIdx > fIdx {
 							thirdSegment = slices.Concat(tour[dIdx:], tour[:fIdx])
 						} else {
 							thirdSegment = tour[dIdx:fIdx]
@@ -75,28 +87,22 @@ func ReducedThreeOpt(tour []int, distances [][]float64) {
 
 						newTour := slices.Concat(firstSegment, thirdSegment, secondSegment)
 
-						afterMoveLength := utilities.TourLength(newTour, distances)
-
-						for z := 0; z < n; z++ {
-
-							if utilities.IndexOf(z, newTour) == -1 {
-								fmt.Printf("Missing element %d in new tour!\n", i)
-								logReducedThreeOptIssue(tour, newTour, distances, gain, beforeMoveLength, afterMoveLength, i, j, k, a, b, c, d, e, f, n)
-							}
-						}
-
-						if afterMoveLength != beforeMoveLength+gain {
-							fmt.Println("Error in gain calculation!")
-							logReducedThreeOptIssue(tour, newTour, distances, gain, beforeMoveLength, afterMoveLength, i, j, k, a, b, c, d, e, f, n)
-						}
-
 						copy(tour, newTour)
+
+						// dontLookBits[a] = false
+						// dontLookBits[b] = false
+						// dontLookBits[c] = false
+						// dontLookBits[d] = false
+						// dontLookBits[e] = false
+						// dontLookBits[f] = false
 
 						improves = true
 						break loops // Exit after applying a move
 					}
 				}
 			}
+
+			// dontLookBits[a] = true
 		}
 	}
 }
@@ -178,10 +184,4 @@ func logReducedThreeOptIssue(tour, newTour []int, distances [][]float64, gain, b
 	fmt.Println("\tTour length after move:", afterMoveLength)
 
 	fmt.Println()
-}
-
-// Initialize the don't look bits (one for each city)
-func initializeDontLookBits(n int) []bool {
-	dontLook := make([]bool, n) // All bits start as false (look at all cities)
-	return dontLook
 }
