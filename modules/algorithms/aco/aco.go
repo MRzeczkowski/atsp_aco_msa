@@ -56,8 +56,9 @@ func NewACO(alpha, beta, rho, pBest, pCmsa float64, ants, iterations int, distan
 // Main loop to run MMAS
 func (aco *ACO) Run() {
 
-	// path := []int{13, 1, 8, 4, 3, 15, 5, 14, 6, 16, 0, 11, 7, 2, 10, 9, 12}
 	// path := []int{0, 13, 9, 32, 7, 8, 12, 14, 15, 16, 1, 3, 24, 23, 19, 17, 10, 18, 31, 21, 20, 22, 26, 27, 28, 29, 25, 2, 33, 30, 4, 6, 5, 11}
+
+	// path := []int{13, 1, 8, 4, 3, 15, 5, 14, 6, 16, 0, 11, 7, 2, 10, 9, 12}
 
 	// fmt.Println(aco.pathLength(path))
 	// aco.threeOpt(path)
@@ -218,6 +219,7 @@ func buildNearestNeighborList(distances [][]float64, k int) [][]int {
 // reduced threeOpt optimization that doesn't use segment reversal
 func (aco *ACO) threeOpt(path []int) {
 	n := len(path)
+	s := 3 // Minimal spacing between indices
 
 	improves := true
 
@@ -226,15 +228,25 @@ func (aco *ACO) threeOpt(path []int) {
 		improves = false
 
 	loops:
-		for i := 0; i < n-6; i++ {
-			for j := i + 3; j < n-4; j++ {
-				for k := j + 3; k < n-2; k++ {
-					a := path[i]
-					b := path[(i+1)%n]
-					c := path[j]
-					d := path[(j+1)%n]
-					e := path[k]
-					f := path[(k+1)%n]
+		for i := 0; i < n; i++ {
+			for jOffset := s; jOffset < n-s; jOffset++ {
+				j := (i + jOffset) % n
+				for kOffset := jOffset + s; kOffset < n-s+1; kOffset++ {
+					k := (i + kOffset) % n
+
+					aIdx := i
+					bIdx := (i + 1) % n
+					cIdx := j
+					dIdx := (j + 1) % n
+					eIdx := k
+					fIdx := (k + 1) % n
+
+					a := path[aIdx]
+					b := path[bIdx]
+					c := path[cIdx]
+					d := path[dIdx]
+					e := path[eIdx]
+					f := path[fIdx]
 
 					costRemoved := aco.distances[a][b] + aco.distances[c][d] + aco.distances[e][f]
 
@@ -246,15 +258,26 @@ func (aco *ACO) threeOpt(path []int) {
 						beforeMoveLength := aco.pathLength(path)
 
 						var firstSegment []int
+						var secondSegment []int
+						var thirdSegment []int
 
-						if i < ((k + 1) % n) {
-							firstSegment = slices.Concat(path[(k+1)%n:], path[:i+1])
+						if aIdx < fIdx {
+							firstSegment = slices.Concat(path[fIdx:], path[:bIdx])
 						} else {
-							firstSegment = path[(k+1)%n : i+1]
+							firstSegment = path[fIdx:bIdx]
 						}
 
-						secondSegment := path[i+1 : j+1]
-						thirdSegment := path[j+1 : (k+1)%n]
+						if bIdx > cIdx {
+							secondSegment = slices.Concat(path[bIdx:], path[:dIdx])
+						} else {
+							secondSegment = path[bIdx:dIdx]
+						}
+
+						if cIdx > fIdx {
+							thirdSegment = slices.Concat(path[dIdx:], path[:fIdx])
+						} else {
+							thirdSegment = path[dIdx:fIdx]
+						}
 
 						newPath := slices.Concat(firstSegment, thirdSegment, secondSegment)
 
