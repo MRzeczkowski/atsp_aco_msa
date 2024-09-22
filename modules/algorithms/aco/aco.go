@@ -18,7 +18,7 @@ type ACO struct {
 	distances, pheromones                               [][]float64
 	cmsa                                                [][]float64
 	tauMin, tauMax, BestLength                          float64
-	BestPath                                            []int
+	BestTour                                            []int
 	neighborList                                        [][]int
 }
 
@@ -56,79 +56,79 @@ func NewACO(alpha, beta, rho, pBest, pCmsa float64, ants, iterations int, distan
 // Main loop to run MMAS
 func (aco *ACO) Run() {
 
-	// path := []int{0, 13, 9, 32, 7, 8, 12, 14, 15, 16, 1, 3, 24, 23, 19, 17, 10, 18, 31, 21, 20, 22, 26, 27, 28, 29, 25, 2, 33, 30, 4, 6, 5, 11}
+	// tour := []int{0, 13, 9, 32, 7, 8, 12, 14, 15, 16, 1, 3, 24, 23, 19, 17, 10, 18, 31, 21, 20, 22, 26, 27, 28, 29, 25, 2, 33, 30, 4, 6, 5, 11}
 
-	// path := []int{13, 1, 8, 4, 3, 15, 5, 14, 6, 16, 0, 11, 7, 2, 10, 9, 12}
+	// tour := []int{13, 1, 8, 4, 3, 15, 5, 14, 6, 16, 0, 11, 7, 2, 10, 9, 12}
 
-	// fmt.Println(aco.pathLength(path))
-	// aco.threeOpt(path)
-	// fmt.Println(aco.pathLength(path))
+	// fmt.Println(aco.tourLength(tour))
+	// aco.threeOpt(tour)
+	// fmt.Println(aco.tourLength(tour))
 
 	for aco.currentIteration = 0; aco.currentIteration < aco.iterations; aco.currentIteration++ {
-		paths := make([][]int, aco.ants)
+		tours := make([][]int, aco.ants)
 		lengths := make([]float64, aco.ants)
 
 		// for i := 0; i < aco.ants; i++ {
-		// 	paths[i], lengths[i] = aco.constructPath(i)
+		// 	tours[i], lengths[i] = aco.constructTour(i)
 		// }
 
 		var wg sync.WaitGroup
 		wg.Add(aco.ants)
 		for i := 0; i < aco.ants; i++ {
 			go func(i int) {
-				paths[i], lengths[i] = aco.constructPath(i)
+				tours[i], lengths[i] = aco.constructTour(i)
 				wg.Done()
 			}(i)
 		}
 		wg.Wait()
 
-		// Find the best path in this iteration
+		// Find the best tour in this iteration
 		iterationBestLength := math.Inf(1)
-		iterationBestPath := []int{}
+		iterationBestTour := []int{}
 		for i := 0; i < aco.ants; i++ {
-			path := paths[i]
+			tour := tours[i]
 			length := lengths[i]
 
 			if length < iterationBestLength {
 				iterationBestLength = length
-				iterationBestPath = append([]int(nil), path...)
+				iterationBestTour = append([]int(nil), tour...)
 			}
 
 			if length < aco.BestLength {
 				aco.BestLength = length
-				aco.BestPath = append([]int(nil), path...)
+				aco.BestTour = append([]int(nil), tour...)
 				aco.BestAtIteration = aco.currentIteration
 			}
 		}
 
-		aco.globalPheromoneUpdate(iterationBestPath, iterationBestLength)
+		aco.globalPheromoneUpdate(iterationBestTour, iterationBestLength)
 		aco.updateLimits()
 		aco.clampPheromoneLevels()
 	}
 }
 
-// Function to construct path for each ant
-func (aco *ACO) constructPath(antNumber int) ([]int, float64) {
+// Function to construct tour for each ant
+func (aco *ACO) constructTour(antNumber int) ([]int, float64) {
 	dimension := len(aco.distances)
-	path := make([]int, dimension)
+	tour := make([]int, dimension)
 	visited := make([]bool, dimension)
 	current := antNumber % dimension
-	path[0] = current
+	tour[0] = current
 	visited[current] = true
 
 	for i := 1; i < dimension; i++ {
 		next := aco.selectNextCity(current, visited)
 
-		path[i] = next
+		tour[i] = next
 		visited[next] = true
 
 		current = next
 	}
 
-	// Apply Reduced 3-opt to improve the path
-	aco.threeOpt(path)
-	length := aco.pathLength(path)
-	return path, length
+	// Apply Reduced 3-opt to improve the tour
+	aco.threeOpt(tour)
+	length := aco.tourLength(tour)
+	return tour, length
 }
 
 // Function to select the next city for an ant
@@ -137,7 +137,7 @@ func (aco *ACO) selectNextCity(current int, visited []bool) int {
 	probabilities := make([]float64, dimension)
 	total := 0.0
 
-	// Apply CMSA logic to bias towards better paths. Other paths will also take part in roulette-wheel selection.
+	// Apply CMSA logic to bias towards better tours. Other tours will also take part in roulette-wheel selection.
 	q := rand.Float64()
 	adaptiveCmsaProbability := aco.pCmsa * (1.0 - float64(aco.currentIteration)/float64(aco.iterations))
 	if q < adaptiveCmsaProbability {
@@ -217,8 +217,8 @@ func buildNearestNeighborList(distances [][]float64, k int) [][]int {
 }
 
 // reduced threeOpt optimization that doesn't use segment reversal
-func (aco *ACO) threeOpt(path []int) {
-	n := len(path)
+func (aco *ACO) threeOpt(tour []int) {
+	n := len(tour)
 	s := 3 // Minimal spacing between indices
 
 	improves := true
@@ -241,12 +241,12 @@ func (aco *ACO) threeOpt(path []int) {
 					eIdx := k
 					fIdx := (k + 1) % n
 
-					a := path[aIdx]
-					b := path[bIdx]
-					c := path[cIdx]
-					d := path[dIdx]
-					e := path[eIdx]
-					f := path[fIdx]
+					a := tour[aIdx]
+					b := tour[bIdx]
+					c := tour[cIdx]
+					d := tour[dIdx]
+					e := tour[eIdx]
+					f := tour[fIdx]
 
 					costRemoved := aco.distances[a][b] + aco.distances[c][d] + aco.distances[e][f]
 
@@ -255,38 +255,38 @@ func (aco *ACO) threeOpt(path []int) {
 					gain := costAdded - costRemoved
 
 					if gain < 0 {
-						beforeMoveLength := aco.pathLength(path)
+						beforeMoveLength := aco.tourLength(tour)
 
 						var firstSegment []int
 						var secondSegment []int
 						var thirdSegment []int
 
 						if aIdx < fIdx {
-							firstSegment = slices.Concat(path[fIdx:], path[:bIdx])
+							firstSegment = slices.Concat(tour[fIdx:], tour[:bIdx])
 						} else {
-							firstSegment = path[fIdx:bIdx]
+							firstSegment = tour[fIdx:bIdx]
 						}
 
 						if bIdx > cIdx {
-							secondSegment = slices.Concat(path[bIdx:], path[:dIdx])
+							secondSegment = slices.Concat(tour[bIdx:], tour[:dIdx])
 						} else {
-							secondSegment = path[bIdx:dIdx]
+							secondSegment = tour[bIdx:dIdx]
 						}
 
 						if cIdx > fIdx {
-							thirdSegment = slices.Concat(path[dIdx:], path[:fIdx])
+							thirdSegment = slices.Concat(tour[dIdx:], tour[:fIdx])
 						} else {
-							thirdSegment = path[dIdx:fIdx]
+							thirdSegment = tour[dIdx:fIdx]
 						}
 
-						newPath := slices.Concat(firstSegment, thirdSegment, secondSegment)
+						newTour := slices.Concat(firstSegment, thirdSegment, secondSegment)
 
-						afterMoveLength := aco.pathLength(newPath)
+						afterMoveLength := aco.tourLength(newTour)
 
 						for z := 0; z < n; z++ {
 
-							if indexOf(z, newPath) == -1 {
-								fmt.Printf("Missing element %d in new path!\n", i)
+							if indexOf(z, newTour) == -1 {
+								fmt.Printf("Missing element %d in new tour!\n", i)
 
 								fmt.Printf("\tMade move for gain %.2f: i=%d (Node %d), j=%d (Node %d), k=%d (Node %d)\n", gain, i, a, j, c, k, e)
 
@@ -308,11 +308,11 @@ func (aco *ACO) threeOpt(path []int) {
 
 								fmt.Printf("\tNew cost =      ad + eb + cf : %.0f = %.0f + %.0f + %.0f\n", newCost, ad, eb, cf)
 
-								previousWraparoundCost := aco.distances[path[n-1]][path[0]]
+								previousWraparoundCost := aco.distances[tour[n-1]][tour[0]]
 
 								fmt.Println("\tPrevious wraparound cost = ", previousWraparoundCost)
 
-								newWraparoundCost := aco.distances[newPath[n-1]][newPath[0]]
+								newWraparoundCost := aco.distances[newTour[n-1]][newTour[0]]
 
 								fmt.Println("\tNew wraparound cost =      ", newWraparoundCost)
 
@@ -321,60 +321,60 @@ func (aco *ACO) threeOpt(path []int) {
 								test := make([]string, n)
 
 								for i := 0; i < n; i++ {
-									len := len(strconv.Itoa(path[i]))
+									len := len(strconv.Itoa(tour[i]))
 									test[i] = strings.Repeat(" ", len)
 								}
 
-								test[i] = "a" + strings.Repeat(" ", len(strconv.Itoa(path[i]))-1)
-								test[(i+1)%n] = "b" + strings.Repeat(" ", len(strconv.Itoa(path[(i+1)%n]))-1)
-								test[j] = "c" + strings.Repeat(" ", len(strconv.Itoa(path[j]))-1)
-								test[(j+1)%n] = "d" + strings.Repeat(" ", len(strconv.Itoa(path[(j+1)%n]))-1)
-								test[k] = "e" + strings.Repeat(" ", len(strconv.Itoa(path[k]))-1)
-								test[(k+1)%n] = "f" + strings.Repeat(" ", len(strconv.Itoa(path[(k+1)%n]))-1)
+								test[i] = "a" + strings.Repeat(" ", len(strconv.Itoa(tour[i]))-1)
+								test[(i+1)%n] = "b" + strings.Repeat(" ", len(strconv.Itoa(tour[(i+1)%n]))-1)
+								test[j] = "c" + strings.Repeat(" ", len(strconv.Itoa(tour[j]))-1)
+								test[(j+1)%n] = "d" + strings.Repeat(" ", len(strconv.Itoa(tour[(j+1)%n]))-1)
+								test[k] = "e" + strings.Repeat(" ", len(strconv.Itoa(tour[k]))-1)
+								test[(k+1)%n] = "f" + strings.Repeat(" ", len(strconv.Itoa(tour[(k+1)%n]))-1)
 								fmt.Println("\t            ", test)
 
-								fmt.Println("\tBefore Move:", path)
+								fmt.Println("\tBefore Move:", tour)
 								fmt.Println()
 
 								for i := 0; i < n; i++ {
-									len := len(strconv.Itoa(newPath[i]))
+									len := len(strconv.Itoa(newTour[i]))
 									test[i] = strings.Repeat(" ", len)
 								}
 
-								aIdx := indexOf(a, newPath)
-								bIdx := indexOf(b, newPath)
-								cIdx := indexOf(c, newPath)
-								dIdx := indexOf(d, newPath)
-								eIdx := indexOf(e, newPath)
-								fIdx := indexOf(f, newPath)
+								aIdx := indexOf(a, newTour)
+								bIdx := indexOf(b, newTour)
+								cIdx := indexOf(c, newTour)
+								dIdx := indexOf(d, newTour)
+								eIdx := indexOf(e, newTour)
+								fIdx := indexOf(f, newTour)
 
 								if aIdx != -1 {
-									test[aIdx] = "a" + strings.Repeat(" ", len(strconv.Itoa(newPath[aIdx]))-1)
+									test[aIdx] = "a" + strings.Repeat(" ", len(strconv.Itoa(newTour[aIdx]))-1)
 								}
 								if bIdx != -1 {
-									test[bIdx] = "b" + strings.Repeat(" ", len(strconv.Itoa(newPath[bIdx]))-1)
+									test[bIdx] = "b" + strings.Repeat(" ", len(strconv.Itoa(newTour[bIdx]))-1)
 								}
 								if cIdx != -1 {
-									test[cIdx] = "c" + strings.Repeat(" ", len(strconv.Itoa(newPath[cIdx]))-1)
+									test[cIdx] = "c" + strings.Repeat(" ", len(strconv.Itoa(newTour[cIdx]))-1)
 								}
 								if dIdx != -1 {
-									test[dIdx] = "d" + strings.Repeat(" ", len(strconv.Itoa(newPath[dIdx]))-1)
+									test[dIdx] = "d" + strings.Repeat(" ", len(strconv.Itoa(newTour[dIdx]))-1)
 								}
 								if eIdx != -1 {
-									test[eIdx] = "e" + strings.Repeat(" ", len(strconv.Itoa(newPath[eIdx]))-1)
+									test[eIdx] = "e" + strings.Repeat(" ", len(strconv.Itoa(newTour[eIdx]))-1)
 								}
 								if fIdx != -1 {
-									test[fIdx] = "f" + strings.Repeat(" ", len(strconv.Itoa(newPath[fIdx]))-1)
+									test[fIdx] = "f" + strings.Repeat(" ", len(strconv.Itoa(newTour[fIdx]))-1)
 								}
 
 								fmt.Println("\t            ", test)
 
-								fmt.Println("\tAfter Move: ", newPath)
+								fmt.Println("\tAfter Move: ", newTour)
 
 								fmt.Println()
 
-								fmt.Println("\tPath length before move:", beforeMoveLength)
-								fmt.Println("\tPath length after move:", afterMoveLength)
+								fmt.Println("\tTour length before move:", beforeMoveLength)
+								fmt.Println("\tTour length after move:", afterMoveLength)
 
 								fmt.Println()
 							}
@@ -403,11 +403,11 @@ func (aco *ACO) threeOpt(path []int) {
 
 							fmt.Printf("\tNew cost =      ad + eb + cf : %.0f = %.0f + %.0f + %.0f\n", newCost, ad, eb, cf)
 
-							previousWraparoundCost := aco.distances[path[n-1]][path[0]]
+							previousWraparoundCost := aco.distances[tour[n-1]][tour[0]]
 
 							fmt.Println("\tPrevious wraparound cost = ", previousWraparoundCost)
 
-							newWraparoundCost := aco.distances[newPath[n-1]][newPath[0]]
+							newWraparoundCost := aco.distances[newTour[n-1]][newTour[0]]
 
 							fmt.Println("\tNew wraparound cost =      ", newWraparoundCost)
 
@@ -416,52 +416,52 @@ func (aco *ACO) threeOpt(path []int) {
 							test := make([]string, n)
 
 							for i := 0; i < n; i++ {
-								len := len(strconv.Itoa(path[i]))
+								len := len(strconv.Itoa(tour[i]))
 								test[i] = strings.Repeat(" ", len)
 							}
 
-							test[i] = "a" + strings.Repeat(" ", len(strconv.Itoa(path[i]))-1)
-							test[(i+1)%n] = "b" + strings.Repeat(" ", len(strconv.Itoa(path[(i+1)%n]))-1)
-							test[j] = "c" + strings.Repeat(" ", len(strconv.Itoa(path[j]))-1)
-							test[(j+1)%n] = "d" + strings.Repeat(" ", len(strconv.Itoa(path[(j+1)%n]))-1)
-							test[k] = "e" + strings.Repeat(" ", len(strconv.Itoa(path[k]))-1)
-							test[(k+1)%n] = "f" + strings.Repeat(" ", len(strconv.Itoa(path[(k+1)%n]))-1)
+							test[i] = "a" + strings.Repeat(" ", len(strconv.Itoa(tour[i]))-1)
+							test[(i+1)%n] = "b" + strings.Repeat(" ", len(strconv.Itoa(tour[(i+1)%n]))-1)
+							test[j] = "c" + strings.Repeat(" ", len(strconv.Itoa(tour[j]))-1)
+							test[(j+1)%n] = "d" + strings.Repeat(" ", len(strconv.Itoa(tour[(j+1)%n]))-1)
+							test[k] = "e" + strings.Repeat(" ", len(strconv.Itoa(tour[k]))-1)
+							test[(k+1)%n] = "f" + strings.Repeat(" ", len(strconv.Itoa(tour[(k+1)%n]))-1)
 							fmt.Println("\t            ", test)
 
-							fmt.Println("\tBefore Move:", path)
+							fmt.Println("\tBefore Move:", tour)
 							fmt.Println()
 
 							for i := 0; i < n; i++ {
-								len := len(strconv.Itoa(newPath[i]))
+								len := len(strconv.Itoa(newTour[i]))
 								test[i] = strings.Repeat(" ", len)
 							}
 
-							aIdx := indexOf(a, newPath)
-							bIdx := indexOf(b, newPath)
-							cIdx := indexOf(c, newPath)
-							dIdx := indexOf(d, newPath)
-							eIdx := indexOf(e, newPath)
-							fIdx := indexOf(f, newPath)
+							aIdx := indexOf(a, newTour)
+							bIdx := indexOf(b, newTour)
+							cIdx := indexOf(c, newTour)
+							dIdx := indexOf(d, newTour)
+							eIdx := indexOf(e, newTour)
+							fIdx := indexOf(f, newTour)
 
-							test[aIdx] = "a" + strings.Repeat(" ", len(strconv.Itoa(newPath[aIdx]))-1)
-							test[bIdx] = "b" + strings.Repeat(" ", len(strconv.Itoa(newPath[bIdx]))-1)
-							test[cIdx] = "c" + strings.Repeat(" ", len(strconv.Itoa(newPath[cIdx]))-1)
-							test[dIdx] = "d" + strings.Repeat(" ", len(strconv.Itoa(newPath[dIdx]))-1)
-							test[eIdx] = "e" + strings.Repeat(" ", len(strconv.Itoa(newPath[eIdx]))-1)
-							test[fIdx] = "f" + strings.Repeat(" ", len(strconv.Itoa(newPath[fIdx]))-1)
+							test[aIdx] = "a" + strings.Repeat(" ", len(strconv.Itoa(newTour[aIdx]))-1)
+							test[bIdx] = "b" + strings.Repeat(" ", len(strconv.Itoa(newTour[bIdx]))-1)
+							test[cIdx] = "c" + strings.Repeat(" ", len(strconv.Itoa(newTour[cIdx]))-1)
+							test[dIdx] = "d" + strings.Repeat(" ", len(strconv.Itoa(newTour[dIdx]))-1)
+							test[eIdx] = "e" + strings.Repeat(" ", len(strconv.Itoa(newTour[eIdx]))-1)
+							test[fIdx] = "f" + strings.Repeat(" ", len(strconv.Itoa(newTour[fIdx]))-1)
 							fmt.Println("\t            ", test)
 
-							fmt.Println("\tAfter Move: ", newPath)
+							fmt.Println("\tAfter Move: ", newTour)
 
 							fmt.Println()
 
-							fmt.Println("\tPath length before move:", beforeMoveLength)
-							fmt.Println("\tPath length after move:", afterMoveLength)
+							fmt.Println("\tTour length before move:", beforeMoveLength)
+							fmt.Println("\tTour length after move:", afterMoveLength)
 
 							fmt.Println()
 						}
 
-						copy(path, newPath)
+						copy(tour, newTour)
 
 						improves = true
 						break loops // Exit loops after applying a move
@@ -506,7 +506,7 @@ func (aco *ACO) clampPheromoneLevels() {
 }
 
 // Global pheromones update (best ant)
-func (aco *ACO) globalPheromoneUpdate(iterationBestPath []int, iterationBestLength float64) {
+func (aco *ACO) globalPheromoneUpdate(iterationBestTour []int, iterationBestLength float64) {
 	// Evaporate pheromones globally
 	for i := range aco.pheromones {
 		for j := range aco.pheromones[i] {
@@ -515,11 +515,11 @@ func (aco *ACO) globalPheromoneUpdate(iterationBestPath []int, iterationBestLeng
 	}
 
 	var pheromoneDeposit float64
-	var bestPath []int
+	var bestTour []int
 
 	if aco.currentIteration <= 25 {
 		pheromoneDeposit = 1.0 / iterationBestLength
-		bestPath = iterationBestPath
+		bestTour = iterationBestTour
 	} else {
 		var f_gb int
 
@@ -541,36 +541,36 @@ func (aco *ACO) globalPheromoneUpdate(iterationBestPath []int, iterationBestLeng
 
 		if aco.currentIteration%f_gb == 0 {
 			pheromoneDeposit = 1.0 / aco.BestLength
-			bestPath = aco.BestPath
+			bestTour = aco.BestTour
 		} else {
 			pheromoneDeposit = 1.0 / iterationBestLength
-			bestPath = iterationBestPath
+			bestTour = iterationBestTour
 		}
 	}
 
-	// Global update: Only the best path deposits pheromones
-	for j := 0; j < len(bestPath)-1; j++ {
-		start, end := bestPath[j], bestPath[j+1]
+	// Global update: Only the best tour deposits pheromones
+	for j := 0; j < len(bestTour)-1; j++ {
+		start, end := bestTour[j], bestTour[j+1]
 		aco.pheromones[start][end] += aco.rho * pheromoneDeposit
 	}
 
 	// Handle the wrap-around from the last to the first node
-	last, first := bestPath[len(bestPath)-1], bestPath[0]
+	last, first := bestTour[len(bestTour)-1], bestTour[0]
 	aco.pheromones[last][first] += aco.rho * pheromoneDeposit
 }
 
-// Function to calculate the length of a path
-func (aco *ACO) pathLength(path []int) float64 {
+// Function to calculate the length of a tour
+func (aco *ACO) tourLength(tour []int) float64 {
 	sum := 0.0
-	p := len(path)
+	p := len(tour)
 
 	for i := 0; i < p-1; i++ {
-		start, end := path[i], path[i+1]
+		start, end := tour[i], tour[i+1]
 		sum += aco.distances[start][end]
 	}
 
 	if p > 0 {
-		last, first := path[p-1], path[0]
+		last, first := tour[p-1], tour[0]
 		sum += aco.distances[last][first]
 	}
 

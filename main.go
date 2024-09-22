@@ -74,7 +74,7 @@ func runExperiment(name string, dimension, iterations int, alpha, beta, rho, pBe
 	var totalElapsedTime time.Duration
 
 	bestLength := math.MaxFloat64
-	var bestPath []int
+	var bestTour []int
 	successCounter := 0.0
 	bestAtIteration := math.MaxInt
 
@@ -94,7 +94,7 @@ func runExperiment(name string, dimension, iterations int, alpha, beta, rho, pBe
 		if aco.BestLength < bestLength {
 			bestAtIteration = aco.BestAtIteration
 			bestLength = aco.BestLength
-			bestPath = aco.BestPath
+			bestTour = aco.BestTour
 		}
 
 		if aco.BestLength == knownOptimal {
@@ -107,18 +107,18 @@ func runExperiment(name string, dimension, iterations int, alpha, beta, rho, pBe
 	deviation := 100 * (averageBestLength - knownOptimal) / knownOptimal
 	successRate := 100 * successCounter / float64(NumberOfRuns)
 
-	bestPathEdges := make([]Edge, len(bestPath))
+	bestTourEdges := make([]Edge, len(bestTour))
 
 	for i := 0; i < dimension-1; i++ {
-		bestPathEdges[i] = Edge{From: bestPath[i], To: bestPath[i+1]}
+		bestTourEdges[i] = Edge{From: bestTour[i], To: bestTour[i+1]}
 	}
 
-	last, first := bestPath[dimension-1], bestPath[0]
-	bestPathEdges[last] = Edge{From: bestPath[last], To: bestPath[first]}
+	last, first := bestTour[dimension-1], bestTour[0]
+	bestTourEdges[last] = Edge{From: bestTour[last], To: bestTour[first]}
 
 	commonalityWithCmsa := 0.0
 
-	for _, edge := range bestPathEdges {
+	for _, edge := range bestTourEdges {
 		if cmsa[edge.From][edge.To] > 0 {
 			commonalityWithCmsa++
 		}
