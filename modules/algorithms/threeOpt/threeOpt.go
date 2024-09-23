@@ -15,7 +15,7 @@ import (
 func ReducedThreeOpt(tour []int, distances [][]float64) {
 	n := len(tour)
 
-	// dontLookBits := make([]bool, n)
+	dontLookBits := make([]bool, n)
 
 	s := 3 // Minimal spacing between indices
 
@@ -33,9 +33,9 @@ func ReducedThreeOpt(tour []int, distances [][]float64) {
 			a := tour[aIdx]
 			b := tour[bIdx]
 
-			// if dontLookBits[a] {
-			// 	continue
-			// }
+			if dontLookBits[a] {
+				continue
+			}
 
 			for jOffset := s; jOffset < n-s; jOffset++ {
 				j := (i + jOffset) % n
@@ -89,12 +89,12 @@ func ReducedThreeOpt(tour []int, distances [][]float64) {
 
 						copy(tour, newTour)
 
-						// dontLookBits[a] = false
-						// dontLookBits[b] = false
-						// dontLookBits[c] = false
-						// dontLookBits[d] = false
-						// dontLookBits[e] = false
-						// dontLookBits[f] = false
+						dontLookBits[a] = false
+						dontLookBits[b] = false
+						dontLookBits[c] = false
+						dontLookBits[d] = false
+						dontLookBits[e] = false
+						dontLookBits[f] = false
 
 						improves = true
 						break loops // Exit after applying a move
@@ -102,7 +102,7 @@ func ReducedThreeOpt(tour []int, distances [][]float64) {
 				}
 			}
 
-			// dontLookBits[a] = true
+			dontLookBits[a] = true
 		}
 	}
 }
