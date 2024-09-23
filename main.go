@@ -235,7 +235,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 170
+			return problemSize < 50
 		})
 
 	var wg sync.WaitGroup

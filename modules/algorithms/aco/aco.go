@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/rand"
 	"sort"
-	"sync"
 )
 
 type ACO struct {
@@ -59,19 +58,9 @@ func (aco *ACO) Run() {
 		tours := make([][]int, aco.ants)
 		lengths := make([]float64, aco.ants)
 
-		// for i := 0; i < aco.ants; i++ {
-		// 	tours[i], lengths[i] = aco.constructTour(i)
-		// }
-
-		var wg sync.WaitGroup
-		wg.Add(aco.ants)
 		for i := 0; i < aco.ants; i++ {
-			go func(i int) {
-				tours[i], lengths[i] = aco.constructTour(i)
-				wg.Done()
-			}(i)
+			tours[i], lengths[i] = aco.constructTour(i)
 		}
-		wg.Wait()
 
 		iterationBestLength := math.Inf(1)
 		iterationBestTour := []int{}
