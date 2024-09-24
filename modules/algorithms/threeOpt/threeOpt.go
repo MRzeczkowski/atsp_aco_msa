@@ -33,9 +33,9 @@ func ReducedThreeOpt(tour []int, distances [][]float64) {
 			a := tour[aIdx]
 			b := tour[bIdx]
 
-			// if dontLookBits[a] {
-			// 	continue
-			// }
+			if dontLookBits[a] {
+				continue
+			}
 
 			for jOffset := s; jOffset < n-s; jOffset++ {
 				j := (i + jOffset) % n
