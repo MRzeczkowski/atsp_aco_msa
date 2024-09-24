@@ -13,11 +13,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"time"
 )
 
-const NumberOfRuns int = 50
+const NumberOfRuns int = 10
 
 type Edge = models.Edge
 
@@ -235,19 +234,10 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 50
+			return problemSize < 70
 		})
 
-	var wg sync.WaitGroup
-
 	for _, path := range paths {
-		p := path // Capture the current path
-		wg.Add(1)
-		go func(p string) {
-			defer wg.Done()
-			tryFindSolution(p)
-		}(p)
+		tryFindSolution(path)
 	}
-
-	wg.Wait()
 }
