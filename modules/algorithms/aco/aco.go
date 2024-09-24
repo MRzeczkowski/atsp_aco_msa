@@ -5,7 +5,6 @@ import (
 	"atsp_aco_msa/modules/utilities"
 	"math"
 	"math/rand"
-	"sort"
 )
 
 type ACO struct {
@@ -16,15 +15,12 @@ type ACO struct {
 	cmsa                                                [][]float64
 	tauMin, tauMax, BestLength                          float64
 	BestTour                                            []int
-	neighborList                                        [][]int
+	reducedThreeOpt                                     *threeOpt.ReducedThreeOpt
 }
 
 func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants, iterations int, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
-
-	k := 5
-	neighborList := buildNearestNeighborList(distances, k)
 
 	// Arbitrary high value: `4.3. Pheromone trail initialization`
 	for i := range pheromones {
@@ -34,20 +30,22 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants, i
 		}
 	}
 
+	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, 40)
+
 	return &ACO{
-		useLocalSearch: useLocalSearch,
-		alpha:          alpha,
-		beta:           beta,
-		rho:            rho,
-		pDec:           math.Pow(pBest, 1.0/float64(dimension)),
-		pCmsa:          pCmsa,
-		ants:           ants,
-		iterations:     iterations,
-		distances:      distances,
-		cmsa:           cmsa,
-		pheromones:     pheromones,
-		BestLength:     math.Inf(1),
-		neighborList:   neighborList,
+		useLocalSearch:  useLocalSearch,
+		alpha:           alpha,
+		beta:            beta,
+		rho:             rho,
+		pDec:            math.Pow(pBest, 1.0/float64(dimension)),
+		pCmsa:           pCmsa,
+		ants:            ants,
+		iterations:      iterations,
+		distances:       distances,
+		cmsa:            cmsa,
+		pheromones:      pheromones,
+		BestLength:      math.Inf(1),
+		reducedThreeOpt: reducedThreeOpt,
 	}
 }
 
@@ -105,7 +103,7 @@ func (aco *ACO) constructTour(antNumber int) ([]int, float64) {
 	}
 
 	if aco.useLocalSearch {
-		threeOpt.ReducedThreeOpt(tour, aco.distances)
+		aco.reducedThreeOpt.Run(tour)
 	}
 
 	length := utilities.TourLength(tour, aco.distances)
@@ -155,40 +153,6 @@ func (aco *ACO) selectNextCity(current int, visited []bool) int {
 	}
 
 	return -1 // In case no city is selected. This will never happen.
-}
-
-// Build the nearest k neighbors list for each city
-func buildNearestNeighborList(distances [][]float64, k int) [][]int {
-	n := len(distances)
-	neighborList := make([][]int, n)
-
-	for i := 0; i < n; i++ {
-		// Create a list of city indices sorted by distance from city i
-		type nodeDist struct {
-			id       int
-			distance float64
-		}
-
-		cityDistances := make([]nodeDist, n)
-		for j := 0; j < n; j++ {
-			cityDistances[j] = nodeDist{id: j, distance: distances[i][j]}
-		}
-
-		// Sort cities by distance from city i
-		sort.Slice(cityDistances, func(a, b int) bool {
-			return cityDistances[a].distance < cityDistances[b].distance
-		})
-
-		// Take only the k nearest neighbors (excluding the city itself)
-		neighbors := make([]int, 0, k)
-		for j := 1; j <= k && j < n; j++ {
-			neighbors = append(neighbors, cityDistances[j].id)
-		}
-
-		neighborList[i] = neighbors
-	}
-
-	return neighborList
 }
 
 func (aco *ACO) updateLimits() {

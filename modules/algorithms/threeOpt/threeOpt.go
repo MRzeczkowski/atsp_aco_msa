@@ -4,15 +4,63 @@ import (
 	"atsp_aco_msa/modules/utilities"
 	"fmt"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 )
+
+type ReducedThreeOpt struct {
+	distances      [][]float64
+	neighborsLists [][]int
+}
+
+func NewReducedThreeOpt(distances [][]float64, k int) *ReducedThreeOpt {
+
+	neighborsLists := buildNearestNeighborsLists(distances, k)
+
+	return &ReducedThreeOpt{
+		distances:      distances,
+		neighborsLists: neighborsLists,
+	}
+}
+
+// Build the nearest k neighbors list for each city
+func buildNearestNeighborsLists(distances [][]float64, k int) [][]int {
+	n := len(distances)
+	neighborList := make([][]int, n)
+
+	for i := 0; i < n; i++ {
+
+		type nodeDist struct {
+			id       int
+			distance float64
+		}
+
+		cityDistances := make([]nodeDist, n)
+		for j := 0; j < n; j++ {
+			cityDistances[j] = nodeDist{id: j, distance: distances[i][j]}
+		}
+
+		sort.Slice(cityDistances, func(x, y int) bool {
+			return cityDistances[x].distance < cityDistances[y].distance
+		})
+
+		neighbors := make([]int, 0, k)
+		for j := 1; j <= k && j < n; j++ {
+			neighbors = append(neighbors, cityDistances[j].id)
+		}
+
+		neighborList[i] = neighbors
+	}
+
+	return neighborList
+}
 
 // Reduced 3-opt optimization that doesn't use segment reversal.
 // Only one 3-opt move is valid because it can be done without reversal. It's usually referred to as case 7 or a'b'c' and is equivalent to three subsequent 2-opt moves.
 // Move is performed by changing segment order from abc to acb.
 // Input `tour` is changed in-place.
-func ReducedThreeOpt(tour []int, distances [][]float64) {
+func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 	n := len(tour)
 
 	dontLookBits := make([]bool, n)
@@ -55,9 +103,9 @@ func ReducedThreeOpt(tour []int, distances [][]float64) {
 					e := tour[eIdx]
 					f := tour[fIdx]
 
-					costRemoved := distances[a][b] + distances[c][d] + distances[e][f]
+					costRemoved := threeOpt.distances[a][b] + threeOpt.distances[c][d] + threeOpt.distances[e][f]
 
-					costAdded := distances[a][d] + distances[e][b] + distances[c][f]
+					costAdded := threeOpt.distances[a][d] + threeOpt.distances[e][b] + threeOpt.distances[c][f]
 
 					gain := costAdded - costRemoved
 
