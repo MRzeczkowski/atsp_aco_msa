@@ -29,6 +29,8 @@ func buildNearestNeighborsLists(distances [][]float64, k int) [][]int {
 	n := len(distances)
 	neighborList := make([][]int, n)
 
+	k = min(k, n)
+
 	for i := 0; i < n; i++ {
 
 		type nodeDist struct {
@@ -61,11 +63,18 @@ func buildNearestNeighborsLists(distances [][]float64, k int) [][]int {
 // Move is performed by changing segment order from abc to acb.
 // Input `tour` is changed in-place.
 func (threeOpt *ReducedThreeOpt) Run(tour []int) {
+
+	spacing := 3 // Minimal spacing between indices
+
 	n := len(tour)
 
 	dontLookBits := make([]bool, n)
 
-	s := 3 // Minimal spacing between indices
+	positions := make([]int, n)
+
+	for i, v := range tour {
+		positions[v] = i
+	}
 
 	improves := true
 
@@ -85,23 +94,42 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 				continue
 			}
 
-			for jOffset := s; jOffset < n-s; jOffset++ {
-				j := (i + jOffset) % n
+			for _, d := range threeOpt.neighborsLists[a] {
+				dIdx := positions[d]
 
-				cIdx := j
-				dIdx := (j + 1) % n
+				j := (dIdx - 1 + n) % n
 
-				c := tour[cIdx]
-				d := tour[dIdx]
+				distIJ := calculateDistanceInRingBuffer(i, j, n)
+				distJI := calculateDistanceInRingBuffer(j, i, n)
 
-				for kOffset := jOffset + s; kOffset < n-s+1; kOffset++ {
-					k := (i + kOffset) % n
+				// We don't consider neighbors that are too close.
+				if distIJ < spacing || distJI < spacing {
+					continue
+				}
 
-					eIdx := k
-					fIdx := (k + 1) % n
+				c := tour[j]
 
-					e := tour[eIdx]
-					f := tour[fIdx]
+				for _, f := range threeOpt.neighborsLists[c] {
+					fIdx := positions[f]
+
+					k := (fIdx - 1 + n) % n
+
+					distJK := calculateDistanceInRingBuffer(j, k, n)
+					distKJ := calculateDistanceInRingBuffer(k, j, n)
+					distKI := calculateDistanceInRingBuffer(k, i, n)
+					distIK := calculateDistanceInRingBuffer(i, k, n)
+
+					// We don't consider neighbors that are too close.
+					if distJK < spacing || distKJ < spacing || distKI < spacing || distIK < spacing {
+						continue
+					}
+
+					// j must be between i and k
+					if !isBetween(i, j, k) {
+						continue
+					}
+
+					e := tour[k]
 
 					costRemoved := threeOpt.distances[a][b] + threeOpt.distances[c][d] + threeOpt.distances[e][f]
 
@@ -137,6 +165,10 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 
 						copy(tour, newTour)
 
+						for i, v := range tour {
+							positions[v] = i
+						}
+
 						dontLookBits[a] = false
 						dontLookBits[b] = false
 						dontLookBits[c] = false
@@ -153,6 +185,26 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 			dontLookBits[a] = true
 		}
 	}
+}
+
+// Returns true if `x` is between `a` and `b` in cyclic sequence
+// with established orientation of nondescending indices
+// That is: when one begins a forward traversal of the tour
+// at position `a', then position `x` is reached before position `b'.
+// Returns true if and only if:
+// a < x < b  or  b < a < x  or  x < b < a
+func isBetween(a, x, b int) bool {
+	if b > a {
+		return x > a && x < b
+	} else if b < a {
+		return x > a || x < b
+	}
+
+	return false
+}
+
+func calculateDistanceInRingBuffer(a, b, n int) int {
+	return (b - a + n) % n
 }
 
 func logReducedThreeOptIssue(tour, newTour []int, distances [][]float64, gain, beforeMoveLength, afterMoveLength float64, i, j, k, a, b, c, d, e, f, n int) {

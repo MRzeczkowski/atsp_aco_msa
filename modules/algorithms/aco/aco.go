@@ -30,7 +30,7 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants, i
 		}
 	}
 
-	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, 40)
+	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, 50)
 
 	return &ACO{
 		useLocalSearch:  useLocalSearch,
