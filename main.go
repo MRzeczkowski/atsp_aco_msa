@@ -217,6 +217,15 @@ func tryFindSolution(path string) {
 }
 
 func main() {
+
+	// f, err := os.Create("aco.prof")
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return
+	// }
+	// pprof.StartCPUProfile(f)
+	// defer pprof.StopCPUProfile()
+
 	dir := "tsp_files"
 	paths, err := filepath.Glob(filepath.Join(dir, "*.atsp"))
 
@@ -234,7 +243,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 70
+			return problemSize <= 70
 		})
 
 	for _, path := range paths {

@@ -12,24 +12,23 @@ import (
 var spacing int = 3 // Minimal spacing between indices
 
 type ReducedThreeOpt struct {
-	distances [][]float64
-	k         int
+	distances      [][]float64
+	neighborsLists [][]int
 }
 
 func NewReducedThreeOpt(distances [][]float64, k int) *ReducedThreeOpt {
 
 	return &ReducedThreeOpt{
-		distances: distances,
-		k:         k,
+		distances:      distances,
+		neighborsLists: buildNearestNeighborsLists(distances, k),
 	}
 }
 
 // Build the nearest k neighbors list for each city
-func (threeOpt *ReducedThreeOpt) buildNearestNeighborsLists() [][]int {
-	n := len(threeOpt.distances)
-	neighborList := make([][]int, n)
-
-	k := min(threeOpt.k, n)
+func buildNearestNeighborsLists(distances [][]float64, k int) [][]int {
+	n := len(distances)
+	neighborsLists := make([][]int, n)
+	k = min(k, n)
 
 	for i := 0; i < n; i++ {
 
@@ -40,22 +39,24 @@ func (threeOpt *ReducedThreeOpt) buildNearestNeighborsLists() [][]int {
 
 		cityDistances := make([]nodeDist, n)
 		for j := 0; j < n; j++ {
-			cityDistances[j] = nodeDist{id: j, distance: threeOpt.distances[i][j]}
+
+			if i == j {
+				continue
+			}
+
+			cityDistances[j] = nodeDist{id: j, distance: distances[i][j]}
 		}
 
 		sort.Slice(cityDistances, func(x, y int) bool {
 			return cityDistances[x].distance < cityDistances[y].distance
 		})
 
-		neighbors := make([]int, 0, k)
-		for j := 1; j <= k && j < n; j++ {
-			neighbors = append(neighbors, cityDistances[j].id)
+		for j := 0; j < k; j++ {
+			neighborsLists[i] = append(neighborsLists[i], cityDistances[j].id)
 		}
-
-		neighborList[i] = neighbors
 	}
 
-	return neighborList
+	return neighborsLists
 }
 
 // Reduced 3-opt optimization that doesn't use segment reversal.
@@ -71,8 +72,6 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 	positions := make([]int, n)
 
 	setPositions(positions, tour)
-
-	neighborsLists := threeOpt.buildNearestNeighborsLists()
 
 	improves := true
 
@@ -92,7 +91,7 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 				continue
 			}
 
-			for _, d := range neighborsLists[a] {
+			for _, d := range threeOpt.neighborsLists[a] {
 				dIdx := positions[d]
 
 				j := (dIdx - 1 + n) % n
@@ -107,7 +106,7 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 
 				c := tour[j]
 
-				for _, f := range neighborsLists[c] {
+				for _, f := range threeOpt.neighborsLists[c] {
 					fIdx := positions[f]
 
 					k := (fIdx - 1 + n) % n
