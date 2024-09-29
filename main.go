@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-const NumberOfRuns int = 10
+const NumberOfRuns int = 50
 
 type Edge = models.Edge
 

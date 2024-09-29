@@ -39,11 +39,6 @@ func buildNearestNeighborsLists(distances [][]float64, k int) [][]int {
 
 		cityDistances := make([]nodeDist, n)
 		for j := 0; j < n; j++ {
-
-			if i == j {
-				continue
-			}
-
 			cityDistances[j] = nodeDist{id: j, distance: distances[i][j]}
 		}
 
@@ -80,11 +75,10 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 
 	loops:
 		for i := 0; i < n; i++ {
-
 			aIdx := i
-			bIdx := (i + 1) % n
-
 			a := tour[aIdx]
+
+			bIdx := (i + 1) % n
 			b := tour[bIdx]
 
 			if dontLookBits[a] {
@@ -95,6 +89,7 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 				dIdx := positions[d]
 
 				j := (dIdx - 1 + n) % n
+				c := tour[j]
 
 				distIJ := calculateDistanceInRingBuffer(i, j, n)
 				distJI := calculateDistanceInRingBuffer(j, i, n)
@@ -104,12 +99,11 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 					continue
 				}
 
-				c := tour[j]
-
 				for _, f := range threeOpt.neighborsLists[c] {
 					fIdx := positions[f]
 
 					k := (fIdx - 1 + n) % n
+					e := tour[k]
 
 					distJK := calculateDistanceInRingBuffer(j, k, n)
 					distKJ := calculateDistanceInRingBuffer(k, j, n)
@@ -126,54 +120,53 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 						continue
 					}
 
-					e := tour[k]
-
 					costRemoved := threeOpt.distances[a][b] + threeOpt.distances[c][d] + threeOpt.distances[e][f]
 
 					costAdded := threeOpt.distances[a][d] + threeOpt.distances[e][b] + threeOpt.distances[c][f]
 
 					gain := costAdded - costRemoved
 
-					if gain < 0 {
-
-						var firstSegment []int
-						var secondSegment []int
-						var thirdSegment []int
-
-						if aIdx < fIdx || bIdx < fIdx {
-							firstSegment = slices.Concat(tour[fIdx:], tour[:bIdx])
-						} else {
-							firstSegment = tour[fIdx:bIdx]
-						}
-
-						if bIdx > dIdx {
-							secondSegment = slices.Concat(tour[bIdx:], tour[:dIdx])
-						} else {
-							secondSegment = tour[bIdx:dIdx]
-						}
-
-						if dIdx > fIdx {
-							thirdSegment = slices.Concat(tour[dIdx:], tour[:fIdx])
-						} else {
-							thirdSegment = tour[dIdx:fIdx]
-						}
-
-						newTour := slices.Concat(firstSegment, thirdSegment, secondSegment)
-
-						copy(tour, newTour)
-
-						setPositions(positions, tour)
-
-						dontLookBits[a] = false
-						dontLookBits[b] = false
-						dontLookBits[c] = false
-						dontLookBits[d] = false
-						dontLookBits[e] = false
-						dontLookBits[f] = false
-
-						improves = true
-						break loops // Exit after applying a move
+					if gain >= 0 {
+						break
 					}
+
+					var firstSegment []int
+					var secondSegment []int
+					var thirdSegment []int
+
+					if aIdx < fIdx || bIdx < fIdx {
+						firstSegment = slices.Concat(tour[fIdx:], tour[:bIdx])
+					} else {
+						firstSegment = tour[fIdx:bIdx]
+					}
+
+					if bIdx > dIdx {
+						secondSegment = slices.Concat(tour[bIdx:], tour[:dIdx])
+					} else {
+						secondSegment = tour[bIdx:dIdx]
+					}
+
+					if dIdx > fIdx {
+						thirdSegment = slices.Concat(tour[dIdx:], tour[:fIdx])
+					} else {
+						thirdSegment = tour[dIdx:fIdx]
+					}
+
+					newTour := slices.Concat(firstSegment, thirdSegment, secondSegment)
+
+					copy(tour, newTour)
+
+					setPositions(positions, tour)
+
+					dontLookBits[a] = false
+					dontLookBits[b] = false
+					dontLookBits[c] = false
+					dontLookBits[d] = false
+					dontLookBits[e] = false
+					dontLookBits[f] = false
+
+					improves = true
+					break loops // Exit after applying a move
 				}
 			}
 
