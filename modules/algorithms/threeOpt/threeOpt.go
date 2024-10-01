@@ -91,11 +91,7 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 				j := (dIdx - 1 + n) % n
 				c := tour[j]
 
-				distIJ := calculateDistanceInRingBuffer(i, j, n)
-				distJI := calculateDistanceInRingBuffer(j, i, n)
-
-				// We don't consider neighbors that are too close.
-				if distIJ < spacing || distJI < spacing {
+				if !haveCorrectSpacing(i, j, n) {
 					continue
 				}
 
@@ -105,24 +101,25 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 					k := (fIdx - 1 + n) % n
 					e := tour[k]
 
-					distJK := calculateDistanceInRingBuffer(j, k, n)
-					distKJ := calculateDistanceInRingBuffer(k, j, n)
-					distKI := calculateDistanceInRingBuffer(k, i, n)
-					distIK := calculateDistanceInRingBuffer(i, k, n)
-
-					// We don't consider neighbors that are too close.
-					if distJK < spacing || distKJ < spacing || distKI < spacing || distIK < spacing {
+					if !(haveCorrectSpacing(j, k, n) && haveCorrectSpacing(k, i, n) && isBetween(i, j, k)) {
 						continue
 					}
 
-					// j must be between i and k
-					if !isBetween(i, j, k) {
+					if !slices.Contains(threeOpt.neighborsLists[e], b) {
 						continue
 					}
 
-					costRemoved := threeOpt.distances[a][b] + threeOpt.distances[c][d] + threeOpt.distances[e][f]
+					distAB := threeOpt.distances[a][b]
+					distCD := threeOpt.distances[c][d]
+					distEF := threeOpt.distances[e][f]
 
-					costAdded := threeOpt.distances[a][d] + threeOpt.distances[e][b] + threeOpt.distances[c][f]
+					costRemoved := distAB + distCD + distEF
+
+					distAD := threeOpt.distances[a][d]
+					distEB := threeOpt.distances[e][b]
+					distCF := threeOpt.distances[c][f]
+
+					costAdded := distAD + distEB + distCF
 
 					gain := costAdded - costRemoved
 
@@ -193,6 +190,13 @@ func isBetween(a, x, b int) bool {
 	}
 
 	return x > a || x < b
+}
+
+func haveCorrectSpacing(i, j, n int) bool {
+	distIJ := calculateDistanceInRingBuffer(i, j, n)
+	distJI := calculateDistanceInRingBuffer(j, i, n)
+
+	return distIJ >= spacing && distJI >= spacing
 }
 
 func calculateDistanceInRingBuffer(a, b, n int) int {

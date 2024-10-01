@@ -79,3 +79,22 @@
 - "Ghouila-Houri from 1960 asserts that every directed graph on n vertices with minimum out-degree and in-degree at least n/2 contains a directed Hamilton cycle."
 
 - On Hamiltonian cycles in directed graphs: https://www.sciencedirect.com/science/article/pii/S0195669811001788
+
+
+Co dalej?
+1. Algorytm Edmonds'a na wersję Gabowa?
+2. Porozmawiać z Panem Solarzem o wykorzytaniu komputerów z uczelni?
+3. Analiza stytystyczna wpływu parametrów
+4. Cykl Hamiltonowski w CMSA
+5. Pan Krzysztof Sęp?
+6. Feromony niezależne od aktualnej heurystyki
+7. Może wykres zbieżności?
+
+8. 3-opt i sąsiedzi drugiego rzędu?
+
+9. Latex vs Google docs
+
+Ważne rzeczy w pracy:
+1. ACO/MMAS
+2. Heurystyka: MSAs
+3. reduced 3-opt
