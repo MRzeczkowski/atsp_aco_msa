@@ -243,7 +243,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize <= 70
+			return problemSize < 5000
 		})
 
 	for _, path := range paths {
