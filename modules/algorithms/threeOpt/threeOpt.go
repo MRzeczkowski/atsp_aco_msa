@@ -111,7 +111,7 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 					distCF := threeOpt.distances[c][f]
 
 					if distCF >= radius {
-						break // Since neighbor lists are sorted by distance
+						break
 					}
 
 					fIdx := positions[f]
@@ -123,9 +123,6 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 						continue
 					}
 
-					if !slices.Contains(threeOpt.neighborsLists[e], b) {
-						continue
-					}
 					distEF := threeOpt.distances[e][f]
 
 					costRemoved := distAB + distCD + distEF
@@ -137,7 +134,7 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 					gain := costAdded - costRemoved
 
 					if gain >= 0 {
-						break
+						continue
 					}
 
 					var firstSegment []int
