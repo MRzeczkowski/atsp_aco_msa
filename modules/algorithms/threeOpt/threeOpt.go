@@ -90,9 +90,9 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 			for _, d := range threeOpt.neighborsLists[a] {
 				distAD := threeOpt.distances[a][d]
 
-				// if distAD >= distAB {
-				// 	break
-				// }
+				if distAD >= distAB {
+					break
+				}
 
 				dIdx := positions[d]
 
