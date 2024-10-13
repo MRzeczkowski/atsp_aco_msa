@@ -16,9 +16,11 @@ type ACO struct {
 	tauMin, tauMax, BestLength                          float64
 	BestTour                                            []int
 	reducedThreeOpt                                     *threeOpt.ReducedThreeOpt
+	knownOptimal                                        float64
+	deviationPerIteration                               []float64
 }
 
-func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants, iterations int, distances, cmsa [][]float64) *ACO {
+func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float64, ants, iterations int, knownOptimal float64, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
 
@@ -26,26 +28,27 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants, i
 	for i := range pheromones {
 		pheromones[i] = make([]float64, dimension)
 		for j := range pheromones[i] {
-			pheromones[i][j] = 1.0 + (pCmsa * cmsa[i][j])
+			pheromones[i][j] = 1.0 + (pherCmsa * cmsa[i][j])
 		}
 	}
 
 	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, 25)
 
 	return &ACO{
-		useLocalSearch:  useLocalSearch,
-		alpha:           alpha,
-		beta:            beta,
-		rho:             rho,
-		pDec:            math.Pow(pBest, 1.0/float64(dimension)),
-		pCmsa:           pCmsa,
-		ants:            ants,
-		iterations:      iterations,
-		distances:       distances,
-		cmsa:            cmsa,
-		pheromones:      pheromones,
-		BestLength:      math.Inf(1),
-		reducedThreeOpt: reducedThreeOpt,
+		useLocalSearch:        useLocalSearch,
+		alpha:                 alpha,
+		beta:                  beta,
+		rho:                   rho,
+		pDec:                  math.Pow(pBest, 1.0/float64(dimension)),
+		pCmsa:                 pCmsa,
+		ants:                  ants,
+		iterations:            iterations,
+		distances:             distances,
+		cmsa:                  cmsa,
+		pheromones:            pheromones,
+		BestLength:            math.Inf(1),
+		reducedThreeOpt:       reducedThreeOpt,
+		deviationPerIteration: make([]float64, iterations),
 	}
 }
 
@@ -77,6 +80,8 @@ func (aco *ACO) Run() {
 				aco.BestAtIteration = aco.currentIteration
 			}
 		}
+
+		aco.deviationPerIteration[aco.currentIteration] = 100 * (iterationBestLength - aco.knownOptimal) / aco.knownOptimal
 
 		aco.globalPheromoneUpdate(iterationBestTour, iterationBestLength)
 		aco.updateLimits()

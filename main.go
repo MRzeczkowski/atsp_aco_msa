@@ -21,8 +21,8 @@ const NumberOfRuns int = 50
 type Edge = models.Edge
 
 type ExperimentData struct {
-	useLocalSearch                 bool
-	alpha, beta, rho, pBest, cmsaP float64
+	useLocalSearch                           bool
+	alpha, beta, rho, pBest, pherCmsa, pCmsa float64
 	ExperimentResult
 }
 
@@ -39,7 +39,8 @@ func (f ExperimentData) ToCSVRow() []string {
 		fmt.Sprintf("%.2f", f.beta),
 		fmt.Sprintf("%.2f", f.rho),
 		fmt.Sprintf("%.2f", f.pBest),
-		fmt.Sprintf("%.2f", f.cmsaP),
+		fmt.Sprintf("%.2f", f.pherCmsa),
+		fmt.Sprintf("%.2f", f.pCmsa),
 		strconv.Itoa(f.ExperimentResult.bestAtIteration),
 		fmt.Sprintf("%.2f", f.ExperimentResult.bestLength),
 		fmt.Sprintf("%f", f.ExperimentResult.deviation),
@@ -70,7 +71,7 @@ var optimalSolutions = map[string]float64{
 	"ry48p":  14422,
 }
 
-func runExperiment(name string, dimension, iterations int, useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, matrix, cmsa [][]float64) ExperimentResult {
+func runExperiment(name string, dimension, iterations int, useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float64, matrix, cmsa [][]float64) ExperimentResult {
 
 	var totalBestLength float64
 	var totalElapsedTime time.Duration
@@ -85,7 +86,21 @@ func runExperiment(name string, dimension, iterations int, useLocalSearch bool, 
 	ants := dimension
 
 	for i := 0; i < NumberOfRuns; i++ {
-		aco := aco.NewACO(useLocalSearch, alpha, beta, rho, pBest, pCmsa, ants, iterations, matrix, cmsa)
+
+		aco := aco.NewACO(
+			useLocalSearch,
+			alpha,
+			beta,
+			rho,
+			pBest,
+			pherCmsa,
+			pCmsa,
+			ants,
+			iterations,
+			knownOptimal,
+			matrix,
+			cmsa)
+
 		start := time.Now()
 		aco.Run()
 		elapsed := time.Since(start)
@@ -171,7 +186,8 @@ func tryFindSolution(path string) {
 		"Beta",
 		"Rho",
 		"pBest",
-		"CMSA probability",
+		"CMSA impact on initial pheromones",
+		"CMSA edge selection probability",
 		"Best at iteration",
 		"Best length",
 		"Deviation",
@@ -189,19 +205,21 @@ func tryFindSolution(path string) {
 			for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
 				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
 					for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.01) {
-						for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+						for _, pherCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+							for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 
-							result := runExperiment(name, dimension, iterations, useLocalSearch, alpha, beta, rho, pBest, pCmsa, matrix, cmsa)
+								result := runExperiment(name, dimension, iterations, useLocalSearch, alpha, beta, rho, pBest, pherCmsa, pCmsa, matrix, cmsa)
 
-							data := ExperimentData{
-								useLocalSearch, alpha, beta, rho, pBest, pCmsa, result,
-							}
+								data := ExperimentData{
+									useLocalSearch, alpha, beta, rho, pBest, pherCmsa, pCmsa, result,
+								}
 
-							cswRow := data.ToCSVRow()
+								cswRow := data.ToCSVRow()
 
-							err := writer.Write(cswRow)
-							if err != nil {
-								log.Fatalf("Failed to write record: %s", err)
+								err := writer.Write(cswRow)
+								if err != nil {
+									log.Fatalf("Failed to write record: %s", err)
+								}
 							}
 						}
 					}
@@ -243,7 +261,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize <= 170
+			return problemSize < 50
 		})
 
 	for _, path := range paths {
