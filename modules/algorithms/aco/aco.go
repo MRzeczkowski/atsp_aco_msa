@@ -17,7 +17,7 @@ type ACO struct {
 	BestTour                                            []int
 	reducedThreeOpt                                     *threeOpt.ReducedThreeOpt
 	knownOptimal                                        float64
-	deviationPerIteration                               []float64
+	DeviationPerIteration                               []float64
 }
 
 func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float64, ants, iterations int, knownOptimal float64, distances, cmsa [][]float64) *ACO {
@@ -48,7 +48,8 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float6
 		pheromones:            pheromones,
 		BestLength:            math.Inf(1),
 		reducedThreeOpt:       reducedThreeOpt,
-		deviationPerIteration: make([]float64, iterations),
+		knownOptimal:          knownOptimal,
+		DeviationPerIteration: make([]float64, iterations),
 	}
 }
 
@@ -81,7 +82,7 @@ func (aco *ACO) Run() {
 			}
 		}
 
-		aco.deviationPerIteration[aco.currentIteration] = 100 * (iterationBestLength - aco.knownOptimal) / aco.knownOptimal
+		aco.DeviationPerIteration[aco.currentIteration] = 100 * (iterationBestLength - aco.knownOptimal) / aco.knownOptimal
 
 		aco.globalPheromoneUpdate(iterationBestTour, iterationBestLength)
 		aco.updateLimits()

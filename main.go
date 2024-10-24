@@ -14,6 +14,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
+	"gonum.org/v1/plot/vg/draw"
+	"gonum.org/v1/plot/vg/vgimg"
 )
 
 const NumberOfRuns int = 50
@@ -30,6 +36,7 @@ type ExperimentResult struct {
 	bestAtIteration                                         int
 	bestLength, deviation, successRate, commonalityWithCmsa float64
 	computationTime                                         int64
+	deviationPerIteration                                   []float64
 }
 
 func (f ExperimentData) ToCSVRow() []string {
@@ -85,6 +92,8 @@ func runExperiment(name string, dimension, iterations int, useLocalSearch bool, 
 
 	ants := dimension
 
+	deviationPerIteration := make([]float64, iterations)
+
 	for i := 0; i < NumberOfRuns; i++ {
 
 		aco := aco.NewACO(
@@ -117,6 +126,10 @@ func runExperiment(name string, dimension, iterations int, useLocalSearch bool, 
 		if aco.BestLength == knownOptimal {
 			successCounter++
 		}
+
+		for i, v := range aco.DeviationPerIteration {
+			deviationPerIteration[i] += v / float64(NumberOfRuns)
+		}
 	}
 
 	averageBestLength := totalBestLength / float64(NumberOfRuns)
@@ -143,7 +156,7 @@ func runExperiment(name string, dimension, iterations int, useLocalSearch bool, 
 
 	commonalityWithCmsa = 100 * commonalityWithCmsa / float64(dimension-1)
 
-	return ExperimentResult{bestAtIteration, bestLength, deviation, successRate, commonalityWithCmsa, averageTime.Milliseconds()}
+	return ExperimentResult{bestAtIteration, bestLength, deviation, successRate, commonalityWithCmsa, averageTime.Milliseconds(), deviationPerIteration}
 }
 
 func tryFindSolution(path string) {
@@ -172,40 +185,51 @@ func tryFindSolution(path string) {
 		iterations = 1000
 	}
 
-	file, err := os.Create(filepath.Join("results", name) + ".csv")
-	if err != nil {
-		log.Fatalf("Failed to create file: %s", err)
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-
-	header := []string{
-		"Used local search",
-		"Alpha",
-		"Beta",
-		"Rho",
-		"pBest",
-		"CMSA impact on initial pheromones",
-		"CMSA edge selection probability",
-		"Best at iteration",
-		"Best length",
-		"Deviation",
-		"Success rate",
-		"Commonality with CMSA",
-		"Computation time [ms]"}
-
-	err = writer.Write(header)
-	if err != nil {
-		log.Fatalf("Failed to write header: %s", err)
-	}
-
 	for _, useLocalSearch := range []bool{false, true} {
+
+		resultFilesPrefix := filepath.Join("results", name)
+
+		if useLocalSearch {
+			resultFilesPrefix += "+3opt"
+		}
+
+		file, err := os.Create(resultFilesPrefix + ".csv")
+		if err != nil {
+			log.Fatalf("Failed to create file: %s", err)
+		}
+		defer file.Close()
+
+		writer := csv.NewWriter(file)
+
+		header := []string{
+			"Used local search",
+			"Alpha",
+			"Beta",
+			"Rho",
+			"pBest",
+			"CMSA impact on initial pheromones",
+			"CMSA edge selection probability",
+			"Best at iteration",
+			"Best length",
+			"Deviation",
+			"Success rate",
+			"Commonality with CMSA",
+			"Computation time [ms]"}
+
+		err = writer.Write(header)
+		if err != nil {
+			log.Fatalf("Failed to write header: %s", err)
+		}
+
+		plots := [][]*plot.Plot{}
+
 		for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 			for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
 				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
 					for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.01) {
 						for _, pherCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+
+							cmsaPlots := []*plot.Plot{}
 							for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 
 								result := runExperiment(name, dimension, iterations, useLocalSearch, alpha, beta, rho, pBest, pherCmsa, pCmsa, matrix, cmsa)
@@ -215,22 +239,78 @@ func tryFindSolution(path string) {
 								}
 
 								cswRow := data.ToCSVRow()
-
 								err := writer.Write(cswRow)
 								if err != nil {
 									log.Fatalf("Failed to write record: %s", err)
 								}
+
+								p := plot.New()
+								p.Title.Text = fmt.Sprintf("local=%v, alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pherCmsa=%.2f, pCmsa=%.2f",
+									useLocalSearch, alpha, beta, rho, pBest, pherCmsa, pCmsa)
+								p.X.Label.Text = "Iteration"
+								p.Y.Label.Text = "Deviation"
+								p.Y.Min = 0
+								p.Y.Max = 100
+
+								pts := make(plotter.XYs, len(result.deviationPerIteration))
+								for i, v := range result.deviationPerIteration {
+									pts[i].X = float64(i)
+									pts[i].Y = v
+								}
+
+								line, err := plotter.NewLine(pts)
+								if err != nil {
+									log.Fatalf("Could not create line plot: %v", err)
+								}
+
+								p.Add(line)
+
+								cmsaPlots = append(cmsaPlots, p)
 							}
+
+							plots = append(plots, cmsaPlots)
 						}
 					}
 				}
 			}
 		}
-	}
 
-	writer.Flush()
-	if err := writer.Error(); err != nil {
-		log.Fatalf("Error while flushing the data: %s", err)
+		writer.Flush()
+		if err := writer.Error(); err != nil {
+			log.Fatalf("Error while flushing the data: %s", err)
+		}
+
+		continue
+
+		rows, cols := len(plots), len(plots[0])
+
+		imgHeight := vg.Points(250.0 * float64(rows))
+		imgWidth := vg.Points(500.0 * float64(cols))
+
+		img := vgimg.New(imgWidth, imgHeight)
+		dc := draw.New(img)
+
+		t := draw.Tiles{
+			Rows: rows,
+			Cols: cols,
+		}
+
+		canvases := plot.Align(plots, t, dc)
+		for i := 0; i < rows; i++ {
+			for j := 0; j < cols; j++ {
+				plots[i][j].Draw(canvases[i][j])
+			}
+		}
+
+		w, err := os.Create(resultFilesPrefix + ".png")
+		if err != nil {
+			panic(err)
+		}
+
+		png := vgimg.PngCanvas{Canvas: img}
+		if _, err := png.WriteTo(w); err != nil {
+			panic(err)
+		}
 	}
 }
 
