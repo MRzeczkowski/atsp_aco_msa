@@ -12,6 +12,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"time"
 
@@ -316,13 +317,13 @@ func tryFindSolution(path string) {
 
 func main() {
 
-	// f, err := os.Create("aco.prof")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
-	// pprof.StartCPUProfile(f)
-	// defer pprof.StopCPUProfile()
+	f, err := os.Create("aco.prof")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	pprof.StartCPUProfile(f)
+	defer pprof.StopCPUProfile()
 
 	dir := "tsp_files"
 	paths, err := filepath.Glob(filepath.Join(dir, "*.atsp"))

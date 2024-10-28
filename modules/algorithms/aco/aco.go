@@ -8,27 +8,43 @@ import (
 )
 
 type ACO struct {
-	useLocalSearch                                      bool
-	alpha, beta, rho, pDec, pCmsa                       float64
-	ants, iterations, currentIteration, BestAtIteration int
-	distances, pheromones                               [][]float64
-	cmsa                                                [][]float64
-	tauMin, tauMax, BestLength                          float64
-	BestTour                                            []int
-	reducedThreeOpt                                     *threeOpt.ReducedThreeOpt
-	knownOptimal                                        float64
-	DeviationPerIteration                               []float64
+	useLocalSearch                                              bool
+	alpha, beta, rho, pDec, pCmsa                               float64
+	ants, iterations, currentIteration, BestAtIteration         int
+	distances, pheromones, desirabilitiesPreCalc, probabilities [][]float64
+	cmsa                                                        [][]float64
+	tauMin, tauMax, BestLength                                  float64
+	BestTour                                                    []int
+	reducedThreeOpt                                             *threeOpt.ReducedThreeOpt
+	knownOptimal                                                float64
+	DeviationPerIteration                                       []float64
 }
 
 func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float64, ants, iterations int, knownOptimal float64, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
+	desirabilitiesPreCalc := make([][]float64, dimension)
+	probabilities := make([][]float64, dimension)
 
 	// Arbitrary high value: `4.3. Pheromone trail initialization`
 	for i := range pheromones {
+
 		pheromones[i] = make([]float64, dimension)
+		desirabilitiesPreCalc[i] = make([]float64, dimension)
+		probabilities[i] = make([]float64, dimension)
+
 		for j := range pheromones[i] {
 			pheromones[i][j] = 1.0 + (pherCmsa * cmsa[i][j])
+
+			pheromone := utilities.FastPow(pheromones[i][j], alpha)
+
+			// Adding 1 to each distance in calculation to avoid division by 0.
+			heuristic := 1.0 / (distances[i][j] + 1.0)
+			desirability := utilities.FastPow(heuristic, beta)
+
+			desirabilitiesPreCalc[i][j] = desirability
+
+			probabilities[i][j] = pheromone * desirability
 		}
 	}
 
@@ -46,6 +62,8 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float6
 		distances:             distances,
 		cmsa:                  cmsa,
 		pheromones:            pheromones,
+		desirabilitiesPreCalc: desirabilitiesPreCalc,
+		probabilities:         probabilities,
 		BestLength:            math.Inf(1),
 		reducedThreeOpt:       reducedThreeOpt,
 		knownOptimal:          knownOptimal,
@@ -136,12 +154,7 @@ func (aco *ACO) selectNextCity(current int, visited []bool) int {
 
 	for i := 0; i < dimension; i++ {
 		if !visited[i] && probabilities[i] == 0.0 {
-			pheromone := utilities.FastPow(aco.pheromones[current][i], aco.alpha)
-
-			// Adding 1 to each distance in calculation to avoid division by 0.
-			heuristic := 1.0 / (aco.distances[current][i] + 1.0)
-			desirability := utilities.FastPow(heuristic, aco.beta)
-			probabilities[i] = pheromone * desirability
+			probabilities[i] = aco.probabilities[current][i]
 			total += probabilities[i]
 		}
 	}
@@ -186,10 +199,15 @@ func (aco *ACO) clampPheromoneLevels() {
 
 // Global pheromones update (best ant)
 func (aco *ACO) globalPheromoneUpdate(iterationBestTour []int, iterationBestLength float64) {
+
+	evaporationCoefficient := 1 - aco.rho
 	// Evaporate pheromones globally
 	for i := range aco.pheromones {
 		for j := range aco.pheromones[i] {
-			aco.pheromones[i][j] *= (1 - aco.rho)
+			aco.pheromones[i][j] *= evaporationCoefficient
+
+			pheromone := utilities.FastPow(aco.pheromones[i][j], aco.alpha)
+			aco.probabilities[i][j] = pheromone * aco.desirabilitiesPreCalc[i][j]
 		}
 	}
 
@@ -231,9 +249,15 @@ func (aco *ACO) globalPheromoneUpdate(iterationBestTour []int, iterationBestLeng
 	for j := 0; j < len(bestTour)-1; j++ {
 		start, end := bestTour[j], bestTour[j+1]
 		aco.pheromones[start][end] += aco.rho * pheromoneDeposit
+
+		pheromone := utilities.FastPow(aco.pheromones[start][end], aco.alpha)
+		aco.probabilities[start][end] = pheromone * aco.desirabilitiesPreCalc[start][end]
 	}
 
 	// Handle the wrap-around from the last to the first node
 	last, first := bestTour[len(bestTour)-1], bestTour[0]
 	aco.pheromones[last][first] += aco.rho * pheromoneDeposit
+
+	pheromone := utilities.FastPow(aco.pheromones[last][first], aco.alpha)
+	aco.probabilities[last][first] = pheromone * aco.desirabilitiesPreCalc[last][first]
 }
