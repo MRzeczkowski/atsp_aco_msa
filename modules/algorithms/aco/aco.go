@@ -8,16 +8,16 @@ import (
 )
 
 type ACO struct {
-	useLocalSearch                                              bool
-	alpha, beta, rho, pDec, pCmsa                               float64
-	ants, iterations, currentIteration, BestAtIteration         int
-	distances, pheromones, desirabilitiesPreCalc, probabilities [][]float64
-	cmsa                                                        [][]float64
-	tauMin, tauMax, BestLength                                  float64
-	BestTour                                                    []int
-	reducedThreeOpt                                             *threeOpt.ReducedThreeOpt
-	knownOptimal                                                float64
-	DeviationPerIteration                                       []float64
+	useLocalSearch                                                 bool
+	alpha, beta, rho, pDec, pCmsa                                  float64
+	ants, iterations, currentIteration, BestAtIteration, dimension int
+	distances, pheromones, desirabilitiesPreCalc, probabilities    [][]float64
+	cmsa                                                           [][]float64
+	tauMin, tauMax, BestLength                                     float64
+	BestTour                                                       []int
+	reducedThreeOpt                                                *threeOpt.ReducedThreeOpt
+	knownOptimal                                                   float64
+	DeviationPerIteration                                          []float64
 }
 
 func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float64, ants, iterations int, knownOptimal float64, distances, cmsa [][]float64) *ACO {
@@ -59,6 +59,7 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float6
 		pCmsa:                 pCmsa,
 		ants:                  ants,
 		iterations:            iterations,
+		dimension:             dimension,
 		distances:             distances,
 		cmsa:                  cmsa,
 		pheromones:            pheromones,
@@ -74,12 +75,23 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float6
 // Main loop to run MMAS
 func (aco *ACO) Run() {
 
+	tours := make([][]int, aco.ants)
+	visited := make([][]bool, aco.ants)
+	probabilities := make([][]float64, aco.ants)
+
+	for i := 0; i < aco.ants; i++ {
+		tours[i] = make([]int, aco.dimension)
+		visited[i] = make([]bool, aco.dimension)
+		probabilities[i] = make([]float64, aco.dimension)
+	}
+
+	lengths := make([]float64, aco.ants)
+
 	for aco.currentIteration = 0; aco.currentIteration < aco.iterations; aco.currentIteration++ {
-		tours := make([][]int, aco.ants)
-		lengths := make([]float64, aco.ants)
 
 		for i := 0; i < aco.ants; i++ {
-			tours[i], lengths[i] = aco.constructTour(i)
+			aco.constructTour(i, tours[i], visited[i], probabilities[i])
+			lengths[i] = utilities.TourLength(tours[i], aco.distances)
 		}
 
 		iterationBestLength := math.Inf(1)
@@ -109,63 +121,63 @@ func (aco *ACO) Run() {
 }
 
 // Function to construct tour for each ant
-func (aco *ACO) constructTour(antNumber int) ([]int, float64) {
-	dimension := len(aco.distances)
-	tour := make([]int, dimension)
-	visited := make([]bool, dimension)
-	current := antNumber % dimension
+func (aco *ACO) constructTour(antNumber int, tour []int, visited []bool, probabilities []float64) {
+
+	current := antNumber % aco.dimension
 	tour[0] = current
 	visited[current] = true
 
-	for i := 1; i < dimension; i++ {
-		next := aco.selectNextCity(current, visited)
+	for i := 1; i < aco.dimension; i++ {
+		next := aco.selectNextCity(current, visited, probabilities)
 
 		tour[i] = next
 		visited[next] = true
 
 		current = next
+
+		for j := 0; j < aco.dimension; j++ {
+			probabilities[j] = 0.0
+		}
+	}
+
+	for i := 0; i < aco.dimension; i++ {
+		visited[i] = false
 	}
 
 	if aco.useLocalSearch {
 		aco.reducedThreeOpt.Run(tour)
 	}
-
-	length := utilities.TourLength(tour, aco.distances)
-	return tour, length
 }
 
 // Function to select the next city for an ant
-func (aco *ACO) selectNextCity(current int, visited []bool) int {
-	dimension := len(aco.distances)
-	probabilities := make([]float64, dimension)
+func (aco *ACO) selectNextCity(current int, visited []bool, probabilities []float64) int {
 	total := 0.0
 
 	// Apply CMSA logic to bias towards better tours. Other tours will also take part in roulette-wheel selection.
 	q := rand.Float64()
 	adaptiveCmsaProbability := aco.pCmsa * (1.0 - float64(aco.currentIteration)/float64(aco.iterations))
 	if q < adaptiveCmsaProbability {
-		for i := 0; i < dimension; i++ {
-			if !visited[i] && aco.cmsa[current][i] > 0 {
+		for i := 0; i < aco.dimension; i++ {
+			if !visited[i] && aco.cmsa[current][i] != 0 {
 				probabilities[i] = aco.cmsa[current][i]
 				total += probabilities[i]
 			}
 		}
 	}
 
-	for i := 0; i < dimension; i++ {
+	for i := 0; i < aco.dimension; i++ {
 		if !visited[i] && probabilities[i] == 0.0 {
 			probabilities[i] = aco.probabilities[current][i]
 			total += probabilities[i]
 		}
 	}
 
-	r := rand.Float64()
 	cumulativeProbability := 0.0
-	for i := 0; i < dimension; i++ {
+	for i := 0; i < aco.dimension; i++ {
 		if !visited[i] && probabilities[i] > 0.0 {
 			cumulativeProbability += probabilities[i] / total
 
-			if r < cumulativeProbability {
+			if q < cumulativeProbability {
 				return i
 			}
 		}
@@ -178,7 +190,7 @@ func (aco *ACO) updateLimits() {
 	aco.tauMax = 1.0 / ((1 - aco.rho) * aco.BestLength)
 
 	pDec := aco.pDec
-	nEffective := float64(len(aco.distances)) / 2.0 // Average possible choices.
+	nEffective := float64(aco.dimension) / 2.0 // Average possible choices.
 
 	numerator := aco.tauMax * (1.0 - pDec)
 	denominator := (nEffective - 1.0) * pDec
@@ -246,7 +258,7 @@ func (aco *ACO) globalPheromoneUpdate(iterationBestTour []int, iterationBestLeng
 	}
 
 	// Global update: Only the best tour deposits pheromones
-	for j := 0; j < len(bestTour)-1; j++ {
+	for j := 0; j < aco.dimension-1; j++ {
 		start, end := bestTour[j], bestTour[j+1]
 		aco.pheromones[start][end] += aco.rho * pheromoneDeposit
 
@@ -255,7 +267,7 @@ func (aco *ACO) globalPheromoneUpdate(iterationBestTour []int, iterationBestLeng
 	}
 
 	// Handle the wrap-around from the last to the first node
-	last, first := bestTour[len(bestTour)-1], bestTour[0]
+	last, first := bestTour[aco.dimension-1], bestTour[0]
 	aco.pheromones[last][first] += aco.rho * pheromoneDeposit
 
 	pheromone := utilities.FastPow(aco.pheromones[last][first], aco.alpha)

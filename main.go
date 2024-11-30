@@ -317,12 +317,12 @@ func tryFindSolution(path string) {
 
 func main() {
 
-	f, err := os.Create("aco.prof")
-	if err != nil {
-		fmt.Println(err)
+	cf, cerr := os.Create("cpu.prof")
+	if cerr != nil {
+		fmt.Println(cerr)
 		return
 	}
-	pprof.StartCPUProfile(f)
+	pprof.StartCPUProfile(cf)
 	defer pprof.StopCPUProfile()
 
 	dir := "tsp_files"
@@ -348,4 +348,13 @@ func main() {
 	for _, path := range paths {
 		tryFindSolution(path)
 	}
+
+	mf, merr := os.Create("mem.prof")
+	if merr != nil {
+		fmt.Println(merr)
+		return
+	}
+	defer mf.Close()
+
+	pprof.WriteHeapProfile(mf)
 }
