@@ -41,19 +41,21 @@ type ExperimentResult struct {
 }
 
 func (f ExperimentData) ToCSVRow() []string {
+
+	floatFormat := "%.2f"
+
 	return []string{
-		strconv.FormatBool(f.useLocalSearch),
-		fmt.Sprintf("%.2f", f.alpha),
-		fmt.Sprintf("%.2f", f.beta),
-		fmt.Sprintf("%.2f", f.rho),
-		fmt.Sprintf("%.2f", f.pBest),
-		fmt.Sprintf("%.2f", f.pherCmsa),
-		fmt.Sprintf("%.2f", f.pCmsa),
+		fmt.Sprintf(floatFormat, f.alpha),
+		fmt.Sprintf(floatFormat, f.beta),
+		fmt.Sprintf(floatFormat, f.rho),
+		fmt.Sprintf(floatFormat, f.pBest),
+		fmt.Sprintf(floatFormat, f.pherCmsa),
+		fmt.Sprintf(floatFormat, f.pCmsa),
 		strconv.Itoa(f.ExperimentResult.bestAtIteration),
-		fmt.Sprintf("%.2f", f.ExperimentResult.bestLength),
-		fmt.Sprintf("%f", f.ExperimentResult.deviation),
-		fmt.Sprintf("%.2f", f.ExperimentResult.successRate),
-		fmt.Sprintf("%f", f.ExperimentResult.commonalityWithCmsa),
+		fmt.Sprintf(floatFormat, f.ExperimentResult.bestLength),
+		fmt.Sprintf(floatFormat, f.ExperimentResult.deviation),
+		fmt.Sprintf(floatFormat, f.ExperimentResult.successRate),
+		fmt.Sprintf(floatFormat, f.ExperimentResult.commonalityWithCmsa),
 		strconv.Itoa(int(f.ExperimentResult.computationTime)),
 	}
 }
@@ -203,7 +205,6 @@ func tryFindSolution(path string) {
 		writer := csv.NewWriter(file)
 
 		header := []string{
-			"Used local search",
 			"Alpha",
 			"Beta",
 			"Rho",
