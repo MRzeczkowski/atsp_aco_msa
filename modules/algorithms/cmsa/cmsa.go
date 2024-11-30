@@ -3,7 +3,7 @@ package cmsa
 import (
 	"atsp_aco_msa/modules/algorithms/edmonds"
 	"atsp_aco_msa/modules/models"
-	"atsp_aco_msa/modules/utilities"
+	"math"
 )
 
 type Edge = models.Edge
@@ -46,8 +46,8 @@ func CreateCMSA(dimension int, matrix [][]float64) [][]float64 {
 
 	// for i, msa := range msas {
 	// 	for _, edge := range msa {
-	// 		cmsa[edge.From][edge.To] += utilities.FastPow(1/weights[edge], 5)
-	// 		cmsa[edge.From][edge.To] += utilities.FastPow(1/lengths[i], 5)
+	// 		cmsa[edge.From][edge.To] += math.Pow(1/weights[edge], 5)
+	// 		cmsa[edge.From][edge.To] += math.Pow(1/lengths[i], 5)
 	// 	}
 	// }
 
@@ -61,13 +61,13 @@ func CreateCMSA(dimension int, matrix [][]float64) [][]float64 {
 		// }
 
 		for _, edge := range msa {
-			cmsa[edge.From][edge.To] = utilities.FastPow(occurrences[edge], 1)
-			//cmsa[edge.From][edge.To] += utilities.FastPow(1/msaStats[i].stdDevWeight, 1)
-			//cmsa[edge.From][edge.To] += utilities.FastPow(1/msaStats[i].skewness, 1)
-			//cmsa[edge.From][edge.To] = utilities.FastPow(1/msaStats[i].kurtosis, 1)
-			//cmsa[edge.From][edge.To] += utilities.FastPow(1/weights[edge], 1)
-			//cmsa[edge.From][edge.To] += utilities.FastPow(1/lengths[i], 1)
-			//cmsa[edge.From][edge.To] += utilities.FastPow(1/leafCounts[i], 1)
+			cmsa[edge.From][edge.To] = math.Pow(occurrences[edge], 1)
+			//cmsa[edge.From][edge.To] += math.Pow(1/msaStats[i].stdDevWeight, 1)
+			//cmsa[edge.From][edge.To] += math.Pow(1/msaStats[i].skewness, 1)
+			//cmsa[edge.From][edge.To] = math.Pow(1/msaStats[i].kurtosis, 1)
+			//cmsa[edge.From][edge.To] += math.Pow(1/weights[edge], 1)
+			//cmsa[edge.From][edge.To] += math.Pow(1/lengths[i], 1)
+			//cmsa[edge.From][edge.To] += math.Pow(1/leafCounts[i], 1)
 
 			//cmsa[edge.From][edge.To] /= occurrence[edge]
 		}

@@ -36,11 +36,11 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float6
 		for j := range pheromones[i] {
 			pheromones[i][j] = 1.0 + (pherCmsa * cmsa[i][j])
 
-			pheromone := utilities.FastPow(pheromones[i][j], alpha)
+			pheromone := math.Pow(pheromones[i][j], alpha)
 
 			// Adding 1 to each distance in calculation to avoid division by 0.
 			heuristic := 1.0 / (distances[i][j] + 1.0)
-			desirability := utilities.FastPow(heuristic, beta)
+			desirability := math.Pow(heuristic, beta)
 
 			desirabilitiesPreCalc[i][j] = desirability
 
@@ -218,7 +218,7 @@ func (aco *ACO) globalPheromoneUpdate(iterationBestTour []int, iterationBestLeng
 		for j := range aco.pheromones[i] {
 			aco.pheromones[i][j] *= evaporationCoefficient
 
-			pheromone := utilities.FastPow(aco.pheromones[i][j], aco.alpha)
+			pheromone := math.Pow(aco.pheromones[i][j], aco.alpha)
 			aco.probabilities[i][j] = pheromone * aco.desirabilitiesPreCalc[i][j]
 		}
 	}
@@ -262,7 +262,7 @@ func (aco *ACO) globalPheromoneUpdate(iterationBestTour []int, iterationBestLeng
 		start, end := bestTour[j], bestTour[j+1]
 		aco.pheromones[start][end] += aco.rho * pheromoneDeposit
 
-		pheromone := utilities.FastPow(aco.pheromones[start][end], aco.alpha)
+		pheromone := math.Pow(aco.pheromones[start][end], aco.alpha)
 		aco.probabilities[start][end] = pheromone * aco.desirabilitiesPreCalc[start][end]
 	}
 
@@ -270,6 +270,6 @@ func (aco *ACO) globalPheromoneUpdate(iterationBestTour []int, iterationBestLeng
 	last, first := bestTour[aco.dimension-1], bestTour[0]
 	aco.pheromones[last][first] += aco.rho * pheromoneDeposit
 
-	pheromone := utilities.FastPow(aco.pheromones[last][first], aco.alpha)
+	pheromone := math.Pow(aco.pheromones[last][first], aco.alpha)
 	aco.probabilities[last][first] = pheromone * aco.desirabilitiesPreCalc[last][first]
 }
