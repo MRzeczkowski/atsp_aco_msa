@@ -52,7 +52,7 @@ func (f ExperimentData) ToCSVRow() []string {
 		fmt.Sprintf(floatFormat, f.pherCmsa),
 		fmt.Sprintf(floatFormat, f.pCmsa),
 		strconv.Itoa(f.ExperimentResult.bestAtIteration),
-		fmt.Sprintf(floatFormat, f.ExperimentResult.bestLength),
+		fmt.Sprintf("%.0f", f.ExperimentResult.bestLength),
 		fmt.Sprintf(floatFormat, f.ExperimentResult.deviation),
 		fmt.Sprintf(floatFormat, f.ExperimentResult.successRate),
 		fmt.Sprintf(floatFormat, f.ExperimentResult.commonalityWithCmsa),
