@@ -99,6 +99,9 @@ Co dalej?
 9. Latex vs Google docs
 
 Ważne rzeczy w pracy:
-1. ACO/MMAS
-2. Heurystyka: MSAs
-3. reduced 3-opt
+1. TSP
+2. MST
+3. ATSP
+4. MSA
+5. ACO/MMAS
+6. reduced 3-opt
