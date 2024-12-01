@@ -121,7 +121,7 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 					k := (fIdx - 1 + n) % n
 					e := tour[k]
 
-					if !(haveCorrectSpacing(j, k, n) && haveCorrectSpacing(k, i, n) && isBetween(i, j, k)) {
+					if !(isBetween(i, j, k) && haveCorrectSpacing(j, k, n) && haveCorrectSpacing(k, i, n)) {
 						continue
 					}
 

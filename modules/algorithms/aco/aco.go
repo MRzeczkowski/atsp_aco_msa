@@ -97,13 +97,12 @@ func (aco *ACO) Run() {
 
 		for i := 0; i < aco.ants; i++ {
 			aco.constructTour(i, tours[i], canVisitBits[i], probabilities[i])
-			lengths[i] = utilities.TourLength(tours[i], aco.distances)
-		}
 
-		if aco.useLocalSearch {
-			for i := 0; i < aco.ants; i++ {
+			if aco.useLocalSearch {
 				aco.reducedThreeOpt.Run(tours[i])
 			}
+
+			lengths[i] = utilities.TourLength(tours[i], aco.distances)
 		}
 
 		iterationBestLength := math.MaxFloat64
