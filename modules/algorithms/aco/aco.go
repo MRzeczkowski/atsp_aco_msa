@@ -70,7 +70,7 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float6
 		desirabilitiesPreCalc:     desirabilitiesPreCalc,
 		probabilities:             probabilities,
 		cmsaProbabilities:         cmsaProbabilities,
-		BestLength:                math.Inf(1),
+		BestLength:                math.MaxFloat64,
 		reducedThreeOpt:           reducedThreeOpt,
 		knownOptimal:              knownOptimal,
 		DeviationPerIteration:     make([]float64, iterations),
@@ -106,7 +106,7 @@ func (aco *ACO) Run() {
 			}
 		}
 
-		iterationBestLength := math.Inf(1)
+		iterationBestLength := math.MaxFloat64
 		iterationBestTour := []int{}
 		for i := 0; i < aco.ants; i++ {
 			tour := tours[i]
