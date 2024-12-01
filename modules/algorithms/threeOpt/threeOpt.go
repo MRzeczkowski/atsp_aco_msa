@@ -11,6 +11,7 @@ type ReducedThreeOpt struct {
 	neighborsLists     [][]int
 	dontLookBits       []bool
 	positions, newTour []int
+	Improvements       int
 }
 
 func NewReducedThreeOpt(distances [][]float64, k int) *ReducedThreeOpt {
@@ -22,6 +23,7 @@ func NewReducedThreeOpt(distances [][]float64, k int) *ReducedThreeOpt {
 		dontLookBits:   make([]bool, n),
 		positions:      make([]int, n),
 		newTour:        make([]int, n),
+		Improvements:   0,
 	}
 }
 
@@ -175,6 +177,7 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 					threeOpt.dontLookBits[f] = false
 
 					improves = true
+					threeOpt.Improvements++
 					break loops // Exit after applying a move
 				}
 			}

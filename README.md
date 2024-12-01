@@ -105,3 +105,15 @@ Ważne rzeczy w pracy:
 4. MSA
 5. ACO/MMAS
 6. reduced 3-opt
+
+	cmsaBit := 0.0
+	if q < adaptiveCmsaProbability {
+		cmsaBit = 1.0
+	}
+
+	for i := 0; i < aco.dimension; i++ {
+		probabilities[i] = canVisitBits[i] * (aco.probabilities[current][i] + cmsaBit*aco.cmsa[current][i])
+
+		total += probabilities[i]
+	}
+

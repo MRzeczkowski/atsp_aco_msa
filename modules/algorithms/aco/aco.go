@@ -18,6 +18,7 @@ type ACO struct {
 	reducedThreeOpt                                                                *threeOpt.ReducedThreeOpt
 	knownOptimal                                                                   float64
 	DeviationPerIteration                                                          []float64
+	ThreeOptImprovementsCount                                                      int
 }
 
 func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float64, ants, iterations int, knownOptimal float64, distances, cmsa [][]float64) *ACO {
@@ -54,25 +55,26 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float6
 	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, 25)
 
 	return &ACO{
-		useLocalSearch:        useLocalSearch,
-		alpha:                 alpha,
-		beta:                  beta,
-		rho:                   rho,
-		pDec:                  math.Pow(pBest, 1.0/float64(dimension)),
-		pCmsa:                 pCmsa,
-		ants:                  ants,
-		iterations:            iterations,
-		dimension:             dimension,
-		distances:             distances,
-		cmsa:                  cmsa,
-		pheromones:            pheromones,
-		desirabilitiesPreCalc: desirabilitiesPreCalc,
-		probabilities:         probabilities,
-		cmsaProbabilities:     cmsaProbabilities,
-		BestLength:            math.Inf(1),
-		reducedThreeOpt:       reducedThreeOpt,
-		knownOptimal:          knownOptimal,
-		DeviationPerIteration: make([]float64, iterations),
+		useLocalSearch:            useLocalSearch,
+		alpha:                     alpha,
+		beta:                      beta,
+		rho:                       rho,
+		pDec:                      math.Pow(pBest, 1.0/float64(dimension)),
+		pCmsa:                     pCmsa,
+		ants:                      ants,
+		iterations:                iterations,
+		dimension:                 dimension,
+		distances:                 distances,
+		cmsa:                      cmsa,
+		pheromones:                pheromones,
+		desirabilitiesPreCalc:     desirabilitiesPreCalc,
+		probabilities:             probabilities,
+		cmsaProbabilities:         cmsaProbabilities,
+		BestLength:                math.Inf(1),
+		reducedThreeOpt:           reducedThreeOpt,
+		knownOptimal:              knownOptimal,
+		DeviationPerIteration:     make([]float64, iterations),
+		ThreeOptImprovementsCount: 0,
 	}
 }
 
@@ -96,6 +98,12 @@ func (aco *ACO) Run() {
 		for i := 0; i < aco.ants; i++ {
 			aco.constructTour(i, tours[i], canVisitBits[i], probabilities[i])
 			lengths[i] = utilities.TourLength(tours[i], aco.distances)
+		}
+
+		if aco.useLocalSearch {
+			for i := 0; i < aco.ants; i++ {
+				aco.reducedThreeOpt.Run(tours[i])
+			}
 		}
 
 		iterationBestLength := math.Inf(1)
@@ -122,6 +130,8 @@ func (aco *ACO) Run() {
 		aco.updateLimits()
 		aco.clampPheromoneLevels()
 	}
+
+	aco.ThreeOptImprovementsCount = aco.reducedThreeOpt.Improvements
 }
 
 // Function to construct tour for each ant
@@ -141,10 +151,6 @@ func (aco *ACO) constructTour(antNumber int, tour []int, canVisitBits []float64,
 		canVisitBits[next] = 0.0
 
 		current = next
-	}
-
-	if aco.useLocalSearch {
-		aco.reducedThreeOpt.Run(tour)
 	}
 }
 
