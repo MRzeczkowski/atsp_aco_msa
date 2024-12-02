@@ -2,7 +2,7 @@ package main
 
 import (
 	"atsp_aco_msa/modules/algorithms/aco"
-	"atsp_aco_msa/modules/algorithms/cmsa"
+	"atsp_aco_msa/modules/algorithms/compositeMsa"
 	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/parsing"
 	"atsp_aco_msa/modules/utilities"
@@ -165,11 +165,24 @@ func tryFindSolution(path string) {
 	name, dimension, matrix, err := parsing.ParseTSPLIBFile(path)
 
 	if err != nil {
-		fmt.Println("Error parsing file:", path, err)
+		fmt.Println("Error parsing TSPLIB file:", path, err)
 		return
 	}
 
-	cmsa := cmsa.CreateCMSA(dimension, matrix)
+	cmsaCSVPath := filepath.Join("results", name) + "_cmsa.csv"
+
+	cmsa, err := compositeMsa.ReadFromCsv(cmsaCSVPath)
+
+	if err != nil {
+		fmt.Println("Error parsing CMSA file:", cmsaCSVPath, err)
+
+		cmsa = compositeMsa.CreateFromData(matrix)
+		err := compositeMsa.SaveToCsv(cmsa, cmsaCSVPath)
+
+		if err != nil {
+			fmt.Println("Error saving CMSA to file:", cmsaCSVPath, err)
+		}
+	}
 
 	var iterations = 100
 
@@ -187,7 +200,7 @@ func tryFindSolution(path string) {
 		iterations = 1000
 	}
 
-	for _, useLocalSearch := range []bool{false, true} {
+	for _, useLocalSearch := range []bool{false} {
 
 		resultFilesPrefix := filepath.Join("results", name)
 
@@ -342,7 +355,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize == 170
+			return problemSize < 50
 		})
 
 	for _, path := range paths {
