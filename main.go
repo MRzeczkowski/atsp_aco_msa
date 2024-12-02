@@ -173,8 +173,9 @@ func tryFindSolution(path string) {
 
 	cmsa, err := compositeMsa.ReadFromCsv(cmsaCSVPath)
 
-	if err != nil {
-		fmt.Println("Error parsing CMSA file:", cmsaCSVPath, err)
+	// if err != nil
+	{
+		// fmt.Println("Error parsing CMSA file:", cmsaCSVPath, err)
 
 		start := time.Now()
 		cmsa = compositeMsa.CreateFromData(matrix)
@@ -189,6 +190,7 @@ func tryFindSolution(path string) {
 		}
 	}
 
+	return
 	var iterations = 100
 
 	// https://sci-hub.se/10.1109/ICICTA.2010.731
