@@ -176,7 +176,12 @@ func tryFindSolution(path string) {
 	if err != nil {
 		fmt.Println("Error parsing CMSA file:", cmsaCSVPath, err)
 
+		start := time.Now()
 		cmsa = compositeMsa.CreateFromData(matrix)
+		elapsed := time.Since(start)
+
+		fmt.Printf("Creating %s took: %d ms\n", cmsaCSVPath, elapsed.Milliseconds())
+
 		err := compositeMsa.SaveToCsv(cmsa, cmsaCSVPath)
 
 		if err != nil {
