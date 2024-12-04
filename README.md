@@ -130,3 +130,35 @@ Creating results/rbg358_cmsa.csv took: 2406854 ms
 Creating results/rbg403_cmsa.csv took: 3645321 ms
 Creating results/rbg443_cmsa.csv took: 5475710 ms
 Creating results/ry48p_cmsa.csv took: 483 ms
+
+Normal (without very big files):
+Creating results/br17_cmsa.csv took: 10 ms
+Creating results/ft53_cmsa.csv took: 384 ms
+Creating results/ft70_cmsa.csv took: 1011 ms
+Creating results/ftv170_cmsa.csv took: 51177 ms
+Creating results/ftv33_cmsa.csv took: 100 ms
+Creating results/ftv35_cmsa.csv took: 116 ms
+Creating results/ftv38_cmsa.csv took: 145 ms
+Creating results/ftv44_cmsa.csv took: 211 ms
+Creating results/ftv47_cmsa.csv took: 313 ms
+Creating results/ftv55_cmsa.csv took: 608 ms
+Creating results/ftv64_cmsa.csv took: 1078 ms
+Creating results/ftv70_cmsa.csv took: 1507 ms
+Creating results/p43_cmsa.csv took: 623 ms
+Creating results/ry48p_cmsa.csv took: 483 ms
+
+Preallocation:
+Creating results/br17_cmsa.csv took: 10 ms
+Creating results/ft53_cmsa.csv took: 301 ms
+Creating results/ft70_cmsa.csv took: 767 ms
+Creating results/ftv170_cmsa.csv took: 41365 ms
+Creating results/ftv33_cmsa.csv took: 74 ms
+Creating results/ftv35_cmsa.csv took: 86 ms
+Creating results/ftv38_cmsa.csv took: 113 ms
+Creating results/ftv44_cmsa.csv took: 160 ms
+Creating results/ftv47_cmsa.csv took: 229 ms
+Creating results/ftv55_cmsa.csv took: 474 ms
+Creating results/ftv64_cmsa.csv took: 842 ms
+Creating results/ftv70_cmsa.csv took: 1113 ms
+Creating results/p43_cmsa.csv took: 456 ms
+Creating results/ry48p_cmsa.csv took: 376 ms

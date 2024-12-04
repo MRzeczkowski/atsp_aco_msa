@@ -10,8 +10,8 @@ type Edge = models.Edge
 func FindMSA(vertices []int, edges []Edge, root int, weights map[Edge]float64) []Edge {
 
 	// Step 1: Removing all edges leading back to the root and adjusting edge set
-	var filteredEdges []Edge
-	filteredWeights := make(map[Edge]float64, len(weights))
+	filteredEdges := make([]Edge, 0, len(edges))
+	filteredWeights := make(map[Edge]float64, len(edges))
 
 	for _, edge := range edges {
 		if edge.To != root {
@@ -22,7 +22,7 @@ func FindMSA(vertices []int, edges []Edge, root int, weights map[Edge]float64) [
 
 	// Step 2: Finding minimum incoming edge for each vertex
 	// This map tracks the parent of each vertex in the current minimum spanning tree under construction.
-	parentPointers := make(map[int]int)
+	parentPointers := make(map[int]int, len(vertices)-1)
 
 	for _, vertex := range vertices {
 		if vertex == root {
@@ -49,7 +49,7 @@ func FindMSA(vertices []int, edges []Edge, root int, weights map[Edge]float64) [
 			break // Exit early if a cycle is detected
 		}
 
-		visited = make(map[int]bool) // Track visited vertices for this traversal
+		visited = make(map[int]bool, len(vertices)) // Track visited vertices for this traversal
 		nextVertex, exists := parentPointers[vertex]
 
 		for exists {
@@ -65,7 +65,7 @@ func FindMSA(vertices []int, edges []Edge, root int, weights map[Edge]float64) [
 
 	// Step 4: No cycle
 	if cycleVertex == -1 {
-		msaEdges := []Edge{}
+		msaEdges := make([]Edge, 0, len(parentPointers))
 
 		// Build the Minimum Spanning Arborescence from parentPointers
 		for vertex, parent := range parentPointers {
@@ -85,12 +85,12 @@ func FindMSA(vertices []int, edges []Edge, root int, weights map[Edge]float64) [
 		nextVertex = parentPointers[nextVertex]
 	}
 
-	// Step 6: Contract the cycle into a new node v_c
 	// Step 6: Contract the cycle into a new node
 	superNode := -(cycleVertex * cycleVertex) // Unique identifier for the super-node
 
-	// Create new vertices list excluding the cycle vertices
-	contractedVertices := []int{}
+	// Create new vertices list excluding the cycle vertices and including super-node
+	contractedVerticesCount := len(vertices) - len(cycleVertices) + 1
+	contractedVertices := make([]int, 0, contractedVerticesCount)
 	for _, vertex := range vertices {
 		if !cycleVertices[vertex] {
 			contractedVertices = append(contractedVertices, vertex)
@@ -98,10 +98,13 @@ func FindMSA(vertices []int, edges []Edge, root int, weights map[Edge]float64) [
 	}
 	contractedVertices = append(contractedVertices, superNode) // Add the super-node
 
+	// Estimate the worst-case number of edges in the contracted graph
+	maxEdges := contractedVerticesCount * (contractedVerticesCount - 1)
+
 	// Initialize contracted edges, weights, and correspondence mapping
-	contractedEdges := []Edge{}
-	contractedWeights := make(map[Edge]float64)
-	edgeMapping := make(map[Edge]Edge)
+	contractedEdges := make([]Edge, 0, maxEdges) // Preallocate based on contracted vertices
+	contractedWeights := make(map[Edge]float64, maxEdges)
+	edgeMapping := make(map[Edge]Edge, maxEdges)
 
 	for _, edge := range filteredEdges {
 		sourceVertex := edge.From
@@ -119,11 +122,9 @@ func FindMSA(vertices []int, edges []Edge, root int, weights map[Edge]float64) [
 				relativeWeight := filteredWeights[edge] - filteredWeights[minCycleEdge]
 
 				// Check if a contracted edge already exists and compare weights
-				if weight, exists := contractedWeights[contractedEdge]; exists {
-					// Keep the minimum weight edge
-					if weight <= relativeWeight {
-						continue
-					}
+				if weight, exists := contractedWeights[contractedEdge]; exists &&
+					weight <= relativeWeight {
+					continue // Keep the lighter edge
 				}
 
 				contractedWeights[contractedEdge] = relativeWeight
@@ -136,11 +137,10 @@ func FindMSA(vertices []int, edges []Edge, root int, weights map[Edge]float64) [
 		if cycleVertices[sourceVertex] && !cycleVertices[destinationVertex] {
 			contractedEdge := Edge{From: superNode, To: destinationVertex}
 
-			if weight, exists := contractedWeights[contractedEdge]; exists {
-				// Keep the minimum weight edge
-				if weight <= filteredWeights[edge] {
-					continue
-				}
+			// Check if a contracted edge already exists and compare weights
+			if weight, exists := contractedWeights[contractedEdge]; exists &&
+				weight <= filteredWeights[edge] {
+				continue // Keep the lighter edge
 			}
 
 			contractedWeights[contractedEdge] = filteredWeights[edge]
@@ -184,7 +184,9 @@ func FindMSA(vertices []int, edges []Edge, root int, weights map[Edge]float64) [
 	}
 
 	// Translate the edges from the contracted graph back to the original graph
-	expandedEdgeSet := make(map[Edge]bool)
+	expandedSetSize := len(contractedTree) + len(cycleVertices) - 1
+
+	expandedEdgeSet := make(map[Edge]bool, expandedSetSize)
 	for _, contractedEdge := range contractedTree {
 		expandedEdgeSet[edgeMapping[contractedEdge]] = true
 	}
@@ -200,7 +202,7 @@ func FindMSA(vertices []int, edges []Edge, root int, weights map[Edge]float64) [
 	delete(expandedEdgeSet, connectingEdgeToCycle)
 
 	// Convert the edge set back into a slice for the final result
-	finalMSA := make([]Edge, 0)
+	finalMSA := make([]Edge, 0, expandedSetSize)
 	for edge := range expandedEdgeSet {
 		finalMSA = append(finalMSA, edge)
 	}
