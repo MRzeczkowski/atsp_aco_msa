@@ -12,6 +12,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"time"
 
@@ -173,8 +174,9 @@ func tryFindSolution(path string) {
 
 	cmsa, err := compositeMsa.ReadFromCsv(cmsaCSVPath)
 
-	if err != nil {
-		fmt.Println("Error parsing CMSA file:", cmsaCSVPath, err)
+	// if err != nil
+	{
+		// fmt.Println("Error parsing CMSA file:", cmsaCSVPath, err)
 
 		start := time.Now()
 		cmsa = compositeMsa.CreateFromData(matrix)
@@ -188,6 +190,8 @@ func tryFindSolution(path string) {
 			fmt.Println("Error saving CMSA to file:", cmsaCSVPath, err)
 		}
 	}
+
+	return
 
 	var iterations = 100
 
@@ -335,13 +339,13 @@ func tryFindSolution(path string) {
 
 func main() {
 
-	// cf, cerr := os.Create("cpu.prof")
-	// if cerr != nil {
-	// 	fmt.Println(cerr)
-	// 	return
-	// }
-	// pprof.StartCPUProfile(cf)
-	// defer pprof.StopCPUProfile()
+	cf, cerr := os.Create("cpu.prof")
+	if cerr != nil {
+		fmt.Println(cerr)
+		return
+	}
+	pprof.StartCPUProfile(cf)
+	defer pprof.StopCPUProfile()
 
 	dir := "tsp_files"
 	paths, err := filepath.Glob(filepath.Join(dir, "*.atsp"))
@@ -360,19 +364,19 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 100
+			return problemSize < 5000
 		})
 
 	for _, path := range paths {
 		tryFindSolution(path)
 	}
 
-	// mf, merr := os.Create("mem.prof")
-	// if merr != nil {
-	// 	fmt.Println(merr)
-	// 	return
-	// }
-	// defer mf.Close()
+	mf, merr := os.Create("mem.prof")
+	if merr != nil {
+		fmt.Println(merr)
+		return
+	}
+	defer mf.Close()
 
-	// pprof.WriteHeapProfile(mf)
+	pprof.WriteHeapProfile(mf)
 }
