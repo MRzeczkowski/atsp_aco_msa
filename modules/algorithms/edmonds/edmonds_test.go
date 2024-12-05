@@ -30,7 +30,7 @@ func TestFindMSA(t *testing.T) {
 	}
 
 	// Call the function
-	result := FindMSA(V, E, 0, w)
+	result := FindMSA(0, V, E, w)
 
 	// Compare results
 	if !compareEdges(result, expected) {
@@ -59,7 +59,7 @@ func TestFindMSAWithCycle(t *testing.T) {
 		{From: 2, To: 3},
 	}
 
-	result := FindMSA(V, E, 0, w)
+	result := FindMSA(0, V, E, w)
 	if !compareEdges(result, expected) {
 		t.Errorf("Expected %v, got %v", expected, result)
 	}
