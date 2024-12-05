@@ -177,12 +177,12 @@ func getParentPointers(root int, vertices []int, filteredEdges []Edge, filteredW
 			continue
 		}
 
-		minCost := math.MaxFloat64
+		minWeight := math.MaxFloat64
 
 		// Find the minimum incoming edge for this vertex
 		for _, edge := range filteredEdges {
-			if edge.To == vertex && filteredWeights[edge] < minCost {
-				minCost = filteredWeights[edge]
+			if edge.To == vertex && filteredWeights[edge] < minWeight {
+				minWeight = filteredWeights[edge]
 				parentPointers[vertex] = edge.From
 			}
 		}
@@ -208,5 +208,5 @@ func getCycleVertex(vertices []int, parentPointers map[int]int) (int, bool) {
 		}
 	}
 
-	return -1, false // No cycle found
+	return math.MinInt32, false // No cycle found
 }
