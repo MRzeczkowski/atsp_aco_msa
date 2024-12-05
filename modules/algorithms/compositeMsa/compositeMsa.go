@@ -53,7 +53,7 @@ func CreateFromData(matrix [][]float64) [][]float64 {
 
 	for i := 0; i < dimension; i++ {
 
-		msa := edmonds.FindMSA(vertices, edges, i, weights)
+		msa := edmonds.FindMSA(i, vertices, edges, weights)
 
 		msas[i] = msa
 
