@@ -128,15 +128,15 @@ func FindMSA(root int, vertices []int, edges []Edge, weights map[Edge]float64) [
 
 	// Identify the edge in the MSA solution that connects to the super-node
 	for _, contractedEdge := range contractedTree {
-		sourceVertex := contractedEdge.From
-		targetVertex := contractedEdge.To
-
-		if targetVertex == superNode {
+		if contractedEdge.To == superNode {
 			// Retrieve the original edge corresponding to this contracted edge
-			originalTarget := edgeMapping[Edge{From: sourceVertex, To: superNode}].To
+			originalEdge := edgeMapping[contractedEdge]
 
 			// Determine the internal cycle edge to replace the contracted edge
-			connectingEdgeToCycle = Edge{From: parentPointers[originalTarget], To: originalTarget}
+			originalTarget := originalEdge.To
+			originalSource := parentPointers[originalTarget]
+
+			connectingEdgeToCycle = Edge{From: originalSource, To: originalTarget}
 			break
 		}
 	}
