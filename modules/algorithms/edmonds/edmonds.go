@@ -11,17 +11,15 @@ func FindMSA(root int, vertices []int, edges []Edge, weights map[Edge]float64) [
 
 	// Step 1: Removing all edges leading back to the root and adjusting edge set
 	filteredEdges := make([]Edge, 0, len(edges))
-	filteredWeights := make(map[Edge]float64, len(edges))
 
 	for _, edge := range edges {
 		if edge.To != root {
 			filteredEdges = append(filteredEdges, edge)
-			filteredWeights[edge] = weights[edge]
 		}
 	}
 
 	// Step 2: Finding minimum incoming edge for each vertex
-	parentPointers := getParentPointers(root, vertices, filteredEdges, filteredWeights)
+	parentPointers := getParentPointers(root, vertices, filteredEdges, weights)
 
 	// Step 3: Finding cycles
 	cycleVertex, found := getCycleVertex(vertices, parentPointers)
@@ -82,7 +80,7 @@ func FindMSA(root int, vertices []int, edges []Edge, weights map[Edge]float64) [
 				minCycleEdge := Edge{From: parentVertex, To: destinationVertex}
 
 				// Calculate the relative weight adjustment
-				relativeWeight := filteredWeights[edge] - filteredWeights[minCycleEdge]
+				relativeWeight := weights[edge] - weights[minCycleEdge]
 
 				// Check if a contracted edge already exists and compare weights, keep the lighter one
 				if weight, exists := contractedWeights[contractedEdge]; exists && weight <= relativeWeight {
@@ -100,11 +98,11 @@ func FindMSA(root int, vertices []int, edges []Edge, weights map[Edge]float64) [
 			contractedEdge := Edge{From: superNode, To: destinationVertex}
 
 			// Check if a contracted edge already exists and compare weights, keep the lighter one
-			if weight, exists := contractedWeights[contractedEdge]; exists && weight <= filteredWeights[edge] {
+			if weight, exists := contractedWeights[contractedEdge]; exists && weight <= weights[edge] {
 				continue
 			}
 
-			contractedWeights[contractedEdge] = filteredWeights[edge]
+			contractedWeights[contractedEdge] = weights[edge]
 			edgeMapping[contractedEdge] = edge
 			contractedEdges = append(contractedEdges, contractedEdge)
 		}
@@ -113,7 +111,7 @@ func FindMSA(root int, vertices []int, edges []Edge, weights map[Edge]float64) [
 		if !cycleVertices[sourceVertex] && !cycleVertices[destinationVertex] {
 
 			// Keeping the edge and its weight unchanged, 1:1 mapping and adding as is to the contracted graph
-			contractedWeights[edge] = filteredWeights[edge]
+			contractedWeights[edge] = weights[edge]
 			edgeMapping[edge] = edge
 			contractedEdges = append(contractedEdges, edge)
 		}
@@ -168,22 +166,28 @@ func FindMSA(root int, vertices []int, edges []Edge, weights map[Edge]float64) [
 	return finalMSA
 }
 
-func getParentPointers(root int, vertices []int, filteredEdges []Edge, filteredWeights map[Edge]float64) map[int]int {
+func getParentPointers(root int, vertices []int, filteredEdges []Edge, weights map[Edge]float64) map[int]int {
+
 	// This map tracks the parent of each vertex in the current minimum spanning tree under construction.
 	parentPointers := make(map[int]int, len(vertices)-1)
 
-	for _, vertex := range vertices {
-		if vertex == root {
+	// By grouping we avoid some iterations. This becomes more like V^2.
+	edgesByDest := make(map[int][]Edge, len(vertices))
+	for _, e := range filteredEdges {
+		edgesByDest[e.To] = append(edgesByDest[e.To], e)
+	}
+
+	for _, v := range vertices {
+		if v == root {
 			continue
 		}
 
 		minWeight := math.MaxFloat64
-
-		// Find the minimum incoming edge for this vertex
-		for _, edge := range filteredEdges {
-			if edge.To == vertex && filteredWeights[edge] < minWeight {
-				minWeight = filteredWeights[edge]
-				parentPointers[vertex] = edge.From
+		for _, edge := range edgesByDest[v] {
+			weight := weights[edge]
+			if weight < minWeight {
+				minWeight = weight
+				parentPointers[v] = edge.From
 			}
 		}
 	}
