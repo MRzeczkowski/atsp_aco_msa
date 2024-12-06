@@ -173,21 +173,21 @@ func getParentPointers(root int, vertices []int, filteredEdges []Edge, weights m
 
 	// By grouping we avoid some iterations. This becomes more like V^2.
 	edgesByDest := make(map[int][]Edge, len(vertices))
-	for _, e := range filteredEdges {
-		edgesByDest[e.To] = append(edgesByDest[e.To], e)
+	for _, edge := range filteredEdges {
+		edgesByDest[edge.To] = append(edgesByDest[edge.To], edge)
 	}
 
-	for _, v := range vertices {
-		if v == root {
+	for _, vertex := range vertices {
+		if vertex == root {
 			continue
 		}
 
 		minWeight := math.MaxFloat64
-		for _, edge := range edgesByDest[v] {
+		for _, edge := range edgesByDest[vertex] {
 			weight := weights[edge]
 			if weight < minWeight {
 				minWeight = weight
-				parentPointers[v] = edge.From
+				parentPointers[vertex] = edge.From
 			}
 		}
 	}
