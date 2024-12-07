@@ -150,3 +150,23 @@ Creating results/rbg358_cmsa.csv took: 2061367 ms
 Creating results/rbg403_cmsa.csv took: 3091203 ms
 Creating results/rbg443_cmsa.csv took: 4772496 ms
 Creating results/ry48p_cmsa.csv took: 369 ms
+
+Grouping:
+Creating results/br17_cmsa.csv took: 8 ms
+Creating results/ft53_cmsa.csv took: 232 ms
+Creating results/ft70_cmsa.csv took: 573 ms
+Creating results/ftv170_cmsa.csv took: 26199 ms
+Creating results/ftv33_cmsa.csv took: 62 ms
+Creating results/ftv35_cmsa.csv took: 71 ms
+Creating results/ftv38_cmsa.csv took: 95 ms
+Creating results/ftv44_cmsa.csv took: 128 ms
+Creating results/ftv47_cmsa.csv took: 184 ms
+Creating results/ftv55_cmsa.csv took: 359 ms
+Creating results/ftv64_cmsa.csv took: 645 ms
+Creating results/ftv70_cmsa.csv took: 837 ms
+Creating results/p43_cmsa.csv took: 353 ms
+Creating results/rbg323_cmsa.csv took: 824796 ms
+Creating results/rbg358_cmsa.csv took: 1085652 ms
+Creating results/rbg403_cmsa.csv took: 1624324 ms
+Creating results/rbg443_cmsa.csv took: 2496786 ms
+Creating results/ry48p_cmsa.csv took: 305 ms
