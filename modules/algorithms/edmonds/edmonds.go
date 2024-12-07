@@ -172,8 +172,6 @@ func getParentPointers(root int, vertices []int, filteredEdges []Edge, weights m
 	parentPointers := make(map[int]int, len(vertices)-1)
 
 	// By grouping we avoid some iterations.
-	// Normally the naive approach has E*V = V^3 iterations.
-	// With grouping it becomes more like E + V^2 = V^2 + V^2 = 2 * V^2.
 	edgesByDest := make(map[int][]Edge, len(vertices))
 	for _, edge := range filteredEdges {
 		edgesByDest[edge.To] = append(edgesByDest[edge.To], edge)
