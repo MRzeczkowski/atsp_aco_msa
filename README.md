@@ -83,20 +83,39 @@
 
 Co dalej?
 1. Algorytm Edmonds'a na wersję Gabowa? 
+ - X: Trochę zoptymalizowałem bierzącą implementację, wersja Gabowa/Tarjana byłaby zbyt czasochłonna w implementacji
 
-2. Porozmawiać z Panem Solarzem o wykorzytaniu komputerów z uczelni? X
+2. Porozmawiać z Panem Solarzem o wykorzytaniu komputerów z uczelni? 
+ - X: raczej mój komputer wystarczy
 
-3. Analiza stytystyczna wpływu parametrów
-4. Cykl Hamiltonowski w CMSA
+3. Analiza stytystyczna wpływu parametrów 
 
-5. Pan Krzysztof Sęp? X
+4. Cykl Hamiltonowski w CMSA 
+ - X: nie ma sensu ze wezględu na ilość obliczeń
 
+5. Pan Krzysztof Sęp?
+- X: wolę samemu
 
-6. Feromony niezależne od aktualnej heurystyki OK
-7. Może wykres zbieżności? OK
-8. 3-opt i sąsiedzi drugiego rzędu? OK
+6. Feromony niezależne od aktualnej heurystyki
+ - OK: zrobione, całkiem proste
+
+7. Może wykres zbieżności? 
+ - OK: zrobione, ale bardzo dużo wykresów i raczej lepiej je wygenerować dla określonych ekperymentów
+
+8. 3-opt i sąsiedzi drugiego rzędu? 
+ - OK: zrobione, działa szybciej
 
 9. Latex vs Google docs
+
+10. Stop w przypadku braku poprawy wyników?
+ - gdy znaleziono rozwiązanie w które celowano zatrzymuję obliczenia
+ - po ilu iteracjach braku poprawy przestać?
+
+11. Zmniejszyć ilość mrówek?
+ - losowe przypisanie mrówek do węzłów początkowych
+ - ustalić ilość mrówek, raczej jako procent węzłów
+
+12. Ile iteracji robi 3-opt?
 
 Ważne rzeczy w pracy:
 1. TSP

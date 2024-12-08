@@ -96,7 +96,7 @@ func (aco *ACO) Run() {
 	for aco.currentIteration = 0; aco.currentIteration < aco.iterations; aco.currentIteration++ {
 
 		for i := 0; i < aco.ants; i++ {
-			aco.constructTour(i, tours[i], canVisitBits[i], probabilities[i])
+			aco.constructTour(tours[i], canVisitBits[i], probabilities[i])
 
 			if aco.useLocalSearch {
 				aco.reducedThreeOpt.Run(tours[i])
@@ -123,7 +123,13 @@ func (aco *ACO) Run() {
 			}
 		}
 
-		aco.DeviationPerIteration[aco.currentIteration] = 100 * (iterationBestLength - aco.knownOptimal) / aco.knownOptimal
+		currentDeviation := 100 * (iterationBestLength - aco.knownOptimal) / aco.knownOptimal
+
+		if currentDeviation == 0.0 {
+			break
+		}
+
+		aco.DeviationPerIteration[aco.currentIteration] = currentDeviation
 
 		aco.globalPheromoneUpdate(iterationBestTour, iterationBestLength)
 		aco.updateLimits()
@@ -134,8 +140,8 @@ func (aco *ACO) Run() {
 }
 
 // Function to construct tour for each ant
-func (aco *ACO) constructTour(antNumber int, tour []int, canVisitBits []float64, probabilities []float64) {
-	current := antNumber % aco.dimension
+func (aco *ACO) constructTour(tour []int, canVisitBits []float64, probabilities []float64) {
+	current := rand.Intn(aco.dimension)
 	tour[0] = current
 
 	for i := 0; i < aco.dimension; i++ {

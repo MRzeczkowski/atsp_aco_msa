@@ -93,7 +93,7 @@ func runExperiment(name string, dimension, iterations int, useLocalSearch bool, 
 
 	knownOptimal := optimalSolutions[name]
 
-	ants := dimension
+	ants := int(math.Ceil(float64(dimension) * 1.0))
 
 	deviationPerIteration := make([]float64, iterations)
 
@@ -174,9 +174,8 @@ func tryFindSolution(path string) {
 
 	cmsa, err := compositeMsa.ReadFromCsv(cmsaCSVPath)
 
-	// if err != nil
-	{
-		// fmt.Println("Error parsing CMSA file:", cmsaCSVPath, err)
+	if err != nil {
+		fmt.Println("Error parsing CMSA file:", cmsaCSVPath, err)
 
 		start := time.Now()
 		cmsa = compositeMsa.CreateFromData(matrix)
@@ -190,8 +189,6 @@ func tryFindSolution(path string) {
 			fmt.Println("Error saving CMSA to file:", cmsaCSVPath, err)
 		}
 	}
-
-	return
 
 	var iterations = 100
 
@@ -364,7 +361,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 500
+			return problemSize < 50
 		})
 
 	for _, path := range paths {
