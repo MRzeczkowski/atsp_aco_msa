@@ -1,6 +1,7 @@
 package aco
 
 import (
+	"atsp_aco_msa/modules/algorithms/nearestNeighbors"
 	"atsp_aco_msa/modules/algorithms/threeOpt"
 	"atsp_aco_msa/modules/utilities"
 	"math"
@@ -16,12 +17,13 @@ type ACO struct {
 	tauMin, tauMax, BestLength                                                     float64
 	BestTour                                                                       []int
 	reducedThreeOpt                                                                *threeOpt.ReducedThreeOpt
-	knownOptimal                                                                   float64
+	targetTourLength                                                               float64
 	DeviationPerIteration                                                          []float64
 	ThreeOptImprovementsCount                                                      int
+	neighborsLists                                                                 [][]int
 }
 
-func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float64, ants, iterations int, knownOptimal float64, distances, cmsa [][]float64) *ACO {
+func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float64, ants, iterations int, targetTourLength float64, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
 	desirabilitiesPreCalc := make([][]float64, dimension)
@@ -52,7 +54,21 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float6
 		}
 	}
 
-	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, 25)
+	localSearchNeighborsListSize := min(100, dimension)
+	localSearchNeighborsLists := nearestNeighbors.BuildNearestNeighborsLists(distances, localSearchNeighborsListSize)
+
+	// We use smaller lists for tour construction than for local search. Just like: https://sci-hub.se/https://doi.org/10.1016/S0167-739X(00)00043-1
+	tourConstructionNeighborsListSize := min(localSearchNeighborsListSize/2, dimension)
+	tourConstructionNeighborsLists := make([][]int, dimension)
+	for i := 0; i < dimension; i++ {
+		tourConstructionNeighborsLists[i] = make([]int, tourConstructionNeighborsListSize)
+
+		for j := 0; j < tourConstructionNeighborsListSize; j++ {
+			tourConstructionNeighborsLists[i][j] = localSearchNeighborsLists[i][j]
+		}
+	}
+
+	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, localSearchNeighborsLists)
 
 	return &ACO{
 		useLocalSearch:            useLocalSearch,
@@ -72,9 +88,10 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float6
 		cmsaProbabilities:         cmsaProbabilities,
 		BestLength:                math.MaxFloat64,
 		reducedThreeOpt:           reducedThreeOpt,
-		knownOptimal:              knownOptimal,
+		targetTourLength:          targetTourLength,
 		DeviationPerIteration:     make([]float64, iterations),
 		ThreeOptImprovementsCount: 0,
+		neighborsLists:            tourConstructionNeighborsLists,
 	}
 }
 
@@ -91,10 +108,12 @@ func (aco *ACO) Run() {
 		probabilities[i] = make([]float64, aco.dimension)
 	}
 
-	lengths := make([]float64, aco.ants)
-
 	for aco.currentIteration = 0; aco.currentIteration < aco.iterations; aco.currentIteration++ {
 
+		iterationBestLength := math.MaxFloat64
+		iterationBestTour := []int{}
+
+		currentDeviation := 1.0
 		for i := 0; i < aco.ants; i++ {
 			aco.constructTour(tours[i], canVisitBits[i], probabilities[i])
 
@@ -102,34 +121,26 @@ func (aco *ACO) Run() {
 				aco.reducedThreeOpt.Run(tours[i])
 			}
 
-			lengths[i] = utilities.TourLength(tours[i], aco.distances)
-		}
-
-		iterationBestLength := math.MaxFloat64
-		iterationBestTour := []int{}
-		for i := 0; i < aco.ants; i++ {
-			tour := tours[i]
-			length := lengths[i]
+			length := utilities.TourLength(tours[i], aco.distances)
 
 			if length < iterationBestLength {
 				iterationBestLength = length
-				iterationBestTour = append([]int(nil), tour...)
+				iterationBestTour = append([]int(nil), tours[i]...)
+
+				currentDeviation = 100 * (iterationBestLength - aco.targetTourLength) / aco.targetTourLength
+				aco.DeviationPerIteration[aco.currentIteration] = currentDeviation
 			}
 
 			if length < aco.BestLength {
 				aco.BestLength = length
-				aco.BestTour = append([]int(nil), tour...)
+				aco.BestTour = append([]int(nil), tours[i]...)
 				aco.BestAtIteration = aco.currentIteration
 			}
+
+			if currentDeviation == 0.0 {
+				return
+			}
 		}
-
-		currentDeviation := 100 * (iterationBestLength - aco.knownOptimal) / aco.knownOptimal
-
-		if currentDeviation == 0.0 {
-			break
-		}
-
-		aco.DeviationPerIteration[aco.currentIteration] = currentDeviation
 
 		aco.globalPheromoneUpdate(iterationBestTour, iterationBestLength)
 		aco.updateLimits()
@@ -162,25 +173,32 @@ func (aco *ACO) constructTour(tour []int, canVisitBits []float64, probabilities 
 // Function to select the next city for an ant
 func (aco *ACO) selectNextCity(current int, canVisitBits []float64, probabilities []float64) int {
 	total := 0.0
+	probabilitiesToUse := aco.probabilities[current]
 
-	// Apply CMSA logic to bias towards hopefully better tours. Other tours will also take part in roulette-wheel selection.
 	q := rand.Float64()
+
+	// Use CMSA logic to bias towards hopefully better tours. Other tours will also take part in roulette-wheel selection.
 	adaptiveCmsaProbability := aco.pCmsa * (1.0 - float64(aco.currentIteration)/float64(aco.iterations))
-
 	if q < adaptiveCmsaProbability {
-		for i := 0; i < aco.dimension; i++ {
-			probabilities[i] = canVisitBits[i] * aco.cmsaProbabilities[current][i]
+		probabilitiesToUse = aco.cmsaProbabilities[current]
+	}
 
-			total += probabilities[i]
-		}
-	} else {
+	for _, i := range aco.neighborsLists[current] {
+		probabilities[i] = canVisitBits[i] * probabilitiesToUse[i]
+
+		total += probabilities[i]
+	}
+
+	// Check if total is zero (no valid neighbors left), then fallback to all remaining nodes
+	if total == 0.0 {
 		for i := 0; i < aco.dimension; i++ {
-			probabilities[i] = canVisitBits[i] * aco.probabilities[current][i]
+			probabilities[i] = canVisitBits[i] * probabilitiesToUse[i]
 
 			total += probabilities[i]
 		}
 	}
 
+	// Roulette-wheel selection
 	cumulativeProbability := 0.0
 	nextCity := -1
 	for i := 0; i < aco.dimension; i++ {

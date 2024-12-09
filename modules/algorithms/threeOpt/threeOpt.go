@@ -1,9 +1,5 @@
 package threeOpt
 
-import (
-	"sort"
-)
-
 var spacing int = 3 // Minimal spacing between indices
 
 type ReducedThreeOpt struct {
@@ -14,47 +10,17 @@ type ReducedThreeOpt struct {
 	Improvements       int
 }
 
-func NewReducedThreeOpt(distances [][]float64, k int) *ReducedThreeOpt {
+func NewReducedThreeOpt(distances [][]float64, neighborsLists [][]int) *ReducedThreeOpt {
 	n := len(distances)
 
 	return &ReducedThreeOpt{
 		distances:      distances,
-		neighborsLists: buildNearestNeighborsLists(distances, k),
+		neighborsLists: neighborsLists,
 		dontLookBits:   make([]bool, n),
 		positions:      make([]int, n),
 		newTour:        make([]int, n),
 		Improvements:   0,
 	}
-}
-
-// Build the nearest k neighbors list for each city
-func buildNearestNeighborsLists(distances [][]float64, k int) [][]int {
-	n := len(distances)
-	neighborsLists := make([][]int, n)
-	k = min(k, n)
-
-	for i := 0; i < n; i++ {
-
-		type nodeDist struct {
-			id       int
-			distance float64
-		}
-
-		cityDistances := make([]nodeDist, n)
-		for j := 0; j < n; j++ {
-			cityDistances[j] = nodeDist{id: j, distance: distances[i][j]}
-		}
-
-		sort.Slice(cityDistances, func(x, y int) bool {
-			return cityDistances[x].distance < cityDistances[y].distance
-		})
-
-		for j := 0; j < k; j++ {
-			neighborsLists[i] = append(neighborsLists[i], cityDistances[j].id)
-		}
-	}
-
-	return neighborsLists
 }
 
 // Reduced 3-opt optimization that doesn't use segment reversal.
