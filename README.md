@@ -105,7 +105,8 @@ Co dalej?
 8. 3-opt i sąsiedzi drugiego rzędu? 
  - OK: zrobione, działa szybciej
 
-9. Latex vs Google docs
+9. Latex vs Google docs:
+ - Google docs
 
 10. Stop w przypadku braku poprawy wyników?
  - gdy znaleziono rozwiązanie w które celowano zatrzymuję obliczenia
@@ -116,6 +117,9 @@ Co dalej?
  - ustalić ilość mrówek, raczej jako procent węzłów
 
 12. Ile iteracji robi 3-opt?
+
+13. FDC???
+ - 
 
 Ważne rzeczy w pracy:
 1. TSP

@@ -54,11 +54,12 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float6
 		}
 	}
 
-	localSearchNeighborsListSize := min(100, dimension)
+	maxLocalSearchNeighborsListSize := 80
+	localSearchNeighborsListSize := min(maxLocalSearchNeighborsListSize, dimension)
 	localSearchNeighborsLists := nearestNeighbors.BuildNearestNeighborsLists(distances, localSearchNeighborsListSize)
 
 	// We use smaller lists for tour construction than for local search. Just like: https://sci-hub.se/https://doi.org/10.1016/S0167-739X(00)00043-1
-	tourConstructionNeighborsListSize := min(localSearchNeighborsListSize/2, dimension)
+	tourConstructionNeighborsListSize := min(maxLocalSearchNeighborsListSize/2, dimension)
 	tourConstructionNeighborsLists := make([][]int, dimension)
 	for i := 0; i < dimension; i++ {
 		tourConstructionNeighborsLists[i] = make([]int, tourConstructionNeighborsListSize)
