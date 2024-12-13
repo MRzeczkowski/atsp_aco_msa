@@ -247,7 +247,7 @@ func tryFindSolution(path string) {
 			for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
 				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
 					for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.01) {
-						for _, pherCmsa := range utilities.GenerateRange(0.0, 1.0, 0.04) {
+						for _, pherCmsa := range utilities.GenerateRange(0.0, 6.0, 0.25) {
 
 							cmsaPlots := []*plot.Plot{}
 							for _, pCmsa := range utilities.GenerateRange(0.0, 0.0, 0.25) {
@@ -361,7 +361,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 200
+			return problemSize < 50
 		})
 
 	for _, path := range paths {
