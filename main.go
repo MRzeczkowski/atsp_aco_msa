@@ -28,8 +28,8 @@ const NumberOfRuns int = 50
 type Edge = models.Edge
 
 type ExperimentData struct {
-	useLocalSearch                           bool
-	alpha, beta, rho, pBest, pherCmsa, pCmsa float64
+	useLocalSearch                 bool
+	alpha, beta, rho, pBest, pCmsa float64
 	ExperimentResult
 }
 
@@ -49,7 +49,6 @@ func (f ExperimentData) ToCSVRow() []string {
 		fmt.Sprintf(floatFormat, f.beta),
 		fmt.Sprintf(floatFormat, f.rho),
 		fmt.Sprintf(floatFormat, f.pBest),
-		fmt.Sprintf(floatFormat, f.pherCmsa),
 		fmt.Sprintf(floatFormat, f.pCmsa),
 		strconv.Itoa(f.ExperimentResult.bestAtIteration),
 		fmt.Sprintf("%.0f", f.ExperimentResult.bestLength),
@@ -81,7 +80,7 @@ var optimalSolutions = map[string]float64{
 	"ry48p":  14422,
 }
 
-func runExperiment(name string, dimension, iterations int, useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float64, matrix, cmsa [][]float64) ExperimentResult {
+func runExperiment(name string, dimension, iterations int, useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, matrix, cmsa [][]float64) ExperimentResult {
 
 	var totalBestLength float64
 	var totalElapsedTime time.Duration
@@ -105,7 +104,6 @@ func runExperiment(name string, dimension, iterations int, useLocalSearch bool, 
 			beta,
 			rho,
 			pBest,
-			pherCmsa,
 			pCmsa,
 			ants,
 			iterations,
@@ -247,49 +245,47 @@ func tryFindSolution(path string) {
 			for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
 				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
 					for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.01) {
-						for _, pherCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 
-							cmsaPlots := []*plot.Plot{}
-							for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+						cmsaPlots := []*plot.Plot{}
+						for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 
-								result := runExperiment(name, dimension, iterations, useLocalSearch, alpha, beta, rho, pBest, pherCmsa, pCmsa, matrix, cmsa)
+							result := runExperiment(name, dimension, iterations, useLocalSearch, alpha, beta, rho, pBest, pCmsa, matrix, cmsa)
 
-								data := ExperimentData{
-									useLocalSearch, alpha, beta, rho, pBest, pherCmsa, pCmsa, result,
-								}
-
-								cswRow := data.ToCSVRow()
-								err := writer.Write(cswRow)
-								if err != nil {
-									log.Fatalf("Failed to write record: %s", err)
-								}
-
-								p := plot.New()
-								p.Title.Text = fmt.Sprintf("local=%v, alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pherCmsa=%.2f, pCmsa=%.2f",
-									useLocalSearch, alpha, beta, rho, pBest, pherCmsa, pCmsa)
-								p.X.Label.Text = "Iteration"
-								p.Y.Label.Text = "Deviation"
-								p.Y.Min = 0
-								p.Y.Max = 100
-
-								pts := make(plotter.XYs, len(result.deviationPerIteration))
-								for i, v := range result.deviationPerIteration {
-									pts[i].X = float64(i)
-									pts[i].Y = v
-								}
-
-								line, err := plotter.NewLine(pts)
-								if err != nil {
-									log.Fatalf("Could not create line plot: %v", err)
-								}
-
-								p.Add(line)
-
-								cmsaPlots = append(cmsaPlots, p)
+							data := ExperimentData{
+								useLocalSearch, alpha, beta, rho, pBest, pCmsa, result,
 							}
 
-							plots = append(plots, cmsaPlots)
+							cswRow := data.ToCSVRow()
+							err := writer.Write(cswRow)
+							if err != nil {
+								log.Fatalf("Failed to write record: %s", err)
+							}
+
+							p := plot.New()
+							p.Title.Text = fmt.Sprintf("local=%v, alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pCmsa=%.2f",
+								useLocalSearch, alpha, beta, rho, pBest, pCmsa)
+							p.X.Label.Text = "Iteration"
+							p.Y.Label.Text = "Deviation"
+							p.Y.Min = 0
+							p.Y.Max = 100
+
+							pts := make(plotter.XYs, len(result.deviationPerIteration))
+							for i, v := range result.deviationPerIteration {
+								pts[i].X = float64(i)
+								pts[i].Y = v
+							}
+
+							line, err := plotter.NewLine(pts)
+							if err != nil {
+								log.Fatalf("Could not create line plot: %v", err)
+							}
+
+							p.Add(line)
+
+							cmsaPlots = append(cmsaPlots, p)
 						}
+
+						plots = append(plots, cmsaPlots)
 					}
 				}
 			}

@@ -23,7 +23,7 @@ type ACO struct {
 	neighborsLists                                                                 [][]int
 }
 
-func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float64, ants, iterations int, targetTourLength float64, distances, cmsa [][]float64) *ACO {
+func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants, iterations int, targetTourLength float64, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
 	desirabilitiesPreCalc := make([][]float64, dimension)
@@ -39,7 +39,7 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pherCmsa, pCmsa float6
 		cmsaProbabilities[i] = make([]float64, dimension)
 
 		for j := range pheromones[i] {
-			pheromones[i][j] = 1.0 + (pherCmsa * cmsa[i][j])
+			pheromones[i][j] = 1.0
 
 			pheromone := math.Pow(pheromones[i][j], alpha)
 
