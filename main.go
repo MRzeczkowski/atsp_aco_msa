@@ -225,7 +225,6 @@ func tryFindSolution(path string) {
 			"Beta",
 			"Rho",
 			"pBest",
-			"CMSA impact on initial pheromones",
 			"CMSA edge selection probability",
 			"Best at iteration",
 			"Best length",

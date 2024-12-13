@@ -1,6 +1,6 @@
-Alpha,Beta,Rho,pBest,CMSA impact on initial pheromones,CMSA edge selection probability,Best at iteration,Best length,Deviation,Success rate,Commonality with CMSA,Computation time [ms]
-1.00,5.00,0.80,0.05,0.00,9,1473,2.00,6.00,68.57,16
-1.00,5.00,0.80,0.05,0.25,45,1473,1.28,38.00,71.43,12
-1.00,5.00,0.80,0.05,0.50,77,1473,1.11,52.00,71.43,12
-1.00,5.00,0.80,0.05,0.75,74,1473,1.05,46.00,71.43,13
-1.00,5.00,0.80,0.05,1.00,99,1473,1.33,40.00,71.43,14
+Alpha,Beta,Rho,pBest,CMSA edge selection probability,Best at iteration,Best length,Deviation,Success rate,Commonality with CMSA,Computation time [ms]
+1.00,5.00,0.80,0.05,0.00,45,1473,1.53,10.00,71.43,14
+1.00,5.00,0.80,0.05,0.25,78,1473,1.37,24.00,71.43,13
+1.00,5.00,0.80,0.05,0.50,54,1473,0.94,42.00,68.57,12
+1.00,5.00,0.80,0.05,0.75,79,1473,1.12,42.00,74.29,13
+1.00,5.00,0.80,0.05,1.00,68,1473,1.91,26.00,71.43,14
