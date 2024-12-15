@@ -356,7 +356,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 50
+			return problemSize < 500
 		})
 
 	for _, path := range paths {
