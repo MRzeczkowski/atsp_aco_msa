@@ -122,16 +122,34 @@ Co dalej?
  - 
 
 Ważne rzeczy w pracy:
-1. TSP
-2. MST
-3. ATSP
-4. MSA
-5. ACO/MMAS
-6. reduced 3-opt
-7. CMSA
-8. Wyniki
-9. Podsumowanie
 
+1. TSP
+    1. Opis problemu
+    2. Związek z MST
+        1. Algorytmy
+
+2. ATSP
+    1. Opis problemu - różnice względem TSP
+    2. MSA
+        1. Algorytm Edmondsa
+    3. Niezbadany związek z MSA
+
+3. ACO
+    1. Zasada działania
+    2. MMAS
+    3. W połączeniu z innymi algorytmami (MSA + 3-opt)
+
+4. Algorytm hybrydowy - mój
+    1. CMSA
+    2. Wykorzystanie CMSA
+    3. "reduced 3-opt"
+
+5. Metodyka
+    1. Dane testowe
+    2. Eksperymenty
+
+6. Wyniki
+7. Podsumowanie
 
 
 Normal:

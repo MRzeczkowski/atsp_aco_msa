@@ -204,7 +204,7 @@ func tryFindSolution(path string) {
 		iterations = 1000
 	}
 
-	for _, useLocalSearch := range []bool{false} {
+	for _, useLocalSearch := range []bool{true} {
 
 		resultFilesPrefix := filepath.Join("results", name)
 
@@ -356,7 +356,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 500
+			return problemSize < 200
 		})
 
 	for _, path := range paths {
