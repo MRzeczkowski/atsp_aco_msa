@@ -82,46 +82,24 @@
 
 
 Co dalej?
-1. Algorytm Edmonds'a na wersję Gabowa? 
- - X: Trochę zoptymalizowałem bierzącą implementację, wersja Gabowa/Tarjana byłaby zbyt czasochłonna w implementacji
-
-2. Porozmawiać z Panem Solarzem o wykorzytaniu komputerów z uczelni? 
- - X: raczej mój komputer wystarczy
-
-3. Analiza stytystyczna wpływu parametrów 
-
-4. Cykl Hamiltonowski w CMSA 
- - X: nie ma sensu ze wezględu na ilość obliczeń
-
-5. Pan Krzysztof Sęp?
-- X: wolę samemu
 
 6. Feromony niezależne od aktualnej heurystyki
- - OK: zrobione, całkiem proste
+ - niewiele dało, usunąłem, opisać po krótce w pracy
 
 7. Może wykres zbieżności? 
- - OK: zrobione, ale bardzo dużo wykresów i raczej lepiej je wygenerować dla określonych ekperymentów
-
-8. 3-opt i sąsiedzi drugiego rzędu? 
- - OK: zrobione, działa szybciej
-
-9. Latex vs Google docs:
- - Google docs
-
-10. Stop w przypadku braku poprawy wyników?
- - gdy znaleziono rozwiązanie w które celowano zatrzymuję obliczenia
- - po ilu iteracjach braku poprawy przestać?
+ - OK: zrobione, ale bardzo dużo wykresów i raczej lepiej je wygenerować dla określonych ekperymentów, dodać przykład z jednego eksperymentu do uśrednionego wykresu
 
 11. Zmniejszyć ilość mrówek?
  - losowe przypisanie mrówek do węzłów początkowych
- - ustalić ilość mrówek, raczej jako procent węzłów
+ - ustalić ilość mrówek, raczej jako procent węzłów, sprawdzić zmienną ilość mrówek i zapisać numer najlepsze mrówki
 
 12. Ile iteracji robi 3-opt?
+ - dodać to wyników, zdaje się że CMSA skłania do globalnego optimum, ale po drodze do niego ścieżki są suboptymalne
 
-13. FDC???
- - 
+13. FDC
+ - policzyć!
 
-Ważne rzeczy w pracy:
+Rozdziały:
 
 1. TSP
     1. Opis problemu
@@ -146,9 +124,11 @@ Ważne rzeczy w pracy:
 
 5. Metodyka
     1. Dane testowe
+        1. FDC
     2. Eksperymenty
 
 6. Wyniki
+
 7. Podsumowanie
 
 
