@@ -8,10 +8,31 @@ import (
 	"strings"
 )
 
-func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float64, err error) {
+var optimalSolutions = map[string]float64{
+	"br17":   39,
+	"ft53":   6905,
+	"ft70":   38673,
+	"ftv33":  1286,
+	"ftv35":  1473,
+	"ftv38":  1530,
+	"ftv44":  1613,
+	"ftv47":  1776,
+	"ftv55":  1608,
+	"ftv64":  1839,
+	"ftv70":  1950,
+	"ftv170": 2755,
+	"p43":    5620,
+	"rbg323": 1326,
+	"rbg358": 1163,
+	"rbg403": 2465,
+	"rbg443": 2720,
+	"ry48p":  14422,
+}
+
+func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float64, knownOptimal float64, err error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return "", 0, nil, err
+		return "", 0, nil, 0, err
 	}
 
 	defer file.Close()
@@ -37,7 +58,7 @@ func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float6
 			parts := strings.Split(line, ":")
 			dimension, err = strconv.Atoi(strings.TrimSpace(parts[1]))
 			if err != nil {
-				return "", 0, nil, err
+				return "", 0, nil, 0, err
 			}
 
 			matrix = make([][]float64, dimension)
@@ -52,7 +73,7 @@ func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float6
 			for _, val := range rowValues {
 				num, err := strconv.ParseFloat(val, 64)
 				if err != nil {
-					return "", 0, nil, err
+					return "", 0, nil, 0, err
 				}
 
 				valuesInMatrix = append(valuesInMatrix, num)
@@ -65,12 +86,12 @@ func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float6
 	}
 
 	if err := scanner.Err(); err != nil {
-		return "", 0, nil, err
+		return "", 0, nil, 0, err
 	}
 
 	// Populate the matrix from the list of values
 	if len(valuesInMatrix) != dimension*dimension {
-		return "", 0, nil, fmt.Errorf("the total numbers in matrix (%d) does not match expected dimension squared (%d)", len(valuesInMatrix), dimension*dimension)
+		return "", 0, nil, 0, fmt.Errorf("the total numbers in matrix (%d) does not match expected dimension squared (%d)", len(valuesInMatrix), dimension*dimension)
 	}
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
@@ -78,5 +99,5 @@ func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float6
 		}
 	}
 
-	return name, dimension, matrix, nil
+	return name, dimension, matrix, optimalSolutions[name], nil
 }
