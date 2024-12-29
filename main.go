@@ -211,7 +211,7 @@ func main() {
 	// pprof.StartCPUProfile(cf)
 	// defer pprof.StopCPUProfile()
 
-	dir := "tsp_files"
+	dir := "tsplib_files"
 	paths, _ := filepath.Glob(filepath.Join(dir, "*.atsp"))
 
 	paths = utilities.FilterStrings(
