@@ -1,6 +1,0 @@
-Alpha,Beta,Rho,pBest,CMSA edge selection probability,Best at iteration,Best length,Deviation,Success rate,Commonality with CMSA,Computation time [ms]
-1.00,5.00,0.80,0.05,0.00,71,5620,0.00,100.00,45.24,81
-1.00,5.00,0.80,0.05,0.25,16,5620,0.00,76.00,59.52,151
-1.00,5.00,0.80,0.05,0.50,10,5620,0.00,90.00,57.14,81
-1.00,5.00,0.80,0.05,0.75,6,5620,0.00,96.00,54.76,34
-1.00,5.00,0.80,0.05,1.00,21,5620,0.00,96.00,59.52,41
