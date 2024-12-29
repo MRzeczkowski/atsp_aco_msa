@@ -119,7 +119,15 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 	}
 
 	sort.SliceStable(statistics, func(i, j int) bool {
-		return statistics[i].averageBestDeviation < statistics[j].averageBestDeviation
+		if statistics[i].averageBestDeviation != statistics[j].averageBestDeviation {
+			return statistics[i].averageBestDeviation < statistics[j].averageBestDeviation
+		}
+
+		if statistics[i].successRate != statistics[j].successRate {
+			return statistics[i].successRate > statistics[j].successRate
+		}
+
+		return statistics[i].averageBestAtIteration < statistics[j].averageBestAtIteration
 	})
 
 	return statistics
@@ -183,7 +191,7 @@ func generateParameters() []ExperimentParameters {
 		for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 			for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
 				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
-					for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.01) {
+					for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.005) {
 						for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 							for _, antsPercentage := range utilities.GenerateRange(0.1, 1.0, 0.1) {
 								parameters = append(parameters,
@@ -218,7 +226,7 @@ func main() {
 		atspFilesPaths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 100
+			return problemSize < 500
 		})
 
 	resultsFolder := "results"
