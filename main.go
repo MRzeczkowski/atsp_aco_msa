@@ -23,13 +23,13 @@ import (
 	"gonum.org/v1/plot/vg/vgimg"
 )
 
-const NumberOfRuns int = 50
+const NumberOfRuns int = 100
 
 type Edge = models.Edge
 
 type ExperimentData struct {
-	useLocalSearch                 bool
-	alpha, beta, rho, pBest, pCmsa float64
+	useLocalSearch                       bool
+	alpha, beta, rho, pBest, pCmsa, ants float64
 	ExperimentResult
 }
 
@@ -50,6 +50,7 @@ func (f ExperimentData) ToCSVRow() []string {
 		fmt.Sprintf(floatFormat, f.rho),
 		fmt.Sprintf(floatFormat, f.pBest),
 		fmt.Sprintf(floatFormat, f.pCmsa),
+		fmt.Sprintf(floatFormat, f.ants),
 		strconv.Itoa(f.ExperimentResult.bestAtIteration),
 		fmt.Sprintf("%.0f", f.ExperimentResult.bestLength),
 		fmt.Sprintf(floatFormat, f.ExperimentResult.deviation),
@@ -80,7 +81,7 @@ var optimalSolutions = map[string]float64{
 	"ry48p":  14422,
 }
 
-func runExperiment(name string, dimension, iterations int, useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, matrix, cmsa [][]float64) ExperimentResult {
+func runExperiment(name string, iterations int, useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants int, matrix, cmsa [][]float64) ExperimentResult {
 
 	var totalBestLength float64
 	var totalElapsedTime time.Duration
@@ -91,8 +92,6 @@ func runExperiment(name string, dimension, iterations int, useLocalSearch bool, 
 	bestAtIteration := math.MaxInt
 
 	knownOptimal := optimalSolutions[name]
-
-	ants := int(math.Ceil(float64(dimension) * 1.0))
 
 	deviationPerIteration := make([]float64, iterations)
 
@@ -139,6 +138,8 @@ func runExperiment(name string, dimension, iterations int, useLocalSearch bool, 
 	successRate := 100 * successCounter / float64(NumberOfRuns)
 
 	bestTourEdges := make([]Edge, len(bestTour))
+
+	dimension := len(matrix)
 
 	for i := 0; i < dimension-1; i++ {
 		bestTourEdges[i] = Edge{From: bestTour[i], To: bestTour[i+1]}
@@ -204,7 +205,9 @@ func tryFindSolution(path string) {
 		iterations = 1000
 	}
 
-	for _, useLocalSearch := range []bool{true} {
+	T := dimension * iterations
+
+	for _, useLocalSearch := range []bool{false} {
 
 		resultFilesPrefix := filepath.Join("results", name)
 
@@ -226,6 +229,7 @@ func tryFindSolution(path string) {
 			"Rho",
 			"pBest",
 			"CMSA edge selection probability",
+			"Ants (% of #nodes)",
 			"Best at iteration",
 			"Best length",
 			"Deviation",
@@ -247,44 +251,49 @@ func tryFindSolution(path string) {
 
 						cmsaPlots := []*plot.Plot{}
 						for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+							for _, antPercentage := range utilities.GenerateRange(0.1, 1.0, 0.1) {
 
-							result := runExperiment(name, dimension, iterations, useLocalSearch, alpha, beta, rho, pBest, pCmsa, matrix, cmsa)
+								ants := int(math.Ceil(float64(dimension) * antPercentage))
+								iterations = T / ants
 
-							data := ExperimentData{
-								useLocalSearch, alpha, beta, rho, pBest, pCmsa, result,
+								result := runExperiment(name, iterations, useLocalSearch, alpha, beta, rho, pBest, pCmsa, ants, matrix, cmsa)
+
+								data := ExperimentData{
+									useLocalSearch, alpha, beta, rho, pBest, pCmsa, antPercentage, result,
+								}
+
+								cswRow := data.ToCSVRow()
+								err := writer.Write(cswRow)
+								if err != nil {
+									log.Fatalf("Failed to write record: %s", err)
+								}
+
+								p := plot.New()
+								p.Title.Text = fmt.Sprintf("local=%v, alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pCmsa=%.2f",
+									useLocalSearch, alpha, beta, rho, pBest, pCmsa)
+								p.X.Label.Text = "Iteration"
+								p.Y.Label.Text = "Deviation"
+								p.Y.Min = 0
+								p.Y.Max = 100
+
+								pts := make(plotter.XYs, len(result.deviationPerIteration))
+								for i, v := range result.deviationPerIteration {
+									pts[i].X = float64(i)
+									pts[i].Y = v
+								}
+
+								line, err := plotter.NewLine(pts)
+								if err != nil {
+									log.Fatalf("Could not create line plot: %v", err)
+								}
+
+								p.Add(line)
+
+								cmsaPlots = append(cmsaPlots, p)
 							}
 
-							cswRow := data.ToCSVRow()
-							err := writer.Write(cswRow)
-							if err != nil {
-								log.Fatalf("Failed to write record: %s", err)
-							}
-
-							p := plot.New()
-							p.Title.Text = fmt.Sprintf("local=%v, alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pCmsa=%.2f",
-								useLocalSearch, alpha, beta, rho, pBest, pCmsa)
-							p.X.Label.Text = "Iteration"
-							p.Y.Label.Text = "Deviation"
-							p.Y.Min = 0
-							p.Y.Max = 100
-
-							pts := make(plotter.XYs, len(result.deviationPerIteration))
-							for i, v := range result.deviationPerIteration {
-								pts[i].X = float64(i)
-								pts[i].Y = v
-							}
-
-							line, err := plotter.NewLine(pts)
-							if err != nil {
-								log.Fatalf("Could not create line plot: %v", err)
-							}
-
-							p.Add(line)
-
-							cmsaPlots = append(cmsaPlots, p)
+							plots = append(plots, cmsaPlots)
 						}
-
-						plots = append(plots, cmsaPlots)
 					}
 				}
 			}
@@ -356,7 +365,7 @@ func main() {
 		paths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 200
+			return problemSize < 100
 		})
 
 	for _, path := range paths {
