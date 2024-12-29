@@ -4,14 +4,17 @@ import (
 	"atsp_aco_msa/modules/algorithms/edmonds"
 	"atsp_aco_msa/modules/models"
 	"encoding/csv"
+	"fmt"
 	"os"
+	"path"
 	"strconv"
 )
 
 type Edge = models.Edge
 
-func ReadFromCsv(path string) ([][]float64, error) {
-	file, err := os.Open(path)
+func Read(rootCmsaPath string) ([][]float64, error) {
+	cmsaPath := path.Join(rootCmsaPath, "cmsa.csv")
+	file, err := os.Open(cmsaPath)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +41,7 @@ func ReadFromCsv(path string) ([][]float64, error) {
 	return data, nil
 }
 
-func CreateFromData(matrix [][]float64) [][]float64 {
+func Create(matrix [][]float64, rootCmsaPath string) ([][]float64, error) {
 	vertices, edges, weights := models.ConvertToEdges(matrix)
 
 	dimension := len(matrix)
@@ -48,12 +51,25 @@ func CreateFromData(matrix [][]float64) [][]float64 {
 		cmsa[i] = make([]float64, dimension)
 	}
 
+	msaRootPath := path.Join(rootCmsaPath, "msas")
+	err := os.MkdirAll(msaRootPath, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+
 	msas := make([][]Edge, dimension)
 	occurrences := make(map[Edge]float64)
 
 	for i := 0; i < dimension; i++ {
 
 		msa := edmonds.FindMSA(i, vertices, edges, weights)
+		msaCsvFileName := fmt.Sprintf("%d.csv", i)
+		msaPath := path.Join(msaRootPath, msaCsvFileName)
+		msaMatrix := models.ConvertToMatrix(msa, dimension)
+		err := saveToCsv(msaMatrix, msaPath)
+		if err != nil {
+			return nil, err
+		}
 
 		msas[i] = msa
 
@@ -68,10 +84,16 @@ func CreateFromData(matrix [][]float64) [][]float64 {
 		}
 	}
 
-	return cmsa
+	cmsaPath := path.Join(rootCmsaPath, "cmsa.csv")
+	err = saveToCsv(cmsa, cmsaPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return cmsa, nil
 }
 
-func SaveToCsv(cmsa [][]float64, path string) error {
+func saveToCsv(matrix [][]float64, path string) error {
 
 	file, err := os.Create(path)
 	if err != nil {
@@ -82,7 +104,7 @@ func SaveToCsv(cmsa [][]float64, path string) error {
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
 
-	for _, row := range cmsa {
+	for _, row := range matrix {
 		strRow := make([]string, len(row))
 		for i, value := range row {
 			strRow[i] = strconv.FormatFloat(value, 'f', -1, 64)

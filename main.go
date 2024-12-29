@@ -119,7 +119,7 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 	}
 
 	sort.SliceStable(statistics, func(i, j int) bool {
-		return statistics[i].averageBestDeviation < statistics[j].averageBestDeviation && statistics[i].successRate < statistics[j].successRate
+		return statistics[i].averageBestDeviation < statistics[j].averageBestDeviation
 	})
 
 	return statistics
@@ -211,41 +211,43 @@ func main() {
 	// pprof.StartCPUProfile(cf)
 	// defer pprof.StopCPUProfile()
 
-	dir := "tsplib_files"
-	paths, _ := filepath.Glob(filepath.Join(dir, "*.atsp"))
+	tsplibDir := "tsplib_files"
+	atspFilesPaths, _ := filepath.Glob(filepath.Join(tsplibDir, "*.atsp"))
 
-	paths = utilities.FilterStrings(
-		paths,
+	atspFilesPaths = utilities.FilterStrings(
+		atspFilesPaths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 50
+			return problemSize < 100
 		})
 
+	resultsFolder := "results"
 	numberOfExperiments := 50
 	experimentParameters := generateParameters()
-	for _, path := range paths {
+	for _, atspFilePath := range atspFilesPaths {
 
-		name, dimension, matrix, knownOptimal, _ := parsing.ParseTSPLIBFile(path)
+		name, dimension, matrix, knownOptimal, _ := parsing.ParseTSPLIBFile(atspFilePath)
 		fmt.Println("Started processing " + name)
 
-		cmsaCSVPath := filepath.Join("results", name) + "_cmsa.csv"
+		atspResultsDir := filepath.Join(resultsFolder, name)
+		cmsaDir := filepath.Join(atspResultsDir, "cmsa")
 
-		cmsa, err := compositeMsa.ReadFromCsv(cmsaCSVPath)
+		cmsa, err := compositeMsa.Read(cmsaDir)
 
 		if err != nil {
 			start := time.Now()
-			cmsa = compositeMsa.CreateFromData(matrix)
+			cmsa, err = compositeMsa.Create(matrix, cmsaDir)
 			elapsed := time.Since(start)
 
-			fmt.Printf("Creating %s took: %d ms\n", cmsaCSVPath, elapsed.Milliseconds())
-
-			err := compositeMsa.SaveToCsv(cmsa, cmsaCSVPath)
+			fmt.Printf("\tCreating %s took: %d ms\n", cmsaDir, elapsed.Milliseconds())
 
 			if err != nil {
-				fmt.Println("Error saving CMSA to file:", cmsaCSVPath, err)
+				fmt.Println("\tError saving CMSA: ", err)
+				return
 			}
 		}
 
+		continue
 		experimentData := make([]ExperimentsData, 0)
 		threeOptExperimentData := make([]ExperimentsData, 0)
 
@@ -269,12 +271,12 @@ func main() {
 		threeOptStatistics := calculateStatistics(threeOptExperimentData)
 
 		if len(statistics) != 0 {
-			resultFilePath := filepath.Join("results", name) + ".csv"
+			resultFilePath := filepath.Join(atspResultsDir, "mmas") + ".csv"
 			saveStatistics(resultFilePath, statistics)
 		}
 
 		if len(threeOptStatistics) != 0 {
-			threeOptResultFilePath := filepath.Join("results", name) + "+3opt" + ".csv"
+			threeOptResultFilePath := filepath.Join(atspResultsDir, "mmas") + "+3opt" + ".csv"
 			saveStatistics(threeOptResultFilePath, threeOptStatistics)
 		}
 		elapsed = time.Since(start)
