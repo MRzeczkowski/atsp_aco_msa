@@ -14,7 +14,80 @@ type Edge = models.Edge
 
 func Read(rootCmsaPath string) ([][]float64, error) {
 	cmsaPath := path.Join(rootCmsaPath, "cmsa.csv")
-	file, err := os.Open(cmsaPath)
+	return readFromCsv(cmsaPath)
+}
+
+func Create(matrix [][]float64, rootCmsaPath string) ([][]float64, error) {
+	vertices, edges, weights := models.ConvertToEdges(matrix)
+
+	dimension := len(matrix)
+
+	cmsa := make([][]float64, dimension)
+	for i := range dimension {
+		cmsa[i] = make([]float64, dimension)
+	}
+
+	msaRootPath := path.Join(rootCmsaPath, "msas")
+	err := os.MkdirAll(msaRootPath, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
+
+	msas := make([][]Edge, dimension)
+	occurrences := make(map[Edge]float64)
+
+	for i := 0; i < dimension; i++ {
+
+		msaCsvFileName := fmt.Sprintf("%d.csv", i)
+		msaPath := path.Join(msaRootPath, msaCsvFileName)
+
+		var msa []Edge
+		msaMatrix, _ := readFromCsv(msaPath)
+
+		if msaMatrix != nil {
+			_, msa, weights = models.ConvertToEdges(msaMatrix)
+
+			for _, edge := range msa {
+				if weights[edge] == 0 {
+					continue
+				}
+
+				occurrences[edge]++
+			}
+		} else {
+			msa = edmonds.FindMSA(i, vertices, edges, weights)
+			msaMatrix = models.ConvertToMatrix(msa, dimension)
+
+			err := saveToCsv(msaMatrix, msaPath)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, edge := range msa {
+				occurrences[edge]++
+			}
+		}
+
+		msas[i] = msa
+	}
+
+	for _, msa := range msas {
+		for _, edge := range msa {
+			cmsa[edge.From][edge.To] = occurrences[edge]
+		}
+	}
+
+	cmsaPath := path.Join(rootCmsaPath, "cmsa.csv")
+	err = saveToCsv(cmsa, cmsaPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return cmsa, nil
+}
+
+func readFromCsv(path string) ([][]float64, error) {
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
@@ -39,58 +112,6 @@ func Read(rootCmsaPath string) ([][]float64, error) {
 	}
 
 	return data, nil
-}
-
-func Create(matrix [][]float64, rootCmsaPath string) ([][]float64, error) {
-	vertices, edges, weights := models.ConvertToEdges(matrix)
-
-	dimension := len(matrix)
-
-	cmsa := make([][]float64, dimension)
-	for i := range dimension {
-		cmsa[i] = make([]float64, dimension)
-	}
-
-	msaRootPath := path.Join(rootCmsaPath, "msas")
-	err := os.MkdirAll(msaRootPath, os.ModePerm)
-	if err != nil {
-		return nil, err
-	}
-
-	msas := make([][]Edge, dimension)
-	occurrences := make(map[Edge]float64)
-
-	for i := 0; i < dimension; i++ {
-
-		msa := edmonds.FindMSA(i, vertices, edges, weights)
-		msaCsvFileName := fmt.Sprintf("%d.csv", i)
-		msaPath := path.Join(msaRootPath, msaCsvFileName)
-		msaMatrix := models.ConvertToMatrix(msa, dimension)
-		err := saveToCsv(msaMatrix, msaPath)
-		if err != nil {
-			return nil, err
-		}
-
-		msas[i] = msa
-
-		for _, edge := range msa {
-			occurrences[edge]++
-		}
-	}
-
-	for _, msa := range msas {
-		for _, edge := range msa {
-			cmsa[edge.From][edge.To] = occurrences[edge]
-		}
-	}
-
-	cmsaPath := path.Join(rootCmsaPath, "cmsa.csv")
-	err = saveToCsv(cmsa, cmsaPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return cmsa, nil
 }
 
 func saveToCsv(matrix [][]float64, path string) error {
