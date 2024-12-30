@@ -7,9 +7,11 @@ import (
 	"atsp_aco_msa/modules/parsing"
 	"atsp_aco_msa/modules/utilities"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"math"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -40,6 +42,102 @@ type ExperimentsDataStatistics struct {
 	ExperimentParameters
 	averageBestAtIteration, averageBestDeviation, successRate float64
 	averageComputationTime                                    int64
+}
+
+func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, savedTours map[string][]int) {
+	header := []string{
+		"Tour",
+	}
+
+	file, _ := os.Create(optimalUniqueToursCsvPath)
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+
+	_ = writer.Write(header)
+	for key := range savedTours {
+
+		record := []string{
+			key,
+		}
+
+		writer.Write(record)
+	}
+
+	writer.Flush()
+}
+
+func normalizeTour(tour []int) []int {
+	if len(tour) == 0 {
+		return tour
+	}
+
+	// Find the smallest element to determine the starting point
+	minIndex := 0
+	for i, v := range tour {
+		if v < tour[minIndex] {
+			minIndex = i
+		}
+	}
+
+	// Rotate the tour to start at the smallest element
+	normalized := make([]int, len(tour))
+	for i := range tour {
+		normalized[i] = tour[(minIndex+i)%len(tour)]
+	}
+
+	return normalized
+}
+
+func addUniqueTour(savedTours map[string][]int, tour []int) {
+	normalizedTour := normalizeTour(tour)
+	keyJson, _ := json.Marshal(normalizedTour)
+	key := string(keyJson)
+
+	if _, exists := savedTours[key]; exists {
+		return
+	}
+
+	savedTours[key] = tour
+}
+
+func getOptimalTourStatistics(optimalUniqueToursCsvPath string) (map[string][]int, error) {
+	result := make(map[string][]int)
+
+	file, err := os.Open(optimalUniqueToursCsvPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return result, nil
+		}
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	rows, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	for i, row := range rows {
+		if i == 0 {
+			// Skip header if present
+			continue
+		}
+
+		if len(row) < 1 {
+			return nil, fmt.Errorf("invalid row format at line %d", i+1)
+		}
+
+		var value []int
+		if err := json.Unmarshal([]byte(row[0]), &value); err != nil {
+			return nil, fmt.Errorf("failed to parse JSON at line %d: %w", i+1, err)
+		}
+
+		result[row[0]] = value
+	}
+
+	return result, nil
 }
 
 func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics) {
@@ -226,7 +324,7 @@ func main() {
 		atspFilesPaths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize < 500
+			return problemSize >= 33 && problemSize < 40
 		})
 
 	resultsFolder := "results"
@@ -255,7 +353,6 @@ func main() {
 			}
 		}
 
-		continue
 		experimentData := make([]ExperimentsData, 0)
 		threeOptExperimentData := make([]ExperimentsData, 0)
 
@@ -289,6 +386,30 @@ func main() {
 		}
 		elapsed = time.Since(start)
 		fmt.Printf("\tCalculating statistics took %dms\n", elapsed.Milliseconds())
+
+		optimalUniqueToursCsvPath := path.Join(atspResultsDir, "optimal.csv")
+		uniqueOptimalTours, err := getOptimalTourStatistics(optimalUniqueToursCsvPath)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		for _, data := range experimentData {
+			for _, result := range data.results {
+				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
+					addUniqueTour(uniqueOptimalTours, result.bestTour)
+				}
+			}
+		}
+
+		for _, data := range threeOptExperimentData {
+			for _, result := range data.results {
+				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
+					addUniqueTour(uniqueOptimalTours, result.bestTour)
+				}
+			}
+		}
+
+		saveOptimalToursStatistics(optimalUniqueToursCsvPath, uniqueOptimalTours)
 	}
 
 	// mf, merr := os.Create("mem.prof")
