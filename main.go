@@ -40,8 +40,9 @@ type ExperimentResult struct {
 
 type ExperimentsDataStatistics struct {
 	ExperimentParameters
-	averageBestAtIteration, averageBestDeviation, successRate float64
-	averageComputationTime                                    int64
+	minBestAtIteration, maxBestAtIteration                                                        int
+	averageBestAtIteration, minBestDeviation, averageBestDeviation, maxBestDeviation, successRate float64
+	averageComputationTime                                                                        int64
 }
 
 func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, savedTours map[string][]int) {
@@ -150,8 +151,12 @@ func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics
 		"Ants fraction",
 		"Ants number",
 		"Iterations",
+		"Min best at iteration",
 		"Avg best at iteration",
+		"Max best at iteration",
+		"Min best deviation",
 		"Avg best deviation",
+		"Max best deviation",
 		"Success rate [%]",
 		"Avg computation time [ms]"}
 
@@ -174,8 +179,12 @@ func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics
 			fmt.Sprintf(floatFormat, statistic.antsPercentage),
 			strconv.Itoa(statistic.antsNumber),
 			strconv.Itoa(statistic.iterations),
+			strconv.Itoa(statistic.minBestAtIteration),
 			fmt.Sprintf(floatFormat, statistic.averageBestAtIteration),
+			strconv.Itoa(statistic.maxBestAtIteration),
+			fmt.Sprintf(floatFormat, statistic.minBestDeviation),
 			fmt.Sprintf(floatFormat, statistic.averageBestDeviation),
+			fmt.Sprintf(floatFormat, statistic.maxBestDeviation),
 			fmt.Sprintf(floatFormat, statistic.successRate),
 			strconv.FormatInt(statistic.averageComputationTime, 10),
 		}
@@ -188,21 +197,46 @@ func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics
 
 func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataStatistics {
 	statistics := make([]ExperimentsDataStatistics, len(experimentsData))
+
 	for i, data := range experimentsData {
-		successCounter := 0.0
+		minBestAtIteration := math.MaxInt
+		maxBestAtIteration := -math.MaxInt
 		averageBestAtIteration := 0.0
+		minBestDeviation := math.MaxFloat64
 		averageBestDeviation := 0.0
+		maxBestDeviation := -math.MaxFloat64
+		successCounter := 0.0
 		var averageComputationTime int64 = 0
 
 		for _, result := range data.results {
+
+			if result.bestAtIteration < minBestAtIteration {
+				minBestAtIteration = result.bestAtIteration
+			}
+
+			if result.bestAtIteration > maxBestAtIteration {
+				maxBestAtIteration = result.bestAtIteration
+			}
+
 			averageBestAtIteration += float64(result.bestAtIteration)
+
 			bestDeviation := result.deviationPerIteration[result.bestAtIteration]
+
+			if bestDeviation < minBestDeviation {
+				minBestDeviation = bestDeviation
+			}
+
 			averageBestDeviation += bestDeviation
-			averageComputationTime += result.computationTime
+
+			if bestDeviation > maxBestDeviation {
+				maxBestDeviation = bestDeviation
+			}
 
 			if bestDeviation == 0 {
 				successCounter++
 			}
+
+			averageComputationTime += result.computationTime
 		}
 
 		resultsLen := float64(len(data.results))
@@ -213,7 +247,15 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 		averageComputationTime /= int64(resultsLen)
 
 		statistics[i] = ExperimentsDataStatistics{
-			data.ExperimentParameters, averageBestAtIteration, averageBestDeviation, successRate, averageComputationTime}
+			data.ExperimentParameters,
+			minBestAtIteration,
+			maxBestAtIteration,
+			averageBestAtIteration,
+			minBestDeviation,
+			averageBestDeviation,
+			maxBestDeviation,
+			successRate,
+			averageComputationTime}
 	}
 
 	sort.SliceStable(statistics, func(i, j int) bool {
