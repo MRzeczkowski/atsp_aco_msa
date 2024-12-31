@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
+	"slices"
 	"strconv"
 )
 
@@ -15,6 +17,30 @@ type Edge = models.Edge
 func Read(rootCmsaPath string) ([][]float64, error) {
 	cmsaPath := path.Join(rootCmsaPath, "cmsa.csv")
 	return readFromCsv(cmsaPath)
+}
+
+func ReadMsas(rootCmsaPath string) ([][][]float64, error) {
+
+	msaRootPath := path.Join(rootCmsaPath, "msas")
+	msasPaths, err := filepath.Glob(filepath.Join(msaRootPath, "*.csv"))
+	if err != nil {
+		return nil, err
+	}
+
+	slices.Sort(msasPaths)
+
+	msas := make([][][]float64, len(msasPaths))
+
+	for i, msaPath := range msasPaths {
+		msa, err := readFromCsv(msaPath)
+		if err != nil {
+			return nil, err
+		}
+
+		msas[i] = msa
+	}
+
+	return msas, nil
 }
 
 func Create(matrix [][]float64, rootCmsaPath string) ([][]float64, error) {

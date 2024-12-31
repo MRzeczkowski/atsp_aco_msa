@@ -45,9 +45,18 @@ type ExperimentsDataStatistics struct {
 	averageComputationTime                                                                        int64
 }
 
-func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, savedTours map[string][]int) {
+type TourStatistics struct {
+	tourId                                                                                       string
+	commonalityWithCmsa, minCommonalityWithMsa, averageCommonalityWithMsa, maxCommonalityWithMsa float64
+}
+
+func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, toursStatistics []TourStatistics) {
 	header := []string{
 		"Tour",
+		"Commonality with CMSA",
+		"Min commonality with MSA",
+		"Avg commonality with MSA",
+		"Max commonality with MSA",
 	}
 
 	file, _ := os.Create(optimalUniqueToursCsvPath)
@@ -56,16 +65,91 @@ func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, savedTours map
 	writer := csv.NewWriter(file)
 
 	_ = writer.Write(header)
-	for key := range savedTours {
+	floatFormat := "%.2f"
 
+	for _, tourStatistics := range toursStatistics {
 		record := []string{
-			key,
+			tourStatistics.tourId,
+			fmt.Sprintf(floatFormat, tourStatistics.commonalityWithCmsa),
+			fmt.Sprintf(floatFormat, tourStatistics.minCommonalityWithMsa),
+			fmt.Sprintf(floatFormat, tourStatistics.averageCommonalityWithMsa),
+			fmt.Sprintf(floatFormat, tourStatistics.maxCommonalityWithMsa),
 		}
 
 		writer.Write(record)
 	}
 
 	writer.Flush()
+}
+
+func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]int) []TourStatistics {
+
+	cmsa, err := compositeMsa.Read(cmsaDir)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	msas, err := compositeMsa.ReadMsas(cmsaDir)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	toursStatistics := make([]TourStatistics, len(uniqueOptimalTours))
+	i := 0
+	for tourId, tour := range uniqueOptimalTours {
+
+		tourLen := len(tour)
+		tourEdges := make([]Edge, tourLen)
+
+		for i := 0; i < tourLen-1; i++ {
+			tourEdges[i] = Edge{From: tour[i], To: tour[i+1]}
+		}
+		last, first := tour[tourLen-1], tour[0]
+		tourEdges[last] = Edge{From: tour[last], To: tour[first]}
+
+		commonalityWithCmsa := 0.0
+		for _, edge := range tourEdges {
+			if cmsa[edge.From][edge.To] > 0 {
+				commonalityWithCmsa++
+			}
+		}
+		commonalityWithCmsa = 100 * commonalityWithCmsa / float64(tourLen-1)
+
+		minCommonalityWithMsa := math.MaxFloat64
+		averageCommonalityWithMsa := 0.0
+		maxCommonalityWithMsa := -math.MaxFloat64
+
+		for _, msa := range msas {
+			commonalityWithMsa := 0.0
+			for _, edge := range tourEdges {
+				if msa[edge.From][edge.To] > 0 {
+					commonalityWithMsa++
+				}
+			}
+			commonalityWithMsa = 100 * commonalityWithMsa / float64(tourLen-1)
+
+			if commonalityWithMsa < minCommonalityWithMsa {
+				minCommonalityWithMsa = commonalityWithMsa
+			}
+
+			averageCommonalityWithMsa += commonalityWithMsa
+
+			if commonalityWithMsa > maxCommonalityWithMsa {
+				maxCommonalityWithMsa = commonalityWithMsa
+			}
+		}
+
+		averageCommonalityWithMsa /= float64(len(msas))
+
+		toursStatistics[i] = TourStatistics{tourId, commonalityWithCmsa, minCommonalityWithMsa, averageCommonalityWithMsa, maxCommonalityWithMsa}
+		i++
+	}
+
+	sort.SliceStable(toursStatistics, func(i, j int) bool {
+		return toursStatistics[i].commonalityWithCmsa < toursStatistics[j].commonalityWithCmsa
+	})
+
+	return toursStatistics
 }
 
 func normalizeTour(tour []int) []int {
@@ -366,7 +450,7 @@ func main() {
 		atspFilesPaths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize >= 33 && problemSize < 40
+			return problemSize != 17 && problemSize < 100
 		})
 
 	resultsFolder := "results"
@@ -426,14 +510,14 @@ func main() {
 			threeOptResultFilePath := filepath.Join(atspResultsDir, "mmas") + "+3opt" + ".csv"
 			saveStatistics(threeOptResultFilePath, threeOptStatistics)
 		}
-		elapsed = time.Since(start)
-		fmt.Printf("\tCalculating statistics took %dms\n", elapsed.Milliseconds())
 
-		optimalUniqueToursCsvPath := path.Join(atspResultsDir, "optimal.csv")
+		optimalUniqueToursCsvPath := path.Join(atspResultsDir, "solutions.csv")
 		uniqueOptimalTours, err := getOptimalTourStatistics(optimalUniqueToursCsvPath)
+
 		if err != nil {
 			fmt.Println(err)
 		}
+		knownToursCount := len(uniqueOptimalTours)
 
 		for _, data := range experimentData {
 			for _, result := range data.results {
@@ -451,7 +535,15 @@ func main() {
 			}
 		}
 
-		saveOptimalToursStatistics(optimalUniqueToursCsvPath, uniqueOptimalTours)
+		// If we didn't find any more tours than we already have we don't do anything with previously generated files.
+		if knownToursCount == len(uniqueOptimalTours) {
+			continue
+		}
+
+		toursStatistics := calculateToursStatistics(cmsaDir, uniqueOptimalTours)
+		saveOptimalToursStatistics(optimalUniqueToursCsvPath, toursStatistics)
+		elapsed = time.Since(start)
+		fmt.Printf("\tCalculating statistics took %dms\n", elapsed.Milliseconds())
 	}
 
 	// mf, merr := os.Create("mem.prof")
