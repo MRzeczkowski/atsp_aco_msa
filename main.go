@@ -50,6 +50,125 @@ type TourStatistics struct {
 	commonalityWithCmsa, minCommonalityWithMsa, averageCommonalityWithMsa, maxCommonalityWithMsa float64
 }
 
+func generateMarkdownCounts(paramName string, counts map[float64]int) string {
+	markdown := fmt.Sprintf("### %s\n\n", paramName)
+	markdown += "| Value | Count |\n"
+	markdown += "|-------|-------|\n"
+
+	// Sort the keys
+	keys := make([]float64, 0, len(counts))
+	for key := range counts {
+		keys = append(keys, key)
+	}
+	sort.Float64s(keys)
+
+	// Add rows
+	for _, key := range keys {
+		markdown += fmt.Sprintf("| %.2f | %d |\n", key, counts[key])
+	}
+
+	markdown += "\n"
+	return markdown
+}
+
+func saveBestParametersInfo(resultsFolder string, parametersCount int, bestStatistics []ExperimentsDataStatistics) {
+	sort.Slice(bestStatistics, func(i, j int) bool {
+		return bestStatistics[i].averageBestDeviation < bestStatistics[j].averageBestDeviation
+	})
+
+	uniqueParameters := map[ExperimentParameters]bool{}
+
+	for _, statistic := range bestStatistics {
+		parameters := statistic.ExperimentParameters
+		parameters.antsNumber = 0
+		parameters.iterations = 0
+		uniqueParameters[parameters] = true
+	}
+
+	alphaCounts := make(map[float64]int)
+	betaCounts := make(map[float64]int)
+	rhoCounts := make(map[float64]int)
+	pBestCounts := make(map[float64]int)
+	pCmsaCounts := make(map[float64]int)
+	antsPercentageCounts := make(map[float64]int)
+
+	// Count the occurrences
+	for params := range uniqueParameters {
+		alphaCounts[params.alpha]++
+		betaCounts[params.beta]++
+		rhoCounts[params.rho]++
+		pBestCounts[params.pBest]++
+		pCmsaCounts[params.pCmsa]++
+		antsPercentageCounts[params.antsPercentage]++
+	}
+
+	// Markdown content
+	markdown := "# Best Parameters Report\n\n"
+
+	// Unique combinations count
+	bestParametersCount := len(uniqueParameters)
+	bestOutOfAllPercentage := 100.0 * float64(bestParametersCount) / float64(parametersCount)
+	markdown += fmt.Sprintf("Found **%d** best unique parameter combinations out of **%d** - that's **%.2f%%**.\n\n", len(uniqueParameters), parametersCount, bestOutOfAllPercentage)
+
+	// Best parameters
+	markdown += "## Best Parameters\n\n"
+	markdown += "| Alpha | Beta | Rho | pBest | pCmsa | AntsPercentage |\n"
+	markdown += "|-------|------|-----|-------|-------|----------------|\n"
+	for parameters := range uniqueParameters {
+		markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %.2f | %.2f |\n",
+			parameters.alpha, parameters.beta, parameters.rho,
+			parameters.pBest, parameters.pCmsa, parameters.antsPercentage)
+	}
+	markdown += "\n"
+
+	// Parameter occurrences
+	markdown += "## Parameter Values Occurrences\n\n"
+	markdown += generateMarkdownCounts("Alpha", alphaCounts)
+	markdown += generateMarkdownCounts("Beta", betaCounts)
+	markdown += generateMarkdownCounts("Rho", rhoCounts)
+	markdown += generateMarkdownCounts("PBest", pBestCounts)
+	markdown += generateMarkdownCounts("PCmsa", pCmsaCounts)
+	markdown += generateMarkdownCounts("AntsPercentage", antsPercentageCounts)
+
+	// Parameter ranges
+	markdown += "## Parameter Ranges\n\n"
+	minAlpha, maxAlpha := findMinMax(alphaCounts)
+	minBeta, maxBeta := findMinMax(betaCounts)
+	minRho, maxRho := findMinMax(rhoCounts)
+	minPBest, maxPBest := findMinMax(pBestCounts)
+	minPCmsa, maxPCmsa := findMinMax(pCmsaCounts)
+	minAntsPercentage, maxAntsPercentage := findMinMax(antsPercentageCounts)
+
+	markdown += fmt.Sprintf("- **Alpha**: %.2f - %.2f\n", minAlpha, maxAlpha)
+	markdown += fmt.Sprintf("- **Beta**: %.2f - %.2f\n", minBeta, maxBeta)
+	markdown += fmt.Sprintf("- **Rho**: %.2f - %.2f\n", minRho, maxRho)
+	markdown += fmt.Sprintf("- **pBest**: %.2f - %.2f\n", minPBest, maxPBest)
+	markdown += fmt.Sprintf("- **PCmsa**: %.2f - %.2f\n", minPCmsa, maxPCmsa)
+	markdown += fmt.Sprintf("- **AntsPercentage**: %.2f - %.2f\n", minAntsPercentage, maxAntsPercentage)
+
+	// Save to a file
+	filename := "best_parameters_report.md"
+	reportPath := path.Join(resultsFolder, filename)
+	err := os.WriteFile(reportPath, []byte(markdown), 0644)
+	if err != nil {
+		fmt.Printf("Failed to save report: %v\n", err)
+	}
+}
+
+func findMinMax(counts map[float64]int) (float64, float64) {
+	min := math.MaxFloat64
+	max := -math.MaxFloat64
+	for value := range counts {
+		if value < min {
+			min = value
+		}
+		if value > max {
+			max = value
+		}
+	}
+	return min, max
+}
+
 func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, toursStatistics []TourStatistics) {
 	header := []string{
 		"Tour",
@@ -146,7 +265,7 @@ func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]in
 	}
 
 	sort.SliceStable(toursStatistics, func(i, j int) bool {
-		return toursStatistics[i].commonalityWithCmsa < toursStatistics[j].commonalityWithCmsa
+		return toursStatistics[i].commonalityWithCmsa > toursStatistics[j].commonalityWithCmsa
 	})
 
 	return toursStatistics
@@ -223,6 +342,11 @@ func getOptimalTourStatistics(optimalUniqueToursCsvPath string) (map[string][]in
 	}
 
 	return result, nil
+}
+
+func addTopStatistics(statistics []ExperimentsDataStatistics, topNumber int, bestStatistics *[]ExperimentsDataStatistics) {
+	top := statistics[:topNumber]
+	*bestStatistics = append(*bestStatistics, top...)
 }
 
 func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics) {
@@ -411,7 +535,7 @@ func setDimensionDependantParameters(dimension int, parameters *ExperimentParame
 func generateParameters() []ExperimentParameters {
 	parameters := make([]ExperimentParameters, 0)
 
-	for _, useLocalSearch := range []bool{false} {
+	for _, useLocalSearch := range []bool{false, true} {
 		for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 			for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
 				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
@@ -456,6 +580,8 @@ func main() {
 	resultsFolder := "results"
 	numberOfExperiments := 50
 	experimentParameters := generateParameters()
+	bestStatistics := make([]ExperimentsDataStatistics, 0)
+	topNumber := 5
 	for _, atspFilePath := range atspFilesPaths {
 
 		name, dimension, matrix, knownOptimal, _ := parsing.ParseTSPLIBFile(atspFilePath)
@@ -504,11 +630,13 @@ func main() {
 		if len(statistics) != 0 {
 			resultFilePath := filepath.Join(atspResultsDir, "mmas") + ".csv"
 			saveStatistics(resultFilePath, statistics)
+			addTopStatistics(statistics, topNumber, &bestStatistics)
 		}
 
 		if len(threeOptStatistics) != 0 {
 			threeOptResultFilePath := filepath.Join(atspResultsDir, "mmas") + "+3opt" + ".csv"
 			saveStatistics(threeOptResultFilePath, threeOptStatistics)
+			addTopStatistics(threeOptStatistics, topNumber, &bestStatistics)
 		}
 
 		optimalUniqueToursCsvPath := path.Join(atspResultsDir, "solutions.csv")
@@ -517,7 +645,7 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 		}
-		knownToursCount := len(uniqueOptimalTours)
+		// knownToursCount := len(uniqueOptimalTours)
 
 		for _, data := range experimentData {
 			for _, result := range data.results {
@@ -536,15 +664,19 @@ func main() {
 		}
 
 		// If we didn't find any more tours than we already have we don't do anything with previously generated files.
-		if knownToursCount == len(uniqueOptimalTours) {
-			continue
-		}
+		// if knownToursCount == len(uniqueOptimalTours) {
+		// 	continue
+		// }
 
 		toursStatistics := calculateToursStatistics(cmsaDir, uniqueOptimalTours)
 		saveOptimalToursStatistics(optimalUniqueToursCsvPath, toursStatistics)
 		elapsed = time.Since(start)
 		fmt.Printf("\tCalculating statistics took %dms\n", elapsed.Milliseconds())
+		fmt.Println()
 	}
+
+	parametersCount := len(experimentParameters)
+	saveBestParametersInfo(resultsFolder, parametersCount, bestStatistics)
 
 	// mf, merr := os.Create("mem.prof")
 	// if merr != nil {
