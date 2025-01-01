@@ -16,6 +16,10 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"gonum.org/v1/plot"
+	"gonum.org/v1/plot/palette/moreland"
+	"gonum.org/v1/plot/plotter"
 )
 
 type Edge = models.Edge
@@ -574,11 +578,11 @@ func main() {
 		atspFilesPaths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize != 17 && problemSize < 100
+			return problemSize != 17 && problemSize < 500
 		})
 
 	resultsFolder := "results"
-	numberOfExperiments := 50
+	numberOfExperiments := 1
 	experimentParameters := generateParameters()
 	bestStatistics := make([]ExperimentsDataStatistics, 0)
 	topNumber := 5
@@ -604,6 +608,60 @@ func main() {
 				return
 			}
 		}
+
+		plotsDirectory := path.Join(atspResultsDir, "plots")
+
+		heatmapData := &HeatMapData{
+			data:       cmsa,
+			cellWidth:  1.0,
+			cellHeight: 1.0,
+			minX:       0.0,
+			minY:       0.0,
+		}
+
+		heatmapPlot := plot.New()
+		heatmapPlot.Title.Text = name + " heatmap"
+		heatmapPlot.HideAxes()
+
+		palette := moreland.SmoothBlueRed().Palette(255)
+		heatmap := plotter.NewHeatMap(heatmapData, palette)
+
+		heatmapPlot.Add(heatmap)
+
+		os.Mkdir(plotsDirectory, os.ModePerm)
+		cmsaPlot := path.Join(plotsDirectory, "cmsa_heatmap.png")
+
+		if err := heatmapPlot.Save(800, 800, cmsaPlot); err != nil {
+			panic(err)
+		}
+
+		// Create a new plot
+		histogramPlot := plot.New()
+		histogramPlot.Title.Text = name + " distribution"
+		histogramPlot.X.Label.Text = "Value"
+		histogramPlot.Y.Label.Text = "Frequency"
+
+		data := filterZeroes(flattenMatrix(cmsa))
+
+		// Create a histogram
+		values := make(plotter.Values, len(data))
+		copy(values, data)
+
+		hist, err := plotter.NewHist(values, 100)
+		if err != nil {
+			panic(err)
+		}
+		hist.Normalize(1)
+		// hist.LogY = true
+
+		histogramPlot.Add(hist)
+
+		cmsaHistogramPlot := path.Join(plotsDirectory, "cmsa_histogram.png")
+		if err := histogramPlot.Save(800, 800, cmsaHistogramPlot); err != nil {
+			panic(err)
+		}
+
+		continue
 
 		experimentData := make([]ExperimentsData, 0)
 		threeOptExperimentData := make([]ExperimentsData, 0)
@@ -675,6 +733,7 @@ func main() {
 		fmt.Println()
 	}
 
+	return
 	parametersCount := len(experimentParameters)
 	saveBestParametersInfo(resultsFolder, parametersCount, bestStatistics)
 
@@ -686,4 +745,48 @@ func main() {
 	// defer mf.Close()
 
 	// pprof.WriteHeapProfile(mf)
+}
+
+func filterZeroes(data []float64) []float64 {
+	var result []float64
+	for _, value := range data {
+		if value != 0 {
+			result = append(result, value)
+		}
+	}
+	return result
+}
+
+func flattenMatrix(matrix [][]float64) []float64 {
+	var result []float64
+	for _, row := range matrix {
+		result = append(result, row...)
+	}
+	return result
+}
+
+type HeatMapData struct {
+	data       [][]float64
+	cellWidth  float64
+	cellHeight float64
+	minX       float64
+	minY       float64
+}
+
+func (h *HeatMapData) Dims() (c, r int) {
+	return len(h.data[0]), len(h.data)
+}
+
+func (h *HeatMapData) X(c int) float64 {
+	return h.minX + float64(c)*h.cellWidth
+}
+
+func (h *HeatMapData) Y(r int) float64 {
+	// return h.minY + float64(r)*h.cellHeight
+	// Reverse Y-axis to make the origin top-left
+	return h.minY + float64(len(h.data)-1-r)*h.cellHeight
+}
+
+func (h *HeatMapData) Z(c, r int) float64 {
+	return h.data[r][c]
 }
