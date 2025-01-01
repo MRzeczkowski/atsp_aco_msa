@@ -259,7 +259,11 @@ func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]in
 	}
 
 	sort.SliceStable(toursStatistics, func(i, j int) bool {
-		return toursStatistics[i].commonalityWithCmsa > toursStatistics[j].commonalityWithCmsa
+		if toursStatistics[i].commonalityWithCmsa != toursStatistics[j].commonalityWithCmsa {
+			return toursStatistics[i].commonalityWithCmsa > toursStatistics[j].commonalityWithCmsa
+		}
+
+		return toursStatistics[i].averageCommonalityWithMsa > toursStatistics[j].averageCommonalityWithMsa
 	})
 
 	return toursStatistics
@@ -586,6 +590,12 @@ func main() {
 
 		cmsa, err := compositeMsa.Read(cmsaDir)
 
+		optimalUniqueToursCsvPath := path.Join(atspResultsDir, "solutions.csv")
+		uniqueOptimalTours, err := getOptimalTourStatistics(optimalUniqueToursCsvPath)
+
+		toursStatistics := calculateToursStatistics(cmsaDir, uniqueOptimalTours)
+		saveOptimalToursStatistics(optimalUniqueToursCsvPath, toursStatistics)
+
 		if err != nil {
 			start := time.Now()
 			cmsa, err = compositeMsa.Create(matrix, cmsaDir)
@@ -654,8 +664,8 @@ func main() {
 			addTopStatistics(threeOptStatistics, topNumber, &bestStatistics)
 		}
 
-		optimalUniqueToursCsvPath := path.Join(atspResultsDir, "solutions.csv")
-		uniqueOptimalTours, err := getOptimalTourStatistics(optimalUniqueToursCsvPath)
+		// optimalUniqueToursCsvPath := path.Join(atspResultsDir, "solutions.csv")
+		// uniqueOptimalTours, err := getOptimalTourStatistics(optimalUniqueToursCsvPath)
 
 		if err != nil {
 			fmt.Println(err)
@@ -683,8 +693,8 @@ func main() {
 		// 	continue
 		// }
 
-		toursStatistics := calculateToursStatistics(cmsaDir, uniqueOptimalTours)
-		saveOptimalToursStatistics(optimalUniqueToursCsvPath, toursStatistics)
+		// toursStatistics := calculateToursStatistics(cmsaDir, uniqueOptimalTours)
+		// saveOptimalToursStatistics(optimalUniqueToursCsvPath, toursStatistics)
 		elapsed = time.Since(start)
 		fmt.Printf("\tCalculating statistics took %dms\n", elapsed.Milliseconds())
 		fmt.Println()
