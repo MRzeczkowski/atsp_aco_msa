@@ -263,7 +263,12 @@ func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]in
 			return toursStatistics[i].commonalityWithCmsa > toursStatistics[j].commonalityWithCmsa
 		}
 
-		return toursStatistics[i].averageCommonalityWithMsa > toursStatistics[j].averageCommonalityWithMsa
+		if toursStatistics[i].averageCommonalityWithMsa != toursStatistics[j].averageCommonalityWithMsa {
+			return toursStatistics[i].averageCommonalityWithMsa > toursStatistics[j].averageCommonalityWithMsa
+		}
+
+		// Tiebreaker so that results don't change unnecessarily.
+		return toursStatistics[i].tourId > toursStatistics[j].tourId
 	})
 
 	return toursStatistics
