@@ -123,28 +123,18 @@ func GenerateRange(start, end, step float64) []float64 {
 }
 
 func TourLength(tour []int, distances [][]float64) float64 {
+	n := len(tour)
 	sum := 0.0
-	p := len(tour)
 
-	for i := 0; i < p-1; i++ {
+	for i := 0; i < n-1; i++ {
 		start, end := tour[i], tour[i+1]
 		sum += distances[start][end]
 	}
 
-	if p > 0 {
-		last, first := tour[p-1], tour[0]
+	if n > 0 {
+		last, first := tour[n-1], tour[0]
 		sum += distances[last][first]
 	}
 
 	return sum
-}
-
-func IndexOf(element int, data []int) int {
-	for k, v := range data {
-		if element == v {
-			return k
-		}
-	}
-
-	return -1 //not found.
 }

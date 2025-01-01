@@ -22,6 +22,19 @@ func ConvertToEdges(matrix [][]float64) ([]int, []Edge, map[Edge]float64) {
 	return vertices, edges, weights
 }
 
+func ConvertTourToEdges(tour []int) []Edge {
+	n := len(tour)
+	tourEdges := make([]Edge, n)
+
+	for i := 0; i < n-1; i++ {
+		tourEdges[i] = Edge{From: tour[i], To: tour[i+1]}
+	}
+	last, first := tour[n-1], tour[0]
+	tourEdges[n-1] = Edge{From: last, To: first}
+
+	return tourEdges
+}
+
 func ConvertToMatrix(edges []Edge, size int) [][]float64 {
 	matrix := make([][]float64, size)
 	for i := range matrix {

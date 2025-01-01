@@ -201,6 +201,20 @@ func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, toursStatistic
 	writer.Flush()
 }
 
+func calculateCommonalityWithMatrix(tourEdges []Edge, matrix [][]float64) float64 {
+	commonality := 0.0
+	for _, edge := range tourEdges {
+		if matrix[edge.From][edge.To] > 0 {
+			commonality++
+		}
+	}
+	tourLen := len(tourEdges)
+
+	commonality = 100 * commonality / float64(tourLen)
+
+	return commonality
+}
+
 func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]int) []TourStatistics {
 
 	cmsa, err := compositeMsa.Read(cmsaDir)
@@ -216,36 +230,16 @@ func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]in
 	toursStatistics := make([]TourStatistics, len(uniqueOptimalTours))
 	i := 0
 	for tourId, tour := range uniqueOptimalTours {
+		tourEdges := models.ConvertTourToEdges(tour)
 
-		tourLen := len(tour)
-		tourEdges := make([]Edge, tourLen)
-
-		for i := 0; i < tourLen-1; i++ {
-			tourEdges[i] = Edge{From: tour[i], To: tour[i+1]}
-		}
-		last, first := tour[tourLen-1], tour[0]
-		tourEdges[last] = Edge{From: tour[last], To: tour[first]}
-
-		commonalityWithCmsa := 0.0
-		for _, edge := range tourEdges {
-			if cmsa[edge.From][edge.To] > 0 {
-				commonalityWithCmsa++
-			}
-		}
-		commonalityWithCmsa = 100 * commonalityWithCmsa / float64(tourLen-1)
+		commonalityWithCmsa := calculateCommonalityWithMatrix(tourEdges, cmsa)
 
 		minCommonalityWithMsa := math.MaxFloat64
 		averageCommonalityWithMsa := 0.0
 		maxCommonalityWithMsa := -math.MaxFloat64
 
 		for _, msa := range msas {
-			commonalityWithMsa := 0.0
-			for _, edge := range tourEdges {
-				if msa[edge.From][edge.To] > 0 {
-					commonalityWithMsa++
-				}
-			}
-			commonalityWithMsa = 100 * commonalityWithMsa / float64(tourLen-1)
+			commonalityWithMsa := calculateCommonalityWithMatrix(tourEdges, msa)
 
 			if commonalityWithMsa < minCommonalityWithMsa {
 				minCommonalityWithMsa = commonalityWithMsa
