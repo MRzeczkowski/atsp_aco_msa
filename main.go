@@ -595,12 +595,6 @@ func main() {
 
 		cmsa, err := compositeMsa.Read(cmsaDir)
 
-		optimalUniqueToursCsvPath := path.Join(atspResultsDir, "solutions.csv")
-		uniqueOptimalTours, err := getOptimalTourStatistics(optimalUniqueToursCsvPath)
-
-		toursStatistics := calculateToursStatistics(cmsaDir, uniqueOptimalTours)
-		saveOptimalToursStatistics(optimalUniqueToursCsvPath, toursStatistics)
-
 		if err != nil {
 			start := time.Now()
 			cmsa, err = compositeMsa.Create(matrix, cmsaDir)
@@ -616,21 +610,65 @@ func main() {
 
 		plotsDirectory := path.Join(atspResultsDir, "plots")
 
-		cmsaHeatmapPlotPath := path.Join(plotsDirectory, "cmsa_heatmap.png")
 		cmsaHeatmapPlotTitle := name + " CMSA heatmap"
+		cmsaHeatmapPlotPath := path.Join(plotsDirectory, "cmsa_heatmap.png")
 
 		err = utilities.SaveHeatmapFromMatrix(cmsa, cmsaHeatmapPlotTitle, cmsaHeatmapPlotPath)
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		cmsaHistogramPlotPath := path.Join(plotsDirectory, "cmsa_histogram.png")
-		cmsaHistogramPlotTitle := name + " CMSA histogram"
 		dataForHistogram := filterZeroes(flattenMatrix(cmsa))
+		cmsaHistogramPlotTitle := name + " CMSA histogram"
+		cmsaHistogramPlotPath := path.Join(plotsDirectory, "cmsa_histogram.png")
 
 		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, cmsaHistogramPlotTitle, cmsaHistogramPlotPath)
 		if err != nil {
 			fmt.Println(err)
+		}
+
+		optimalUniqueToursCsvPath := path.Join(atspResultsDir, "solutions.csv")
+		uniqueOptimalTours, err := getOptimalTourStatistics(optimalUniqueToursCsvPath)
+
+		toursStatistics := calculateToursStatistics(cmsaDir, uniqueOptimalTours)
+		saveOptimalToursStatistics(optimalUniqueToursCsvPath, toursStatistics)
+
+		toursCount := len(uniqueOptimalTours)
+		if toursCount > 0 {
+			toursMatrix := make([][]float64, dimension)
+			for i := 0; i < dimension; i++ {
+				toursMatrix[i] = make([]float64, dimension)
+			}
+
+			for _, tour := range uniqueOptimalTours {
+				n := len(tour)
+				for i := 0; i < n-1; i++ {
+					start, end := tour[i], tour[i+1]
+					toursMatrix[start][end]++
+				}
+
+				last, first := tour[n-1], tour[0]
+				toursMatrix[last][first]++
+			}
+
+			toursHeatmapPlotTitle := name + " tours heatmap"
+			toursHeatmapPlotPath := path.Join(plotsDirectory, "tours_heatmap.png")
+
+			err = utilities.SaveHeatmapFromMatrix(toursMatrix, toursHeatmapPlotTitle, toursHeatmapPlotPath)
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			if toursCount > 1 {
+				dataForHistogram = filterZeroes(flattenMatrix(toursMatrix))
+				toursHistogramPlotTitle := name + " tours histogram"
+				toursHistogramPlotPath := path.Join(plotsDirectory, "tours_histogram.png")
+
+				err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, toursHistogramPlotTitle, toursHistogramPlotPath)
+				if err != nil {
+					fmt.Println(err)
+				}
+			}
 		}
 
 		continue
