@@ -70,7 +70,7 @@ func generateMarkdownCounts(paramName string, counts map[float64]int) string {
 	return markdown
 }
 
-func saveBestParametersInfo(resultsFolder string, parametersCount int, bestStatistics []ExperimentsDataStatistics) {
+func saveBestParametersInfo(resultsFolder string, bestStatistics []ExperimentsDataStatistics) {
 	sort.Slice(bestStatistics, func(i, j int) bool {
 		return bestStatistics[i].averageBestDeviation < bestStatistics[j].averageBestDeviation
 	})
@@ -105,9 +105,7 @@ func saveBestParametersInfo(resultsFolder string, parametersCount int, bestStati
 	markdown := "# Best Parameters Report\n\n"
 
 	// Unique combinations count
-	bestParametersCount := len(uniqueParameters)
-	bestOutOfAllPercentage := 100.0 * float64(bestParametersCount) / float64(parametersCount)
-	markdown += fmt.Sprintf("Found **%d** best unique parameter combinations out of **%d** - that's **%.2f%%**.\n\n", len(uniqueParameters), parametersCount, bestOutOfAllPercentage)
+	markdown += fmt.Sprintf("Found **%d** best unique parameter combinations.\n\n", len(uniqueParameters))
 
 	// Best parameters
 	markdown += "## Best Parameters\n\n"
@@ -731,71 +729,70 @@ func main() {
 	}
 
 	experimentParameters := generateParameters()
+	for _, atspData := range atspsData {
+		matrix := atspData.matrix
+		knownOptimal := atspData.knownOptimal
+		dimension := len(matrix)
 
-	// for _, atspData := range atspsData {
-	// 	matrix := atspData.matrix
-	// 	knownOptimal := atspData.knownOptimal
-	// 	dimension := len(matrix)
+		cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
-	// 	cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
-	// 	if err != nil {
-	// 		fmt.Println(err)
-	// 		return
-	// 	}
+		numberOfExperiments := 50
+		experimentData := make([]ExperimentsData, 0)
+		threeOptExperimentData := make([]ExperimentsData, 0)
 
-	// 	numberOfExperiments := 50
-	// 	experimentData := make([]ExperimentsData, 0)
-	// 	threeOptExperimentData := make([]ExperimentsData, 0)
+		for _, parameters := range experimentParameters {
+			setDimensionDependantParameters(dimension, &parameters)
+			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, cmsa)
+			data := ExperimentsData{parameters, results}
 
-	// 	for _, parameters := range experimentParameters {
-	// 		setDimensionDependantParameters(dimension, &parameters)
-	// 		results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, cmsa)
-	// 		data := ExperimentsData{parameters, results}
+			if parameters.useLocalSearch {
+				threeOptExperimentData = append(threeOptExperimentData, data)
+			} else {
+				experimentData = append(experimentData, data)
+			}
+		}
 
-	// 		if parameters.useLocalSearch {
-	// 			threeOptExperimentData = append(threeOptExperimentData, data)
-	// 		} else {
-	// 			experimentData = append(experimentData, data)
-	// 		}
-	// 	}
+		statistics := calculateStatistics(experimentData)
+		threeOptStatistics := calculateStatistics(threeOptExperimentData)
 
-	// 	statistics := calculateStatistics(experimentData)
-	// 	threeOptStatistics := calculateStatistics(threeOptExperimentData)
+		if len(statistics) != 0 {
+			saveStatistics(atspData.resultFilePath, statistics)
+		}
 
-	// 	if len(statistics) != 0 {
-	// 		saveStatistics(atspData.resultFilePath, statistics)
-	// 	}
+		if len(threeOptStatistics) != 0 {
+			saveStatistics(atspData.threeOptResultFilePath, threeOptStatistics)
+		}
 
-	// 	if len(threeOptStatistics) != 0 {
-	// 		saveStatistics(atspData.threeOptResultFilePath, threeOptStatistics)
-	// 	}
+		uniqueOptimalTours, err := getOptimalTourStatistics(atspData.optimalUniqueToursCsvPath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
-	// 	uniqueOptimalTours, err := getOptimalTourStatistics(atspData.optimalUniqueToursCsvPath)
-	// 	if err != nil {
-	// 		fmt.Println(err)
-	// 		return
-	// 	}
+		for _, data := range experimentData {
+			for _, result := range data.results {
+				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
+					addUniqueTour(uniqueOptimalTours, result.bestTour)
+				}
+			}
+		}
 
-	// 	for _, data := range experimentData {
-	// 		for _, result := range data.results {
-	// 			if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
-	// 				addUniqueTour(uniqueOptimalTours, result.bestTour)
-	// 			}
-	// 		}
-	// 	}
+		for _, data := range threeOptExperimentData {
+			for _, result := range data.results {
+				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
+					addUniqueTour(uniqueOptimalTours, result.bestTour)
+				}
+			}
+		}
 
-	// 	for _, data := range threeOptExperimentData {
-	// 		for _, result := range data.results {
-	// 			if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
-	// 				addUniqueTour(uniqueOptimalTours, result.bestTour)
-	// 			}
-	// 		}
-	// 	}
-
-	// 	cmsaDirectoryPath := atspData.cmsaDirectoryPath
-	// 	toursStatistics := calculateToursStatistics(cmsaDirectoryPath, uniqueOptimalTours)
-	// 	saveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, toursStatistics)
-	// }
+		cmsaDirectoryPath := atspData.cmsaDirectoryPath
+		toursStatistics := calculateToursStatistics(cmsaDirectoryPath, uniqueOptimalTours)
+		saveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, toursStatistics)
+	}
 
 	for _, atspData := range atspsData {
 		name := atspData.name
@@ -848,7 +845,7 @@ func main() {
 
 	bestStatistics := make([]ExperimentsDataStatistics, 0)
 
-	topNumber := 5
+	topNumber := 3
 	resultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", resultFileName))
 	threeOptResultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", threeOptResultFileName))
 
@@ -865,8 +862,7 @@ func main() {
 		}
 	}
 
-	parametersCount := len(experimentParameters)
-	saveBestParametersInfo(resultsDirectoryName, parametersCount, bestStatistics)
+	saveBestParametersInfo(resultsDirectoryName, bestStatistics)
 }
 
 func countUniqueValues(data []float64) int {
