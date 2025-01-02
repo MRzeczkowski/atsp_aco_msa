@@ -352,6 +352,79 @@ func addTopStatistics(statistics []ExperimentsDataStatistics, topNumber int, bes
 	*bestStatistics = append(*bestStatistics, top...)
 }
 
+func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
+	file, err := os.Open(csvFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+
+	// Read the header and skip it
+	_, err = reader.Read() // Read the first line (header)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read header: %w", err)
+	}
+
+	var statistics []ExperimentsDataStatistics
+
+	// Parse the remaining rows
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read records: %w", err)
+	}
+
+	for _, record := range records {
+		if len(record) < 16 {
+			return nil, fmt.Errorf("invalid record length: %d", len(record))
+		}
+
+		alpha, _ := strconv.ParseFloat(record[0], 64)
+		beta, _ := strconv.ParseFloat(record[1], 64)
+		rho, _ := strconv.ParseFloat(record[2], 64)
+		pBest, _ := strconv.ParseFloat(record[3], 64)
+		pCmsa, _ := strconv.ParseFloat(record[4], 64)
+		antsPercentage, _ := strconv.ParseFloat(record[5], 64)
+		antsNumber, _ := strconv.Atoi(record[6])
+		iterations, _ := strconv.Atoi(record[7])
+		minBestAtIteration, _ := strconv.Atoi(record[8])
+		averageBestAtIteration, _ := strconv.ParseFloat(record[9], 64)
+		maxBestAtIteration, _ := strconv.Atoi(record[10])
+		minBestDeviation, _ := strconv.ParseFloat(record[11], 64)
+		averageBestDeviation, _ := strconv.ParseFloat(record[12], 64)
+		maxBestDeviation, _ := strconv.ParseFloat(record[13], 64)
+		successRate, _ := strconv.ParseFloat(record[14], 64)
+		averageComputationTime, _ := strconv.ParseInt(record[15], 10, 64)
+
+		statistic := ExperimentsDataStatistics{
+			ExperimentParameters: ExperimentParameters{
+				alpha:          alpha,
+				beta:           beta,
+				rho:            rho,
+				pBest:          pBest,
+				pCmsa:          pCmsa,
+				antsPercentage: antsPercentage,
+				antsNumber:     antsNumber,
+				iterations:     iterations,
+				useLocalSearch: false, // Assuming default value since it's not in the CSV
+			},
+			minBestAtIteration:     minBestAtIteration,
+			maxBestAtIteration:     maxBestAtIteration,
+			averageBestAtIteration: averageBestAtIteration,
+			minBestDeviation:       minBestDeviation,
+			averageBestDeviation:   averageBestDeviation,
+			maxBestDeviation:       maxBestDeviation,
+			successRate:            successRate,
+			averageComputationTime: averageComputationTime,
+		}
+
+		statistics = append(statistics, statistic)
+	}
+
+	return statistics, nil
+}
+
 func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics) {
 	header := []string{
 		"Alpha",
@@ -664,7 +737,9 @@ func main() {
 				toursHistogramPlotTitle := name + " tours histogram"
 				toursHistogramPlotPath := path.Join(plotsDirectory, "tours_histogram.png")
 
-				err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, toursHistogramPlotTitle, toursHistogramPlotPath)
+				numberOfBins := countUniqueValues(dataForHistogram)
+
+				err = utilities.SaveHistogramFromData(dataForHistogram, numberOfBins, toursHistogramPlotTitle, toursHistogramPlotPath)
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -755,6 +830,15 @@ func main() {
 	// defer mf.Close()
 
 	// pprof.WriteHeapProfile(mf)
+}
+
+func countUniqueValues(data []float64) int {
+	unique := make(map[float64]struct{})
+	for _, value := range data {
+		unique[value] = struct{}{}
+	}
+
+	return len(unique)
 }
 
 func filterZeroes(data []float64) []float64 {

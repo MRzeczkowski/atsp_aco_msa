@@ -2,13 +2,17 @@ package utilities
 
 import (
 	"fmt"
+	"math"
+	"os"
 	"regexp"
 	"strconv"
 
 	"gonum.org/v1/plot"
-	"gonum.org/v1/plot/font"
 	"gonum.org/v1/plot/palette/moreland"
 	"gonum.org/v1/plot/plotter"
+	"gonum.org/v1/plot/vg"
+	"gonum.org/v1/plot/vg/draw"
+	"gonum.org/v1/plot/vg/vgimg"
 )
 
 type HeatMapData struct {
@@ -37,8 +41,8 @@ func (h *HeatMapData) Z(c, r int) float64 {
 }
 
 var (
-	plotWidth  font.Length = 800
-	plotLength font.Length = 800
+	plotWidth  = vg.Length(800)
+	plotHeight = vg.Length(800)
 )
 
 func SaveHeatmapFromMatrix(matrix [][]float64, plotTitle, plotPath string) error {
@@ -59,7 +63,7 @@ func SaveHeatmapFromMatrix(matrix [][]float64, plotTitle, plotPath string) error
 
 	heatmapPlot.Add(heatmap)
 
-	return heatmapPlot.Save(plotWidth, plotLength, plotPath)
+	return savePlotWithPadding(heatmapPlot, plotWidth, plotHeight, plotPath)
 }
 
 func SaveHistogramFromData(data []float64, bins int, plotTitle, plotPath string) error {
@@ -70,16 +74,84 @@ func SaveHistogramFromData(data []float64, bins int, plotTitle, plotPath string)
 	histogramPlot.Title.Text = plotTitle
 	histogramPlot.X.Label.Text = "Value"
 	histogramPlot.X.Min = 1.0
-	histogramPlot.Y.Label.Text = "Frequency"
+	histogramPlot.Y.Label.Text = "Probability Density"
 
 	hist, err := plotter.NewHist(values, bins)
 	if err != nil {
 		return err
 	}
+	hist.Normalize(1)
+
+	minBin := hist.Bins[0]
+	midBin := hist.Bins[bins/2]
+	maxBin := hist.Bins[bins-1]
+	binsForTicks := []plotter.HistogramBin{minBin, midBin, maxBin}
+
+	histogramPlot.X.Tick.Marker = plot.TickerFunc(func(min, max float64) []plot.Tick {
+		var ticks []plot.Tick
+		for _, bin := range hist.Bins {
+			center := (bin.Min + bin.Max) / 2
+
+			label := ""
+			if bin == minBin || bin == midBin || bin == maxBin {
+				label = fmt.Sprintf("%d", int(math.Round(center)))
+			}
+
+			ticks = append(ticks, plot.Tick{
+				Value: center,
+				Label: label,
+			})
+		}
+
+		return ticks
+	})
+
+	histogramPlot.Y.Tick.Marker = plot.TickerFunc(func(min, max float64) []plot.Tick {
+		var ticks []plot.Tick
+		for _, bin := range binsForTicks {
+
+			label := ""
+			if bin == minBin || bin == midBin || bin == maxBin {
+				label = fmt.Sprintf("%.2f", bin.Weight)
+			}
+
+			ticks = append(ticks, plot.Tick{
+				Value: bin.Weight,
+				Label: label,
+			})
+		}
+
+		return ticks
+	})
 
 	histogramPlot.Add(hist)
 
-	return histogramPlot.Save(plotWidth, plotLength, plotPath)
+	return savePlotWithPadding(histogramPlot, plotWidth, plotHeight, plotPath)
+}
+
+func savePlotWithPadding(p *plot.Plot, width, height vg.Length, filePath string) error {
+	// Increase the outer canvas size a bit more
+	canvas := vgimg.New(width+4*vg.Centimeter, height+4*vg.Centimeter)
+	dc := draw.New(canvas)
+
+	// Increase the padding inside the canvas
+	pad := vg.Centimeter / 5
+	dc = draw.Crop(dc, 0, -pad, 0, 0)
+
+	p.Draw(dc)
+
+	f, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	png := vgimg.PngCanvas{Canvas: canvas}
+	if _, err := png.WriteTo(f); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func ExtractNumber(input string) (int, error) {
