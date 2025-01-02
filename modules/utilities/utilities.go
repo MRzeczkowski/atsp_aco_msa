@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 
 	"gonum.org/v1/plot"
@@ -72,20 +73,18 @@ func SaveHistogramFromData(data []float64, bins int, plotTitle, plotPath string)
 
 	histogramPlot := plot.New()
 	histogramPlot.Title.Text = plotTitle
-	histogramPlot.X.Label.Text = "Value"
+	histogramPlot.X.Label.Text = "Number of selections"
 	histogramPlot.X.Min = 1.0
-	histogramPlot.Y.Label.Text = "Probability Density"
+	histogramPlot.Y.Label.Text = "Count of edges"
 
 	hist, err := plotter.NewHist(values, bins)
 	if err != nil {
 		return err
 	}
-	hist.Normalize(1)
 
-	minBin := hist.Bins[0]
-	midBin := hist.Bins[bins/2]
-	maxBin := hist.Bins[bins-1]
-	binsForTicks := []plotter.HistogramBin{minBin, midBin, maxBin}
+	firstBin := hist.Bins[0]
+	middleBin := hist.Bins[bins/2]
+	lastBin := hist.Bins[bins-1]
 
 	histogramPlot.X.Tick.Marker = plot.TickerFunc(func(min, max float64) []plot.Tick {
 		var ticks []plot.Tick
@@ -93,7 +92,7 @@ func SaveHistogramFromData(data []float64, bins int, plotTitle, plotPath string)
 			center := (bin.Min + bin.Max) / 2
 
 			label := ""
-			if bin == minBin || bin == midBin || bin == maxBin {
+			if bin == firstBin || bin == middleBin || bin == lastBin {
 				label = fmt.Sprintf("%d", int(math.Round(center)))
 			}
 
@@ -106,17 +105,37 @@ func SaveHistogramFromData(data []float64, bins int, plotTitle, plotPath string)
 		return ticks
 	})
 
+	heightsSet := make(map[int]bool)
+	for _, bin := range hist.Bins {
+		heightsSet[int(bin.Weight)] = true
+	}
+
+	heights := make([]int, 0, len(heightsSet))
+	for k := range heightsSet {
+		heights = append(heights, k)
+	}
+
+	sort.Slice(heights, func(i, j int) bool {
+		return heights[i] < heights[j]
+	})
+
+	heightsCount := len(heights)
+	smallestHeight := heights[0]
+	medianHeight := heights[heightsCount/2]
+	biggestHeight := heights[heightsCount-1]
+
 	histogramPlot.Y.Tick.Marker = plot.TickerFunc(func(min, max float64) []plot.Tick {
 		var ticks []plot.Tick
-		for _, bin := range binsForTicks {
+
+		for i := 0; i <= biggestHeight; i++ {
 
 			label := ""
-			if bin == minBin || bin == midBin || bin == maxBin {
-				label = fmt.Sprintf("%.2f", bin.Weight)
+			if i == smallestHeight || i == medianHeight || i == biggestHeight {
+				label = fmt.Sprintf("%d", i)
 			}
 
 			ticks = append(ticks, plot.Tick{
-				Value: bin.Weight,
+				Value: float64(i),
 				Label: label,
 			})
 		}
