@@ -29,10 +29,10 @@ var optimalSolutions = map[string]float64{
 	"ry48p":  14422,
 }
 
-func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float64, knownOptimal float64, err error) {
+func ParseTSPLIBFile(path string) (name string, matrix [][]float64, knownOptimal float64, err error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return "", 0, nil, 0, err
+		return "", nil, 0, err
 	}
 
 	defer file.Close()
@@ -41,6 +41,7 @@ func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float6
 	readMatrix := false
 
 	// Initialize variables to keep track of matrix data as it's read
+	var dimension int
 	var valuesInMatrix []float64
 
 	for scanner.Scan() {
@@ -58,7 +59,7 @@ func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float6
 			parts := strings.Split(line, ":")
 			dimension, err = strconv.Atoi(strings.TrimSpace(parts[1]))
 			if err != nil {
-				return "", 0, nil, 0, err
+				return "", nil, 0, err
 			}
 
 			matrix = make([][]float64, dimension)
@@ -73,7 +74,7 @@ func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float6
 			for _, val := range rowValues {
 				num, err := strconv.ParseFloat(val, 64)
 				if err != nil {
-					return "", 0, nil, 0, err
+					return "", nil, 0, err
 				}
 
 				valuesInMatrix = append(valuesInMatrix, num)
@@ -86,18 +87,19 @@ func ParseTSPLIBFile(path string) (name string, dimension int, matrix [][]float6
 	}
 
 	if err := scanner.Err(); err != nil {
-		return "", 0, nil, 0, err
+		return "", nil, 0, err
 	}
 
 	// Populate the matrix from the list of values
 	if len(valuesInMatrix) != dimension*dimension {
-		return "", 0, nil, 0, fmt.Errorf("the total numbers in matrix (%d) does not match expected dimension squared (%d)", len(valuesInMatrix), dimension*dimension)
+		return "", nil, 0, fmt.Errorf("the total numbers in matrix (%d) does not match expected dimension squared (%d)", len(valuesInMatrix), dimension*dimension)
 	}
+
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
 			matrix[i][j] = valuesInMatrix[i*dimension+j]
 		}
 	}
 
-	return name, dimension, matrix, optimalSolutions[name], nil
+	return name, matrix, optimalSolutions[name], nil
 }

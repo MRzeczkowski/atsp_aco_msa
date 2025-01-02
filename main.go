@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -148,7 +147,7 @@ func saveBestParametersInfo(resultsFolder string, parametersCount int, bestStati
 
 	// Save to a file
 	filename := "best_parameters_report.md"
-	reportPath := path.Join(resultsFolder, filename)
+	reportPath := filepath.Join(resultsFolder, filename)
 	err := os.WriteFile(reportPath, []byte(markdown), 0644)
 	if err != nil {
 		fmt.Printf("Failed to save report: %v\n", err)
@@ -633,16 +632,55 @@ func generateParameters() []ExperimentParameters {
 	return parameters
 }
 
+var resultsDirectoryName = "results"
+var resultFileName = "mmas.csv"
+var threeOptResultFileName = "mmas+3opt.csv"
+
+type AtspData struct {
+	name         string
+	matrix       [][]float64
+	knownOptimal float64
+
+	cmsaDirectoryPath,
+
+	cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
+
+	resultFilePath, threeOptResultFilePath,
+
+	optimalUniqueToursCsvPath, toursHeatmapPlotPath, toursHistogramPlotPath string
+}
+
+func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspData {
+	resultsDirectoryPath := filepath.Join(resultsDirectoryName, name)
+	cmsaDirectoryPath := filepath.Join(resultsDirectoryPath, "cmsa")
+	plotsDirectoryPath := filepath.Join(resultsDirectoryPath, "plots")
+
+	cmsaHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "cmsa_heatmap.png")
+	cmsaHistogramPlotPath := filepath.Join(plotsDirectoryPath, "cmsa_histogram.png")
+
+	resultFilePath := filepath.Join(resultsDirectoryPath, resultFileName)
+	threeOptResultFilePath := filepath.Join(resultsDirectoryPath, threeOptResultFileName)
+
+	optimalUniqueToursCsvPath := filepath.Join(resultsDirectoryPath, "solutions.csv")
+	toursHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "tours_heatmap.png")
+	toursHistogramPlotPath := filepath.Join(plotsDirectoryPath, "tours_histogram.png")
+
+	return AtspData{
+		name,
+		matrix,
+		knownOptimal,
+
+		cmsaDirectoryPath,
+
+		cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
+
+		resultFilePath, threeOptResultFilePath,
+
+		optimalUniqueToursCsvPath, toursHeatmapPlotPath, toursHistogramPlotPath,
+	}
+}
+
 func main() {
-
-	// cf, cerr := os.Create("cpu.prof")
-	// if cerr != nil {
-	// 	fmt.Println(cerr)
-	// 	return
-	// }
-	// pprof.StartCPUProfile(cf)
-	// defer pprof.StopCPUProfile()
-
 	tsplibDir := "tsplib_files"
 	atspFilesPaths, _ := filepath.Glob(filepath.Join(tsplibDir, "*.atsp"))
 
@@ -650,30 +688,31 @@ func main() {
 		atspFilesPaths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize != 17 && problemSize < 500
+			return problemSize != 17 && problemSize < 40
 		})
 
-	resultsFolder := "results"
-	numberOfExperiments := 1
-	experimentParameters := generateParameters()
-	bestStatistics := make([]ExperimentsDataStatistics, 0)
-	topNumber := 5
-	for _, atspFilePath := range atspFilesPaths {
+	atspsData := make([]AtspData, len(atspFilesPaths))
 
-		name, dimension, matrix, knownOptimal, _ := parsing.ParseTSPLIBFile(atspFilePath)
+	for i, atspFilePath := range atspFilesPaths {
+		name, matrix, knownOptimal, _ := parsing.ParseTSPLIBFile(atspFilePath)
+
 		fmt.Println("Started processing " + name)
+		atspsData[i] = makeAtspData(name, matrix, knownOptimal)
+	}
 
-		atspResultsDir := filepath.Join(resultsFolder, name)
-		cmsaDir := filepath.Join(atspResultsDir, "cmsa")
+	for _, atspData := range atspsData {
+		name := atspData.name
+		matrix := atspData.matrix
+		cmsaDirectoryPath := atspData.cmsaDirectoryPath
 
-		cmsa, err := compositeMsa.Read(cmsaDir)
+		cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
 
 		if err != nil {
 			start := time.Now()
-			cmsa, err = compositeMsa.Create(matrix, cmsaDir)
+			cmsa, err = compositeMsa.Create(matrix, cmsaDirectoryPath)
 			elapsed := time.Since(start)
 
-			fmt.Printf("\tCreating %s took: %d ms\n", cmsaDir, elapsed.Milliseconds())
+			fmt.Printf("\tCreating %s took: %d ms\n", cmsaDirectoryPath, elapsed.Milliseconds())
 
 			if err != nil {
 				fmt.Println("\tError saving CMSA: ", err)
@@ -681,30 +720,105 @@ func main() {
 			}
 		}
 
-		plotsDirectory := path.Join(atspResultsDir, "plots")
-
 		cmsaHeatmapPlotTitle := name + " CMSA heatmap"
-		cmsaHeatmapPlotPath := path.Join(plotsDirectory, "cmsa_heatmap.png")
 
-		err = utilities.SaveHeatmapFromMatrix(cmsa, cmsaHeatmapPlotTitle, cmsaHeatmapPlotPath)
+		err = utilities.SaveHeatmapFromMatrix(cmsa, cmsaHeatmapPlotTitle, atspData.cmsaHeatmapPlotPath)
 		if err != nil {
 			fmt.Println(err)
 		}
 
 		dataForHistogram := filterZeroes(flattenMatrix(cmsa))
 		cmsaHistogramPlotTitle := name + " CMSA histogram"
-		cmsaHistogramPlotPath := path.Join(plotsDirectory, "cmsa_histogram.png")
 
-		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, cmsaHistogramPlotTitle, cmsaHistogramPlotPath)
+		dimension := len(matrix)
+		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, cmsaHistogramPlotTitle, atspData.cmsaHistogramPlotPath)
 		if err != nil {
 			fmt.Println(err)
 		}
+	}
 
-		optimalUniqueToursCsvPath := path.Join(atspResultsDir, "solutions.csv")
-		uniqueOptimalTours, err := getOptimalTourStatistics(optimalUniqueToursCsvPath)
+	numberOfExperiments := 50
+	experimentParameters := generateParameters()
 
-		toursStatistics := calculateToursStatistics(cmsaDir, uniqueOptimalTours)
-		saveOptimalToursStatistics(optimalUniqueToursCsvPath, toursStatistics)
+	for _, atspData := range atspsData {
+		matrix := atspData.matrix
+		knownOptimal := atspData.knownOptimal
+		dimension := len(matrix)
+
+		cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		experimentData := make([]ExperimentsData, 0)
+		threeOptExperimentData := make([]ExperimentsData, 0)
+
+		start := time.Now()
+		for _, parameters := range experimentParameters {
+			setDimensionDependantParameters(dimension, &parameters)
+			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, cmsa)
+			data := ExperimentsData{parameters, results}
+
+			if parameters.useLocalSearch {
+				threeOptExperimentData = append(threeOptExperimentData, data)
+			} else {
+				experimentData = append(experimentData, data)
+			}
+		}
+
+		elapsed := time.Since(start)
+		fmt.Printf("\tExperiments took %dms\n", elapsed.Milliseconds())
+
+		statistics := calculateStatistics(experimentData)
+		threeOptStatistics := calculateStatistics(threeOptExperimentData)
+
+		if len(statistics) != 0 {
+			saveStatistics(atspData.resultFilePath, statistics)
+		}
+
+		if len(threeOptStatistics) != 0 {
+			saveStatistics(atspData.threeOptResultFilePath, threeOptStatistics)
+		}
+
+		uniqueOptimalTours, err := getOptimalTourStatistics(atspData.optimalUniqueToursCsvPath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		for _, data := range experimentData {
+			for _, result := range data.results {
+				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
+					addUniqueTour(uniqueOptimalTours, result.bestTour)
+				}
+			}
+		}
+
+		for _, data := range threeOptExperimentData {
+			for _, result := range data.results {
+				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
+					addUniqueTour(uniqueOptimalTours, result.bestTour)
+				}
+			}
+		}
+
+		cmsaDirectoryPath := atspData.cmsaDirectoryPath
+		toursStatistics := calculateToursStatistics(cmsaDirectoryPath, uniqueOptimalTours)
+		saveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, toursStatistics)
+	}
+
+	for _, atspData := range atspsData {
+		start := time.Now()
+		name := atspData.name
+		dimension := len(atspData.matrix)
+
+		uniqueOptimalTours, err := getOptimalTourStatistics(atspData.optimalUniqueToursCsvPath)
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 
 		toursCount := len(uniqueOptimalTours)
 		if toursCount > 0 {
@@ -725,111 +839,49 @@ func main() {
 			}
 
 			toursHeatmapPlotTitle := name + " tours heatmap"
-			toursHeatmapPlotPath := path.Join(plotsDirectory, "tours_heatmap.png")
-
-			err = utilities.SaveHeatmapFromMatrix(toursMatrix, toursHeatmapPlotTitle, toursHeatmapPlotPath)
+			err = utilities.SaveHeatmapFromMatrix(toursMatrix, toursHeatmapPlotTitle, atspData.toursHeatmapPlotPath)
 			if err != nil {
 				fmt.Println(err)
 			}
 
 			if toursCount > 1 {
-				dataForHistogram = filterZeroes(flattenMatrix(toursMatrix))
+				dataForHistogram := filterZeroes(flattenMatrix(toursMatrix))
 				toursHistogramPlotTitle := name + " tours histogram"
-				toursHistogramPlotPath := path.Join(plotsDirectory, "tours_histogram.png")
 
 				numberOfBins := countUniqueValues(dataForHistogram)
 
-				err = utilities.SaveHistogramFromData(dataForHistogram, numberOfBins, toursHistogramPlotTitle, toursHistogramPlotPath)
+				err = utilities.SaveHistogramFromData(dataForHistogram, numberOfBins, toursHistogramPlotTitle, atspData.toursHistogramPlotPath)
 				if err != nil {
 					fmt.Println(err)
 				}
 			}
 		}
 
-		continue
-
-		experimentData := make([]ExperimentsData, 0)
-		threeOptExperimentData := make([]ExperimentsData, 0)
-
-		start := time.Now()
-		for _, parameters := range experimentParameters {
-			setDimensionDependantParameters(dimension, &parameters)
-			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, cmsa)
-			data := ExperimentsData{parameters, results}
-
-			if parameters.useLocalSearch {
-				threeOptExperimentData = append(threeOptExperimentData, data)
-			} else {
-				experimentData = append(experimentData, data)
-			}
-		}
 		elapsed := time.Since(start)
-		fmt.Printf("\tExperiments took %dms\n", elapsed.Milliseconds())
-
-		start = time.Now()
-		statistics := calculateStatistics(experimentData)
-		threeOptStatistics := calculateStatistics(threeOptExperimentData)
-
-		if len(statistics) != 0 {
-			resultFilePath := filepath.Join(atspResultsDir, "mmas") + ".csv"
-			saveStatistics(resultFilePath, statistics)
-			addTopStatistics(statistics, topNumber, &bestStatistics)
-		}
-
-		if len(threeOptStatistics) != 0 {
-			threeOptResultFilePath := filepath.Join(atspResultsDir, "mmas") + "+3opt" + ".csv"
-			saveStatistics(threeOptResultFilePath, threeOptStatistics)
-			addTopStatistics(threeOptStatistics, topNumber, &bestStatistics)
-		}
-
-		// optimalUniqueToursCsvPath := path.Join(atspResultsDir, "solutions.csv")
-		// uniqueOptimalTours, err := getOptimalTourStatistics(optimalUniqueToursCsvPath)
-
-		if err != nil {
-			fmt.Println(err)
-		}
-		// knownToursCount := len(uniqueOptimalTours)
-
-		for _, data := range experimentData {
-			for _, result := range data.results {
-				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
-					addUniqueTour(uniqueOptimalTours, result.bestTour)
-				}
-			}
-		}
-
-		for _, data := range threeOptExperimentData {
-			for _, result := range data.results {
-				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
-					addUniqueTour(uniqueOptimalTours, result.bestTour)
-				}
-			}
-		}
-
-		// If we didn't find any more tours than we already have we don't do anything with previously generated files.
-		// if knownToursCount == len(uniqueOptimalTours) {
-		// 	continue
-		// }
-
-		// toursStatistics := calculateToursStatistics(cmsaDir, uniqueOptimalTours)
-		// saveOptimalToursStatistics(optimalUniqueToursCsvPath, toursStatistics)
-		elapsed = time.Since(start)
 		fmt.Printf("\tCalculating statistics took %dms\n", elapsed.Milliseconds())
 		fmt.Println()
 	}
 
-	return
+	bestStatistics := make([]ExperimentsDataStatistics, 0)
+
+	topNumber := 5
+	resultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", resultFileName))
+	threeOptResultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", threeOptResultFileName))
+
+	for _, paths := range [][]string{resultsFilePaths, threeOptResultsFilePaths} {
+		for _, path := range paths {
+			statistics, err := readStatistics(path)
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+
+			addTopStatistics(statistics, topNumber, &bestStatistics)
+		}
+	}
+
 	parametersCount := len(experimentParameters)
-	saveBestParametersInfo(resultsFolder, parametersCount, bestStatistics)
-
-	// mf, merr := os.Create("mem.prof")
-	// if merr != nil {
-	// 	fmt.Println(merr)
-	// 	return
-	// }
-	// defer mf.Close()
-
-	// pprof.WriteHeapProfile(mf)
+	saveBestParametersInfo(resultsDirectoryName, parametersCount, bestStatistics)
 }
 
 func countUniqueValues(data []float64) int {
