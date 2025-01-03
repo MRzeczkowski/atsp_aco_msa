@@ -591,7 +591,7 @@ func setDimensionDependantParameters(dimension int, parameters *ExperimentParame
 	}
 
 	if dimension >= 100 {
-		iterations = 1000
+		iterations = 10000
 	}
 
 	totalIterations := dimension * iterations
@@ -603,13 +603,13 @@ func setDimensionDependantParameters(dimension int, parameters *ExperimentParame
 func generateParameters() []ExperimentParameters {
 	parameters := make([]ExperimentParameters, 0)
 
-	for _, useLocalSearch := range []bool{false} {
+	for _, useLocalSearch := range []bool{true} {
 		for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 			for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
 				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
 					for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.005) {
-						for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
-							for _, antsPercentage := range utilities.GenerateRange(0.1, 1.0, 0.1) {
+						for _, pCmsa := range utilities.GenerateRange(0.25, 0.75, 0.25) {
+							for _, antsPercentage := range utilities.GenerateRange(0.5, 1.0, 0.1) {
 								parameters = append(parameters,
 									ExperimentParameters{
 										useLocalSearch, alpha, beta, rho, pBest, pCmsa, antsPercentage, 0, 0,
@@ -681,7 +681,7 @@ func main() {
 		atspFilesPaths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize != 17 && problemSize > 100
+			return problemSize != 17 && problemSize == 170
 		})
 
 	atspsData := make([]AtspData, len(atspFilesPaths))
@@ -740,7 +740,7 @@ func main() {
 			return
 		}
 
-		numberOfExperiments := 50
+		numberOfExperiments := 1
 		experimentData := make([]ExperimentsData, 0)
 		threeOptExperimentData := make([]ExperimentsData, 0)
 
@@ -845,7 +845,7 @@ func main() {
 
 	bestStatistics := make([]ExperimentsDataStatistics, 0)
 
-	topNumber := 3
+	topNumber := 1
 	resultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", resultFileName))
 	threeOptResultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", threeOptResultFileName))
 
