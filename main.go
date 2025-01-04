@@ -488,6 +488,7 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 		averageDeviationPerIteration := make([]float64, data.iterations)
 		maxDeviationPerIteration := make([]float64, data.iterations)
 
+		resultsLen := float64(len(data.results))
 		for _, result := range data.results {
 
 			if result.bestAtIteration < minBestAtIteration {
@@ -509,7 +510,7 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 
 			averageBestDeviation += bestDeviation
 			for i, deviation := range result.deviationPerIteration {
-				averageDeviationPerIteration[i] += deviation / float64(data.iterations)
+				averageDeviationPerIteration[i] += deviation / resultsLen
 			}
 
 			if bestDeviation > maxBestDeviation {
@@ -523,8 +524,6 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 
 			averageComputationTime += result.computationTime
 		}
-
-		resultsLen := float64(len(data.results))
 
 		averageBestAtIteration /= resultsLen
 		averageBestDeviation /= resultsLen
@@ -619,7 +618,7 @@ func generateParameters() []ExperimentParameters {
 				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
 					for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.005) {
 						for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
-							for _, antsPercentage := range utilities.GenerateRange(0.1, 1.0, 0.1) {
+							for _, antsPercentage := range utilities.GenerateRange(0.8, 0.8, 0.1) {
 								parameters = append(parameters,
 									ExperimentParameters{
 										useLocalSearch, alpha, beta, rho, pBest, pCmsa, antsPercentage, 0, 0,
@@ -695,7 +694,7 @@ func main() {
 		atspFilesPaths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize != 17 && problemSize < 170
+			return problemSize != 17 && problemSize <= 170
 		})
 
 	atspsData := make([]AtspData, len(atspFilesPaths))
@@ -893,7 +892,7 @@ func main() {
 }
 
 func getBestStatisticsFromFiles(resultsFilePaths []string) []ExperimentsDataStatistics {
-	topNumber := 3
+	topNumber := 1
 	bestStatistics := make([]ExperimentsDataStatistics, 0)
 
 	for _, path := range resultsFilePaths {
