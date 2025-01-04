@@ -9,6 +9,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"image/color"
 	"math"
 	"os"
 	"path/filepath"
@@ -42,6 +43,7 @@ type ExperimentsDataStatistics struct {
 	minBestAtIteration, maxBestAtIteration                                                        int
 	averageBestAtIteration, minBestDeviation, averageBestDeviation, maxBestDeviation, successRate float64
 	averageComputationTime                                                                        int64
+	minDeviationPerIteration, averageDeviationPerIteration, maxDeviationPerIteration              []float64
 }
 
 type TourStatistics struct {
@@ -70,7 +72,7 @@ func generateMarkdownCounts(paramName string, counts map[float64]int) string {
 	return markdown
 }
 
-func saveBestParametersInfo(resultsFolder string, bestStatistics []ExperimentsDataStatistics) {
+func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataStatistics) {
 	sort.Slice(bestStatistics, func(i, j int) bool {
 		return bestStatistics[i].averageBestDeviation < bestStatistics[j].averageBestDeviation
 	})
@@ -124,7 +126,7 @@ func saveBestParametersInfo(resultsFolder string, bestStatistics []ExperimentsDa
 	markdown += generateMarkdownCounts("Beta", betaCounts)
 	markdown += generateMarkdownCounts("Rho", rhoCounts)
 	markdown += generateMarkdownCounts("PBest", pBestCounts)
-	markdown += generateMarkdownCounts("PCmsa", pCmsaCounts)
+	markdown += generateMarkdownCounts("pCmsa", pCmsaCounts)
 	markdown += generateMarkdownCounts("AntsPercentage", antsPercentageCounts)
 
 	// Parameter ranges
@@ -140,12 +142,11 @@ func saveBestParametersInfo(resultsFolder string, bestStatistics []ExperimentsDa
 	markdown += fmt.Sprintf("- **Beta**: %.2f - %.2f\n", minBeta, maxBeta)
 	markdown += fmt.Sprintf("- **Rho**: %.2f - %.2f\n", minRho, maxRho)
 	markdown += fmt.Sprintf("- **pBest**: %.2f - %.2f\n", minPBest, maxPBest)
-	markdown += fmt.Sprintf("- **PCmsa**: %.2f - %.2f\n", minPCmsa, maxPCmsa)
+	markdown += fmt.Sprintf("- **pCmsa**: %.2f - %.2f\n", minPCmsa, maxPCmsa)
 	markdown += fmt.Sprintf("- **AntsPercentage**: %.2f - %.2f\n", minAntsPercentage, maxAntsPercentage)
 
 	// Save to a file
-	filename := "best_parameters_report.md"
-	reportPath := filepath.Join(resultsFolder, filename)
+	reportPath := filepath.Join(resultsDirectoryName, fileName)
 	err := os.WriteFile(reportPath, []byte(markdown), 0644)
 	if err != nil {
 		fmt.Printf("Failed to save report: %v\n", err)
@@ -483,6 +484,9 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 		maxBestDeviation := -math.MaxFloat64
 		successCounter := 0.0
 		var averageComputationTime int64 = 0
+		minDeviationPerIteration := make([]float64, data.iterations)
+		averageDeviationPerIteration := make([]float64, data.iterations)
+		maxDeviationPerIteration := make([]float64, data.iterations)
 
 		for _, result := range data.results {
 
@@ -500,12 +504,17 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 
 			if bestDeviation < minBestDeviation {
 				minBestDeviation = bestDeviation
+				copy(minDeviationPerIteration, result.deviationPerIteration)
 			}
 
 			averageBestDeviation += bestDeviation
+			for i, deviation := range result.deviationPerIteration {
+				averageDeviationPerIteration[i] += deviation / float64(data.iterations)
+			}
 
 			if bestDeviation > maxBestDeviation {
 				maxBestDeviation = bestDeviation
+				copy(maxDeviationPerIteration, result.deviationPerIteration)
 			}
 
 			if bestDeviation == 0 {
@@ -531,7 +540,8 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 			averageBestDeviation,
 			maxBestDeviation,
 			successRate,
-			averageComputationTime}
+			averageComputationTime,
+			minDeviationPerIteration, averageDeviationPerIteration, maxDeviationPerIteration}
 	}
 
 	sort.SliceStable(statistics, func(i, j int) bool {
@@ -639,6 +649,7 @@ type AtspData struct {
 	cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
 
 	resultFilePath, threeOptResultFilePath,
+	resultPlotFilePath, threeOptResultPlotFilePath,
 
 	optimalUniqueToursCsvPath, toursHeatmapPlotPath, toursHistogramPlotPath string
 }
@@ -653,6 +664,8 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 
 	resultFilePath := filepath.Join(resultsDirectoryPath, resultFileName)
 	threeOptResultFilePath := filepath.Join(resultsDirectoryPath, threeOptResultFileName)
+	resultPlotFilePath := filepath.Join(plotsDirectoryPath, "mmas.png")
+	threeOptResultPlotFilePath := filepath.Join(plotsDirectoryPath, "mmas+3opt.png")
 
 	optimalUniqueToursCsvPath := filepath.Join(resultsDirectoryPath, "solutions.csv")
 	toursHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "tours_heatmap.png")
@@ -668,6 +681,7 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 		cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
 
 		resultFilePath, threeOptResultFilePath,
+		resultPlotFilePath, threeOptResultPlotFilePath,
 
 		optimalUniqueToursCsvPath, toursHeatmapPlotPath, toursHistogramPlotPath,
 	}
@@ -681,7 +695,7 @@ func main() {
 		atspFilesPaths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize != 17 && problemSize == 170
+			return problemSize != 17 && problemSize < 170
 		})
 
 	atspsData := make([]AtspData, len(atspFilesPaths))
@@ -761,10 +775,33 @@ func main() {
 
 		if len(statistics) != 0 {
 			saveStatistics(atspData.resultFilePath, statistics)
+			bestStatistics := statistics[0]
+
+			minDeviationPlotData := utilities.LinePlotData{Name: "min deviation", Color: color.RGBA{G: 255, A: 255}, Values: bestStatistics.minDeviationPerIteration}
+			avgDeviationPlotData := utilities.LinePlotData{Name: "avg deviation", Color: color.RGBA{B: 255, A: 255}, Values: bestStatistics.averageDeviationPerIteration}
+			maxDeviationPlotData := utilities.LinePlotData{Name: "max deviation", Color: color.RGBA{R: 255, A: 255}, Values: bestStatistics.maxDeviationPerIteration}
+
+			titleSuffix := fmt.Sprintf("(alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pCmsa=%.2f, antsFraction=%.2f)",
+				bestStatistics.alpha, bestStatistics.beta, bestStatistics.rho, bestStatistics.pBest, bestStatistics.pCmsa, bestStatistics.antsPercentage)
+
+			lines := []utilities.LinePlotData{minDeviationPlotData, avgDeviationPlotData, maxDeviationPlotData}
+			utilities.SaveLinePlotFromData(lines, "MMAS deviation per iteration "+titleSuffix, atspData.resultPlotFilePath)
 		}
 
 		if len(threeOptStatistics) != 0 {
 			saveStatistics(atspData.threeOptResultFilePath, threeOptStatistics)
+
+			bestStatistics := threeOptStatistics[0]
+
+			minDeviationPlotData := utilities.LinePlotData{Name: "min deviation", Color: color.RGBA{G: 255, A: 255}, Values: bestStatistics.minDeviationPerIteration}
+			avgDeviationPlotData := utilities.LinePlotData{Name: "avg deviation", Color: color.RGBA{B: 255, A: 255}, Values: bestStatistics.averageDeviationPerIteration}
+			maxDeviationPlotData := utilities.LinePlotData{Name: "max deviation", Color: color.RGBA{R: 255, A: 255}, Values: bestStatistics.maxDeviationPerIteration}
+
+			titleSuffix := fmt.Sprintf("(alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pCmsa=%.2f, antsFraction=%.2f)",
+				bestStatistics.alpha, bestStatistics.beta, bestStatistics.rho, bestStatistics.pBest, bestStatistics.pCmsa, bestStatistics.antsPercentage)
+
+			lines := []utilities.LinePlotData{minDeviationPlotData, avgDeviationPlotData, maxDeviationPlotData}
+			utilities.SaveLinePlotFromData(lines, "MMAS+3opt deviation per iteration "+titleSuffix, atspData.threeOptResultPlotFilePath)
 		}
 
 		uniqueOptimalTours, err := getOptimalTourStatistics(atspData.optimalUniqueToursCsvPath)
@@ -843,26 +880,39 @@ func main() {
 		}
 	}
 
-	bestStatistics := make([]ExperimentsDataStatistics, 0)
-
-	topNumber := 1
 	resultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", resultFileName))
 	threeOptResultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", threeOptResultFileName))
 
-	for _, paths := range [][]string{resultsFilePaths, threeOptResultsFilePaths} {
-		for _, path := range paths {
-			statistics, err := readStatistics(path)
-			if err != nil {
-				fmt.Println(err)
-				continue
-			}
+	bestStatistics := getBestStatisticsFromFiles(resultsFilePaths)
+	bestThreeOptStatistics := getBestStatisticsFromFiles(threeOptResultsFilePaths)
+	bestOverallStatistics := append(bestStatistics, bestThreeOptStatistics...)
 
-			top := statistics[:topNumber]
-			bestStatistics = append(bestStatistics, top...)
+	saveBestParametersInfo("best_parameters_report.md", bestStatistics)
+	saveBestParametersInfo("best_3opt_parameters_report.md", bestThreeOptStatistics)
+	saveBestParametersInfo("best_overall_parameters_report.md", bestOverallStatistics)
+}
+
+func getBestStatisticsFromFiles(resultsFilePaths []string) []ExperimentsDataStatistics {
+	topNumber := 3
+	bestStatistics := make([]ExperimentsDataStatistics, 0)
+
+	for _, path := range resultsFilePaths {
+		statistics, err := readStatistics(path)
+		if err != nil {
+			fmt.Println(err)
+			continue
 		}
+
+		statisticsCount := len(statistics)
+		if statisticsCount < topNumber {
+			topNumber = len(statistics)
+		}
+
+		top := statistics[:topNumber]
+		bestStatistics = append(bestStatistics, top...)
 	}
 
-	saveBestParametersInfo(resultsDirectoryName, bestStatistics)
+	return bestStatistics
 }
 
 func countUniqueValues(data []float64) int {

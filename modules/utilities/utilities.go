@@ -2,6 +2,7 @@ package utilities
 
 import (
 	"fmt"
+	"image/color"
 	"math"
 	"os"
 	"regexp"
@@ -39,6 +40,12 @@ func (h *HeatMapData) Y(r int) float64 {
 
 func (h *HeatMapData) Z(c, r int) float64 {
 	return h.data[r][c]
+}
+
+type LinePlotData struct {
+	Name   string
+	Color  color.RGBA
+	Values []float64
 }
 
 var (
@@ -146,6 +153,42 @@ func SaveHistogramFromData(data []float64, bins int, plotTitle, plotPath string)
 	histogramPlot.Add(hist)
 
 	return savePlotWithPadding(histogramPlot, plotWidth, plotHeight, plotPath)
+}
+
+func SaveLinePlotFromData(linePlotData []LinePlotData, plotTitle, plotPath string) error {
+	plot := plot.New()
+	plot.Title.Text = plotTitle
+	plot.X.Label.Text = "Iteration"
+	plot.Y.Label.Text = "Deviation"
+
+	for _, data := range linePlotData {
+		addLine(plot, data)
+	}
+
+	plot.Legend.Top = true
+
+	return savePlotWithPadding(plot, plotWidth, plotHeight, plotPath)
+}
+
+func addLine(p *plot.Plot, data LinePlotData) {
+	// Build the XYs data
+	pts := make(plotter.XYs, len(data.Values))
+	for i, v := range data.Values {
+		pts[i].X = float64(i)
+		pts[i].Y = v
+	}
+
+	// Create the line
+	line, err := plotter.NewLine(pts)
+	if err != nil {
+		panic(err)
+	}
+	line.LineStyle.Width = vg.Points(2)
+	line.LineStyle.Color = data.Color
+
+	// Add the line and a legend entry
+	p.Add(line)
+	p.Legend.Add(data.Name, line)
 }
 
 func savePlotWithPadding(p *plot.Plot, width, height vg.Length, filePath string) error {
