@@ -648,7 +648,7 @@ type AtspData struct {
 	cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
 
 	resultFilePath, threeOptResultFilePath,
-	resultPlotFilePath, threeOptResultPlotFilePath,
+	resultPlotFilePrefix, threeOptResultPlotFilePrefix,
 
 	optimalUniqueToursCsvPath, toursHeatmapPlotPath, toursHistogramPlotPath string
 }
@@ -663,8 +663,8 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 
 	resultFilePath := filepath.Join(resultsDirectoryPath, resultFileName)
 	threeOptResultFilePath := filepath.Join(resultsDirectoryPath, threeOptResultFileName)
-	resultPlotFilePath := filepath.Join(plotsDirectoryPath, "mmas.png")
-	threeOptResultPlotFilePath := filepath.Join(plotsDirectoryPath, "mmas+3opt.png")
+	resultPlotFilePrefix := filepath.Join(plotsDirectoryPath, "best_mmas")
+	threeOptResultPlotFilePrefix := filepath.Join(plotsDirectoryPath, "best_mmas+3opt")
 
 	optimalUniqueToursCsvPath := filepath.Join(resultsDirectoryPath, "solutions.csv")
 	toursHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "tours_heatmap.png")
@@ -680,7 +680,7 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 		cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
 
 		resultFilePath, threeOptResultFilePath,
-		resultPlotFilePath, threeOptResultPlotFilePath,
+		resultPlotFilePrefix, threeOptResultPlotFilePrefix,
 
 		optimalUniqueToursCsvPath, toursHeatmapPlotPath, toursHistogramPlotPath,
 	}
@@ -770,37 +770,15 @@ func main() {
 		}
 
 		statistics := calculateStatistics(experimentData)
-		threeOptStatistics := calculateStatistics(threeOptExperimentData)
-
 		if len(statistics) != 0 {
 			saveStatistics(atspData.resultFilePath, statistics)
-			bestStatistics := statistics[0]
-
-			minDeviationPlotData := utilities.LinePlotData{Name: "min deviation", Color: color.RGBA{G: 255, A: 255}, Values: bestStatistics.minDeviationPerIteration}
-			avgDeviationPlotData := utilities.LinePlotData{Name: "avg deviation", Color: color.RGBA{B: 255, A: 255}, Values: bestStatistics.averageDeviationPerIteration}
-			maxDeviationPlotData := utilities.LinePlotData{Name: "max deviation", Color: color.RGBA{R: 255, A: 255}, Values: bestStatistics.maxDeviationPerIteration}
-
-			titleSuffix := fmt.Sprintf("(alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pCmsa=%.2f, antsFraction=%.2f)",
-				bestStatistics.alpha, bestStatistics.beta, bestStatistics.rho, bestStatistics.pBest, bestStatistics.pCmsa, bestStatistics.antsPercentage)
-
-			lines := []utilities.LinePlotData{minDeviationPlotData, avgDeviationPlotData, maxDeviationPlotData}
-			utilities.SaveLinePlotFromData(lines, "MMAS deviation per iteration "+titleSuffix, atspData.resultPlotFilePath)
+			saveExperimentPlots(statistics, "MMAS deviation per iteration", atspData.resultPlotFilePrefix)
 		}
 
+		threeOptStatistics := calculateStatistics(threeOptExperimentData)
 		if len(threeOptStatistics) != 0 {
 			saveStatistics(atspData.threeOptResultFilePath, threeOptStatistics)
-
-			bestStatistics := threeOptStatistics[0]
-
-			minDeviationPlotData := utilities.LinePlotData{Name: "min deviation", Color: color.RGBA{G: 255, A: 255}, Values: bestStatistics.minDeviationPerIteration}
-			avgDeviationPlotData := utilities.LinePlotData{Name: "avg deviation", Color: color.RGBA{B: 255, A: 255}, Values: bestStatistics.averageDeviationPerIteration}
-			maxDeviationPlotData := utilities.LinePlotData{Name: "max deviation", Color: color.RGBA{R: 255, A: 255}, Values: bestStatistics.maxDeviationPerIteration}
-
-			titleSuffix := fmt.Sprintf("(alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pCmsa=%.2f, antsFraction=%.2f)",
-				bestStatistics.alpha, bestStatistics.beta, bestStatistics.rho, bestStatistics.pBest, bestStatistics.pCmsa, bestStatistics.antsPercentage)
-
-			lines := []utilities.LinePlotData{minDeviationPlotData, avgDeviationPlotData, maxDeviationPlotData}
-			utilities.SaveLinePlotFromData(lines, "MMAS+3opt deviation per iteration "+titleSuffix, atspData.threeOptResultPlotFilePath)
+			saveExperimentPlots(threeOptStatistics, "MMAS+3opt deviation per iteration", atspData.threeOptResultPlotFilePrefix)
 		}
 
 		uniqueOptimalTours, err := getOptimalTourStatistics(atspData.optimalUniqueToursCsvPath)
@@ -889,6 +867,33 @@ func main() {
 	saveBestParametersInfo("best_parameters_report.md", bestStatistics)
 	saveBestParametersInfo("best_3opt_parameters_report.md", bestThreeOptStatistics)
 	saveBestParametersInfo("best_overall_parameters_report.md", bestOverallStatistics)
+}
+
+func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plotPathPrefix string) {
+	bestStatistic := statistics[0]
+
+	for _, statistic := range statistics {
+		if statistic.alpha != bestStatistic.alpha &&
+			statistic.beta != bestStatistic.beta &&
+			statistic.rho != bestStatistic.rho &&
+			statistic.pBest != bestStatistic.pBest &&
+			statistic.antsPercentage != bestStatistic.antsPercentage {
+			continue
+		}
+
+		minDeviationPlotData := utilities.LinePlotData{Name: "min deviation", Color: color.RGBA{G: 255, A: 255}, Values: statistic.minDeviationPerIteration}
+		avgDeviationPlotData := utilities.LinePlotData{Name: "avg deviation", Color: color.RGBA{B: 255, A: 255}, Values: statistic.averageDeviationPerIteration}
+		maxDeviationPlotData := utilities.LinePlotData{Name: "max deviation", Color: color.RGBA{R: 255, A: 255}, Values: statistic.maxDeviationPerIteration}
+		lines := []utilities.LinePlotData{minDeviationPlotData, avgDeviationPlotData, maxDeviationPlotData}
+
+		titleSuffix := fmt.Sprintf(" (alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pCmsa=%.2f, antsFraction=%.2f)",
+			statistic.alpha, statistic.beta, statistic.rho, statistic.pBest, statistic.pCmsa, statistic.antsPercentage)
+
+		pCmsaPlotSuffix := "_pCmsa=" + strconv.Itoa(int(100*statistic.pCmsa)) + "%"
+		plotPath := plotPathPrefix + pCmsaPlotSuffix + ".png"
+
+		utilities.SaveLinePlotFromData(lines, plotTitle+titleSuffix, plotPath)
+	}
 }
 
 func getBestStatisticsFromFiles(resultsFilePaths []string) []ExperimentsDataStatistics {
