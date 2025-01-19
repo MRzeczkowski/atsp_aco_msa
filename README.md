@@ -12,6 +12,8 @@
 
 - TSPLib test data: http://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/atsp/
 
+- More test data for ATSP: https://sites.google.com/site/atspinstances/home?authuser=0
+
 ## MSA
 
 - https://en.wikipedia.org/wiki/Arborescence_(graph_theory)

@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 	"os"
+	"path"
 	"regexp"
 	"sort"
 	"strconv"
@@ -201,6 +202,11 @@ func savePlotWithPadding(p *plot.Plot, width, height vg.Length, filePath string)
 	dc = draw.Crop(dc, 0, -pad, 0, 0)
 
 	p.Draw(dc)
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		dir := path.Dir(filePath)
+		os.MkdirAll(dir, 0700)
+	}
 
 	f, err := os.Create(filePath)
 	if err != nil {
