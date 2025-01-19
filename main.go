@@ -694,7 +694,7 @@ func main() {
 		atspFilesPaths,
 		func(file string) bool {
 			var problemSize, _ = utilities.ExtractNumber(file)
-			return problemSize != 17 && problemSize <= 170
+			return problemSize != 17 && problemSize > 200
 		})
 
 	atspsData := make([]AtspData, len(atspFilesPaths))

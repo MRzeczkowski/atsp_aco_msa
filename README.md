@@ -54,6 +54,8 @@
 
 - Ant-Q presentation: https://csc.csudh.edu/btang/seminar/PDDC/Ant-Q.pdf
 
+- Less ants == better results?: https://www.diva-portal.org/smash/get/diva2:1214402/FULLTEXT01.pdf
+
 ## 3-opt
 
 - Algorithms for TSP, some info on 3-opt: https://sci-hub.se/https://doi.org/10.1287/ijoc.4.4.387
@@ -83,21 +85,21 @@
 
 Co dalej?
 
-6. Feromony niezależne od aktualnej heurystyki
- - niewiele dało, usunąłem, opisać po krótce w pracy
+Zmniejszyć ilość mrówek?
+ - ustalić ilość mrówek, raczej jako procent węzłów, sprawdzić zmienną ilość mrówek i zapisać numer najlepszej mrówki: wyszło, że 80% daje lepsze wyniki niż 100%. Po co numer najlepszej mrówki? To działa dlatego, że feromony są częściej aktualizowane
 
-7. Może wykres zbieżności? 
- - OK: zrobione, ale bardzo dużo wykresów i raczej lepiej je wygenerować dla określonych ekperymentów, dodać przykład z jednego eksperymentu do uśrednionego wykresu
-
-11. Zmniejszyć ilość mrówek?
- - losowe przypisanie mrówek do węzłów początkowych
- - ustalić ilość mrówek, raczej jako procent węzłów, sprawdzić zmienną ilość mrówek i zapisać numer najlepsze mrówki
-
-12. Ile iteracji robi 3-opt?
+Ile iteracji robi 3-opt?
  - dodać to wyników, zdaje się że CMSA skłania do globalnego optimum, ale po drodze do niego ścieżki są suboptymalne
+ - może w postaci wykresu? czy może to przesada?
 
-13. FDC
+FDC:
  - policzyć!
+
+0. Ile iteracji robi 3-opt
+1. Porównanie map termicznych
+2. Wykres tego jak zmienia się podobieństwo do CMSA?
+3. Zapisywać to jakie jest odchylenie w każdej iteracji - żeby tworzenie wykresów zbieżności tyle czasu nie zajmowało!
+4. Lepiej ustalać to które rozwiązanie jest optymalne!
 
 Rozdziały:
 
@@ -119,7 +121,7 @@ Rozdziały:
 
 4. Algorytm hybrydowy - mój
     1. CMSA
-    2. Wykorzystanie CMSA
+    2. Wykorzystanie CMSA - feromony zależne od CMSA: niewiele dało, usunąłem, opisać po krótce
     3. "reduced 3-opt"
 
 5. Metodyka
