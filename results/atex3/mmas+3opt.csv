@@ -1,0 +1,6 @@
+Alpha,Beta,Rho,pBest,pCmsa,Ants fraction,Ants number,Iterations,Min best at iteration,Avg best at iteration,Max best at iteration,Min best deviation,Avg best deviation,Max best deviation,Success rate [%],Avg computation time [ms]
+1.00,5.00,0.80,0.05,0.75,0.80,26,123,9,36.50,83,0.00,0.00,0.00,100.00,13
+1.00,5.00,0.80,0.05,0.25,0.80,26,123,5,42.60,113,0.00,0.00,0.00,100.00,14
+1.00,5.00,0.80,0.05,0.00,0.80,26,123,7,46.20,112,0.00,0.00,0.00,100.00,14
+1.00,5.00,0.80,0.05,1.00,0.80,26,123,1,49.60,119,0.00,0.01,0.14,90.00,22
+1.00,5.00,0.80,0.05,0.50,0.80,26,123,6,60.90,122,0.00,0.01,0.14,90.00,25
