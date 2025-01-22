@@ -25,5 +25,6 @@ require (
 	golang.org/x/sys v0.11.0 // indirect
 	golang.org/x/text v0.12.0 // indirect
 	gonum.org/v1/plot v0.14.0 // indirect
+	pgregory.net/rand v1.0.2 // indirect
 	rsc.io/pdf v0.1.1 // indirect
 )

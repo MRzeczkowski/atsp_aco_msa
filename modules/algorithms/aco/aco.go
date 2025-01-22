@@ -5,7 +5,8 @@ import (
 	"atsp_aco_msa/modules/algorithms/threeOpt"
 	"atsp_aco_msa/modules/utilities"
 	"math"
-	"math/rand"
+
+	"pgregory.net/rand"
 )
 
 type ACO struct {
@@ -173,41 +174,52 @@ func (aco *ACO) constructTour(tour []int, canVisitBits []float64, probabilities 
 
 // Function to select the next city for an ant
 func (aco *ACO) selectNextCity(current int, canVisitBits []float64, probabilities []float64) int {
-	total := 0.0
-	probabilitiesToUse := aco.probabilities[current]
 
 	q := rand.Float64()
-
+	probabilitiesToUse := aco.probabilities[current]
 	// Use CMSA logic to bias towards hopefully better tours. Other tours will also take part in roulette-wheel selection.
 	adaptiveCmsaProbability := aco.pCmsa * (1.0 - float64(aco.currentIteration)/float64(aco.iterations))
 	if q < adaptiveCmsaProbability {
 		probabilitiesToUse = aco.cmsaProbabilities[current]
 	}
 
+	total := 0.0
+	cumulativeProbability := 0.0
+	nextCity := -1
 	for _, i := range aco.neighborsLists[current] {
 		probabilities[i] = canVisitBits[i] * probabilitiesToUse[i]
 
 		total += probabilities[i]
 	}
 
+	threshold := q * total
+
 	// Check if total is zero (no valid neighbors left), then fallback to all remaining nodes
-	if total == 0.0 {
+	if total != 0.0 {
+		for _, i := range aco.neighborsLists[current] {
+			cumulativeProbability += probabilities[i]
+			if threshold < cumulativeProbability && nextCity == -1 {
+				nextCity = i
+			}
+
+			probabilities[i] = 0.0
+		}
+	} else {
 		for i := 0; i < aco.dimension; i++ {
 			probabilities[i] = canVisitBits[i] * probabilitiesToUse[i]
 
 			total += probabilities[i]
 		}
-	}
 
-	// Roulette-wheel selection
-	cumulativeProbability := 0.0
-	nextCity := -1
-	for i := 0; i < aco.dimension; i++ {
-		cumulativeProbability += probabilities[i] / total
-		probabilities[i] = 0.0
+		threshold = q * total
 
-		if q < cumulativeProbability && nextCity == -1 {
-			nextCity = i
+		for i := 0; i < aco.dimension; i++ {
+			cumulativeProbability += probabilities[i]
+			if threshold < cumulativeProbability && nextCity == -1 {
+				nextCity = i
+			}
+
+			probabilities[i] = 0.0
 		}
 	}
 

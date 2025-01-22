@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -614,7 +615,7 @@ func setDimensionDependantParameters(dimension int, parameters *ExperimentParame
 func generateParameters() []ExperimentParameters {
 	parameters := make([]ExperimentParameters, 0)
 
-	for _, useLocalSearch := range []bool{false, true} {
+	for _, useLocalSearch := range []bool{false} {
 		for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 			for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
 				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
@@ -690,6 +691,14 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 }
 
 func main() {
+	cf, cerr := os.Create("cpu.prof")
+	if cerr != nil {
+		fmt.Println(cerr)
+		return
+	}
+	pprof.StartCPUProfile(cf)
+	defer pprof.StopCPUProfile()
+
 	tsplibDir := "tsplib_files"
 	atspFilesPaths, _ := filepath.Glob(filepath.Join(tsplibDir, "*.atsp"))
 
@@ -697,33 +706,33 @@ func main() {
 		atspFilesPaths,
 		func(filePath string) bool {
 			var files = []string{
-				"atex1.atsp",
-				"atex3.atsp",
-				"atex4.atsp",
-				"atex5.atsp",
+				// "atex1.atsp",
+				// "atex3.atsp",
+				// "atex4.atsp",
+				// "atex5.atsp",
 				// "br17.atsp",
-				"code198.atsp",
-				"crane100_0.atsp",
-				"crane100_1.atsp",
-				"crane100_2.atsp",
-				"crane66_0.atsp",
-				"crane66_1.atsp",
-				"crane66_2.atsp",
-				"dc112.atsp",
-				"dc126.atsp",
-				"dc134.atsp",
-				"dc176.atsp",
-				"dc188.atsp",
+				// "code198.atsp",
+				// "crane100_0.atsp",
+				// "crane100_1.atsp",
+				// "crane100_2.atsp",
+				// "crane66_0.atsp",
+				// "crane66_1.atsp",
+				// "crane66_2.atsp",
+				//     "dc112.atsp",
+				// "dc126.atsp",
+				// "dc134.atsp",
+				// "dc176.atsp",
+				// "dc188.atsp",
 				// "ft53.atsp",
 				// "ft70.atsp",
-				"ftv100.atsp",
-				"ftv110.atsp",
-				"ftv120.atsp",
-				"ftv130.atsp",
-				"ftv140.atsp",
-				"ftv150.atsp",
-				"ftv160.atsp",
-				// "ftv170.atsp",
+				// "ftv100.atsp",
+				// "ftv110.atsp",
+				// "ftv120.atsp",
+				// "ftv130.atsp",
+				// "ftv140.atsp",
+				// "ftv150.atsp",
+				// "ftv160.atsp",
+				"ftv170.atsp",
 				// "ftv33.atsp",
 				// "ftv35.atsp",
 				// "ftv38.atsp",
@@ -732,14 +741,14 @@ func main() {
 				// "ftv55.atsp",
 				// "ftv64.atsp",
 				// "ftv70.atsp",
-				"ftv90.atsp",
+				// "ftv90.atsp",
 				// "p43.atsp",
 				// "rbg323.atsp",
 				// "rbg358.atsp",
 				// "rbg403.atsp",
 				// "rbg443.atsp",
 				// "ry48p.atsp",
-				"td100_1.atsp",
+				// "td100_1.atsp",
 			}
 
 			inputFileName := path.Base(filePath)
