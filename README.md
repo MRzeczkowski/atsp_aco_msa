@@ -87,21 +87,21 @@
 
 Co dalej?
 
-Zmniejszyć ilość mrówek?
- - ustalić ilość mrówek, raczej jako procent węzłów, sprawdzić zmienną ilość mrówek i zapisać numer najlepszej mrówki: wyszło, że 80% daje lepsze wyniki niż 100%. Po co numer najlepszej mrówki? To działa dlatego, że feromony są częściej aktualizowane
+Wskaźnik pokazujący czy heurystykę warto zastosować!
 
 Ile iteracji robi 3-opt?
  - dodać to wyników, zdaje się że CMSA skłania do globalnego optimum, ale po drodze do niego ścieżki są suboptymalne
- - może w postaci wykresu? czy może to przesada?
+ - może w postaci wykresu? czy może to przesada? Na później jeśli będzie czas/miejsce w pracy!
+
+Sprawdzić zachłanny zamiast drugiej ruletki i 3-opt dla najlepszej trasy znalezionej przez mrówki.
 
 FDC:
  - policzyć!
 
-0. Ile iteracji robi 3-opt
-1. Porównanie map termicznych
-2. Wykres tego jak zmienia się podobieństwo do CMSA?
+0. Ile iteracji robi 3-opt? - póki co w postaci tabeli bez wykresu
+1. Porównanie map termicznych - zrobić automatycznie
+2. Wykres tego jak zmienia się podobieństwo do CMSA? - zobaczymy jak z czasem, jeśli w weekend się nie uda to nie
 3. Zapisywać to jakie jest odchylenie w każdej iteracji - żeby tworzenie wykresów zbieżności tyle czasu nie zajmowało!
-4. Lepiej ustalać to które rozwiązanie jest optymalne!
 
 Rozdziały:
 

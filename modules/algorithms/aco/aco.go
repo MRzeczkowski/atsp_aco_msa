@@ -89,6 +89,7 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants, i
 		probabilities:             probabilities,
 		cmsaProbabilities:         cmsaProbabilities,
 		BestLength:                math.MaxFloat64,
+		BestTour:                  make([]int, dimension),
 		reducedThreeOpt:           reducedThreeOpt,
 		targetTourLength:          targetTourLength,
 		DeviationPerIteration:     make([]float64, iterations),
@@ -110,16 +111,18 @@ func (aco *ACO) Run() {
 		probabilities[i] = make([]float64, aco.dimension)
 	}
 
+	maxLocalSearchAntId := int(math.Floor(float64(aco.ants) * 0.5))
+
 	for aco.currentIteration = 0; aco.currentIteration < aco.iterations; aco.currentIteration++ {
 
 		iterationBestLength := math.MaxFloat64
-		iterationBestTour := []int{}
+		iterationBestTour := make([]int, aco.dimension)
 
 		currentDeviation := 1.0
 		for i := 0; i < aco.ants; i++ {
 			aco.constructTour(tours[i], canVisitBits[i], probabilities[i])
 
-			if aco.useLocalSearch {
+			if aco.useLocalSearch && i <= maxLocalSearchAntId {
 				aco.reducedThreeOpt.Run(tours[i])
 			}
 
@@ -127,20 +130,20 @@ func (aco *ACO) Run() {
 
 			if length < iterationBestLength {
 				iterationBestLength = length
-				iterationBestTour = append([]int(nil), tours[i]...)
+				copy(iterationBestTour, tours[i])
+
+				if iterationBestLength < aco.BestLength {
+					aco.BestLength = iterationBestLength
+					copy(aco.BestTour, iterationBestTour)
+					aco.BestAtIteration = aco.currentIteration
+				}
 
 				currentDeviation = 100 * (iterationBestLength - aco.targetTourLength) / aco.targetTourLength
 				aco.DeviationPerIteration[aco.currentIteration] = currentDeviation
-			}
 
-			if length < aco.BestLength {
-				aco.BestLength = length
-				aco.BestTour = append([]int(nil), tours[i]...)
-				aco.BestAtIteration = aco.currentIteration
-			}
-
-			if currentDeviation == 0.0 {
-				return
+				if currentDeviation == 0.0 {
+					return
+				}
 			}
 		}
 
@@ -184,39 +187,46 @@ func (aco *ACO) selectNextCity(current int, canVisitBits []float64, probabilitie
 	}
 
 	total := 0.0
-	cumulativeProbability := 0.0
-	nextCity := -1
-	for _, i := range aco.neighborsLists[current] {
-		probabilities[i] = canVisitBits[i] * probabilitiesToUse[i]
+	neighbors := aco.neighborsLists[current]
+	for _, i := range neighbors {
+		prob := canVisitBits[i] * probabilitiesToUse[i]
+		probabilities[i] = prob
 
-		total += probabilities[i]
+		total += prob
 	}
 
 	threshold := q * total
+	cumulativeProbability := 0.0
+	nextCity := -1
 
 	// Check if total is zero (no valid neighbors left), then fallback to all remaining nodes
 	if total != 0.0 {
-		for _, i := range aco.neighborsLists[current] {
-			cumulativeProbability += probabilities[i]
-			if threshold < cumulativeProbability && nextCity == -1 {
-				nextCity = i
+		for _, i := range neighbors {
+			if nextCity == -1 && probabilities[i] > 0.0 {
+				cumulativeProbability += probabilities[i]
+				if threshold < cumulativeProbability {
+					nextCity = i
+				}
 			}
 
 			probabilities[i] = 0.0
 		}
 	} else {
-		for i := 0; i < aco.dimension; i++ {
-			probabilities[i] = canVisitBits[i] * probabilitiesToUse[i]
+		for i, probability := range probabilitiesToUse {
+			prob := canVisitBits[i] * probability
+			probabilities[i] = prob
 
-			total += probabilities[i]
+			total += prob
 		}
 
 		threshold = q * total
 
-		for i := 0; i < aco.dimension; i++ {
-			cumulativeProbability += probabilities[i]
-			if threshold < cumulativeProbability && nextCity == -1 {
-				nextCity = i
+		for i, probability := range probabilities {
+			if nextCity == -1 && probability > 0.0 {
+				cumulativeProbability += probability
+				if threshold < cumulativeProbability {
+					nextCity = i
+				}
 			}
 
 			probabilities[i] = 0.0
