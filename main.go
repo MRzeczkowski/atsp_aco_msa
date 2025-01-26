@@ -29,24 +29,28 @@ type ExperimentsData struct {
 }
 
 type ExperimentParameters struct {
-	useLocalSearch                                 bool
-	alpha, beta, rho, pBest, pCmsa, antsPercentage float64
-	antsNumber, iterations                         int
+	alpha, beta, rho, pBest, pCmsa, antsPercentage, localSearchAntsPercentage float64
+	antsNumber, localSearchAntsNumber, iterations                             int
 }
 
 type ExperimentResult struct {
-	bestAtIteration       int
-	bestTour              []int
-	computationTime       int64
-	deviationPerIteration []float64
+	bestAtIteration, threeOptImprovementsCount int
+	bestTour                                   []int
+	computationTime                            int64
+	deviationPerIteration                      []float64
 }
 
 type ExperimentsDataStatistics struct {
 	ExperimentParameters
-	minBestAtIteration, maxBestAtIteration                                                        int
-	averageBestAtIteration, minBestDeviation, averageBestDeviation, maxBestDeviation, successRate float64
-	averageComputationTime                                                                        int64
-	minDeviationPerIteration, averageDeviationPerIteration, maxDeviationPerIteration              []float64
+	minBestAtIteration                                                               int
+	averageBestAtIteration                                                           float64
+	maxBestAtIteration                                                               int
+	minThreeOptImprovementsCount                                                     int
+	averageThreeOptImprovementsCount                                                 float64
+	maxThreeOptImprovementsCount                                                     int
+	minBestDeviation, averageBestDeviation, maxBestDeviation, successRate            float64
+	averageComputationTime                                                           int64
+	minDeviationPerIteration, averageDeviationPerIteration, maxDeviationPerIteration []float64
 }
 
 type TourStatistics struct {
@@ -95,6 +99,7 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 	pBestCounts := make(map[float64]int)
 	pCmsaCounts := make(map[float64]int)
 	antsPercentageCounts := make(map[float64]int)
+	localSearchAntsPercentageCounts := make(map[float64]int)
 
 	// Count the occurrences
 	for params := range uniqueParameters {
@@ -104,6 +109,7 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 		pBestCounts[params.pBest]++
 		pCmsaCounts[params.pCmsa]++
 		antsPercentageCounts[params.antsPercentage]++
+		localSearchAntsPercentageCounts[params.localSearchAntsPercentage]++
 	}
 
 	// Markdown content
@@ -114,12 +120,12 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 
 	// Best parameters
 	markdown += "## Best Parameters\n\n"
-	markdown += "| Alpha | Beta | Rho | pBest | pCmsa | AntsPercentage |\n"
-	markdown += "|-------|------|-----|-------|-------|----------------|\n"
+	markdown += "| Alpha | Beta | Rho | pBest | pCmsa | AntsPercentage | LocalSearchAntsPercentage |\n"
+	markdown += "|-------|------|-----|-------|-------|----------------|---------------------------|\n"
 	for parameters := range uniqueParameters {
-		markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %.2f | %.2f |\n",
+		markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %.2f | %.2f | %.2f |\n",
 			parameters.alpha, parameters.beta, parameters.rho,
-			parameters.pBest, parameters.pCmsa, parameters.antsPercentage)
+			parameters.pBest, parameters.pCmsa, parameters.antsPercentage, parameters.localSearchAntsPercentage)
 	}
 	markdown += "\n"
 
@@ -131,6 +137,7 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 	markdown += generateMarkdownCounts("PBest", pBestCounts)
 	markdown += generateMarkdownCounts("pCmsa", pCmsaCounts)
 	markdown += generateMarkdownCounts("AntsPercentage", antsPercentageCounts)
+	markdown += generateMarkdownCounts("LocalSearchAntsPercentage", localSearchAntsPercentageCounts)
 
 	// Parameter ranges
 	markdown += "## Parameter Ranges\n\n"
@@ -140,6 +147,7 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 	minPBest, maxPBest := findMinMax(pBestCounts)
 	minPCmsa, maxPCmsa := findMinMax(pCmsaCounts)
 	minAntsPercentage, maxAntsPercentage := findMinMax(antsPercentageCounts)
+	minLocalSearchAntsPercentage, maxLocalSearchAntsPercentage := findMinMax(localSearchAntsPercentageCounts)
 
 	markdown += fmt.Sprintf("- **Alpha**: %.2f - %.2f\n", minAlpha, maxAlpha)
 	markdown += fmt.Sprintf("- **Beta**: %.2f - %.2f\n", minBeta, maxBeta)
@@ -147,6 +155,7 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 	markdown += fmt.Sprintf("- **pBest**: %.2f - %.2f\n", minPBest, maxPBest)
 	markdown += fmt.Sprintf("- **pCmsa**: %.2f - %.2f\n", minPCmsa, maxPCmsa)
 	markdown += fmt.Sprintf("- **AntsPercentage**: %.2f - %.2f\n", minAntsPercentage, maxAntsPercentage)
+	markdown += fmt.Sprintf("- **LocalSearchAntsPercentage**: %.2f - %.2f\n", minLocalSearchAntsPercentage, maxLocalSearchAntsPercentage)
 
 	// Save to a file
 	reportPath := filepath.Join(resultsDirectoryName, fileName)
@@ -383,36 +392,43 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 		pCmsa, _ := strconv.ParseFloat(record[4], 64)
 		antsPercentage, _ := strconv.ParseFloat(record[5], 64)
 		antsNumber, _ := strconv.Atoi(record[6])
-		iterations, _ := strconv.Atoi(record[7])
-		minBestAtIteration, _ := strconv.Atoi(record[8])
-		averageBestAtIteration, _ := strconv.ParseFloat(record[9], 64)
-		maxBestAtIteration, _ := strconv.Atoi(record[10])
-		minBestDeviation, _ := strconv.ParseFloat(record[11], 64)
-		averageBestDeviation, _ := strconv.ParseFloat(record[12], 64)
-		maxBestDeviation, _ := strconv.ParseFloat(record[13], 64)
-		successRate, _ := strconv.ParseFloat(record[14], 64)
-		averageComputationTime, _ := strconv.ParseInt(record[15], 10, 64)
+		localSearchAntsPercentage, _ := strconv.ParseFloat(record[7], 64)
+		iterations, _ := strconv.Atoi(record[8])
+		minBestAtIteration, _ := strconv.Atoi(record[9])
+		averageBestAtIteration, _ := strconv.ParseFloat(record[10], 64)
+		maxBestAtIteration, _ := strconv.Atoi(record[11])
+		minThreeOptImprovementsCount, _ := strconv.Atoi(record[12])
+		averageThreeOptImprovementsCount, _ := strconv.ParseFloat(record[13], 64)
+		maxThreeOptImprovementsCount, _ := strconv.Atoi(record[14])
+		minBestDeviation, _ := strconv.ParseFloat(record[15], 64)
+		averageBestDeviation, _ := strconv.ParseFloat(record[16], 64)
+		maxBestDeviation, _ := strconv.ParseFloat(record[17], 64)
+		successRate, _ := strconv.ParseFloat(record[18], 64)
+		averageComputationTime, _ := strconv.ParseInt(record[19], 10, 64)
 
 		statistic := ExperimentsDataStatistics{
 			ExperimentParameters: ExperimentParameters{
-				alpha:          alpha,
-				beta:           beta,
-				rho:            rho,
-				pBest:          pBest,
-				pCmsa:          pCmsa,
-				antsPercentage: antsPercentage,
-				antsNumber:     antsNumber,
-				iterations:     iterations,
-				useLocalSearch: false, // Assuming default value since it's not in the CSV
+				alpha:                     alpha,
+				beta:                      beta,
+				rho:                       rho,
+				pBest:                     pBest,
+				pCmsa:                     pCmsa,
+				antsPercentage:            antsPercentage,
+				antsNumber:                antsNumber,
+				localSearchAntsPercentage: localSearchAntsPercentage,
+				iterations:                iterations,
 			},
-			minBestAtIteration:     minBestAtIteration,
-			maxBestAtIteration:     maxBestAtIteration,
-			averageBestAtIteration: averageBestAtIteration,
-			minBestDeviation:       minBestDeviation,
-			averageBestDeviation:   averageBestDeviation,
-			maxBestDeviation:       maxBestDeviation,
-			successRate:            successRate,
-			averageComputationTime: averageComputationTime,
+			minBestAtIteration:               minBestAtIteration,
+			averageBestAtIteration:           averageBestAtIteration,
+			maxBestAtIteration:               maxBestAtIteration,
+			minThreeOptImprovementsCount:     minThreeOptImprovementsCount,
+			averageThreeOptImprovementsCount: averageThreeOptImprovementsCount,
+			maxThreeOptImprovementsCount:     maxThreeOptImprovementsCount,
+			minBestDeviation:                 minBestDeviation,
+			averageBestDeviation:             averageBestDeviation,
+			maxBestDeviation:                 maxBestDeviation,
+			successRate:                      successRate,
+			averageComputationTime:           averageComputationTime,
 		}
 
 		statistics = append(statistics, statistic)
@@ -430,10 +446,14 @@ func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics
 		"pCmsa",
 		"Ants fraction",
 		"Ants number",
+		"Local search ants fraction",
 		"Iterations",
 		"Min best at iteration",
 		"Avg best at iteration",
 		"Max best at iteration",
+		"Min local search improvements",
+		"Avg local search improvements",
+		"Max local search improvements",
 		"Min best deviation",
 		"Avg best deviation",
 		"Max best deviation",
@@ -458,10 +478,14 @@ func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics
 			fmt.Sprintf(floatFormat, statistic.pCmsa),
 			fmt.Sprintf(floatFormat, statistic.antsPercentage),
 			strconv.Itoa(statistic.antsNumber),
+			fmt.Sprintf(floatFormat, statistic.localSearchAntsPercentage),
 			strconv.Itoa(statistic.iterations),
 			strconv.Itoa(statistic.minBestAtIteration),
 			fmt.Sprintf(floatFormat, statistic.averageBestAtIteration),
 			strconv.Itoa(statistic.maxBestAtIteration),
+			strconv.Itoa(statistic.minThreeOptImprovementsCount),
+			fmt.Sprintf(floatFormat, statistic.averageThreeOptImprovementsCount),
+			strconv.Itoa(statistic.maxThreeOptImprovementsCount),
 			fmt.Sprintf(floatFormat, statistic.minBestDeviation),
 			fmt.Sprintf(floatFormat, statistic.averageBestDeviation),
 			fmt.Sprintf(floatFormat, statistic.maxBestDeviation),
@@ -480,11 +504,17 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 
 	for i, data := range experimentsData {
 		minBestAtIteration := math.MaxInt
-		maxBestAtIteration := -math.MaxInt
 		averageBestAtIteration := 0.0
+		maxBestAtIteration := -math.MaxInt
+
+		minThreeOptImprovementsCount := math.MaxInt
+		averageThreeOptImprovementsCount := 0.0
+		maxThreeOptImprovementsCount := -math.MaxInt
+
 		minBestDeviation := math.MaxFloat64
 		averageBestDeviation := 0.0
 		maxBestDeviation := -math.MaxFloat64
+
 		successCounter := 0.0
 		var averageComputationTime int64 = 0
 		minDeviationPerIteration := make([]float64, data.iterations)
@@ -498,11 +528,21 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 				minBestAtIteration = result.bestAtIteration
 			}
 
+			averageBestAtIteration += float64(result.bestAtIteration)
+
 			if result.bestAtIteration > maxBestAtIteration {
 				maxBestAtIteration = result.bestAtIteration
 			}
 
-			averageBestAtIteration += float64(result.bestAtIteration)
+			if result.threeOptImprovementsCount < minThreeOptImprovementsCount {
+				minThreeOptImprovementsCount = result.threeOptImprovementsCount
+			}
+
+			averageThreeOptImprovementsCount += float64(result.threeOptImprovementsCount)
+
+			if result.threeOptImprovementsCount > maxThreeOptImprovementsCount {
+				maxThreeOptImprovementsCount = result.threeOptImprovementsCount
+			}
 
 			bestDeviation := result.deviationPerIteration[result.bestAtIteration]
 
@@ -536,8 +576,11 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 		statistics[i] = ExperimentsDataStatistics{
 			data.ExperimentParameters,
 			minBestAtIteration,
-			maxBestAtIteration,
 			averageBestAtIteration,
+			maxBestAtIteration,
+			minThreeOptImprovementsCount,
+			averageThreeOptImprovementsCount,
+			maxThreeOptImprovementsCount,
 			minBestDeviation,
 			averageBestDeviation,
 			maxBestDeviation,
@@ -555,6 +598,10 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 			return statistics[i].successRate > statistics[j].successRate
 		}
 
+		if statistics[i].localSearchAntsPercentage != statistics[j].localSearchAntsPercentage {
+			return statistics[i].localSearchAntsPercentage < statistics[j].localSearchAntsPercentage
+		}
+
 		return statistics[i].averageBestAtIteration < statistics[j].averageBestAtIteration
 	})
 
@@ -564,26 +611,26 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOptimal float64, matrix, cmsa [][]float64) []ExperimentResult {
 	results := make([]ExperimentResult, numberOfRuns)
 
-	for i := 0; i < numberOfRuns; i++ {
+	aco := aco.NewACO(
+		parameters.alpha,
+		parameters.beta,
+		parameters.rho,
+		parameters.pBest,
+		parameters.pCmsa,
+		parameters.antsNumber,
+		parameters.localSearchAntsNumber,
+		parameters.iterations,
+		knownOptimal,
+		matrix,
+		cmsa)
 
-		aco := aco.NewACO(
-			parameters.useLocalSearch,
-			parameters.alpha,
-			parameters.beta,
-			parameters.rho,
-			parameters.pBest,
-			parameters.pCmsa,
-			parameters.antsNumber,
-			parameters.iterations,
-			knownOptimal,
-			matrix,
-			cmsa)
+	for i := 0; i < numberOfRuns; i++ {
 
 		start := time.Now()
 		aco.Run()
 		elapsed := time.Since(start)
 
-		results[i] = ExperimentResult{aco.BestAtIteration, aco.BestTour, elapsed.Milliseconds(), aco.DeviationPerIteration}
+		results[i] = ExperimentResult{aco.BestAtIteration, aco.ThreeOptImprovementsCount, aco.BestTour, elapsed.Milliseconds(), aco.DeviationPerIteration}
 	}
 
 	return results
@@ -609,22 +656,23 @@ func setDimensionDependantParameters(dimension int, parameters *ExperimentParame
 	totalIterations := dimension * iterations
 
 	parameters.antsNumber = int(math.Ceil(float64(dimension) * parameters.antsPercentage))
+	parameters.localSearchAntsNumber = int(math.Floor(float64(parameters.antsNumber) * parameters.localSearchAntsPercentage))
 	parameters.iterations = totalIterations / parameters.antsNumber
 }
 
 func generateParameters() []ExperimentParameters {
 	parameters := make([]ExperimentParameters, 0)
 
-	for _, useLocalSearch := range []bool{true} {
-		for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
-			for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
-				for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
-					for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.005) {
-						for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
-							for _, antsPercentage := range utilities.GenerateRange(0.8, 0.8, 0.1) {
+	for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
+		for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
+			for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
+				for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.005) {
+					for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+						for _, antsPercentage := range utilities.GenerateRange(0.8, 0.8, 0.1) {
+							for _, localSearchAntsPercentage := range utilities.GenerateRange(0.0, 1.0, 0.5) {
 								parameters = append(parameters,
 									ExperimentParameters{
-										useLocalSearch, alpha, beta, rho, pBest, pCmsa, antsPercentage, 0, 0,
+										alpha, beta, rho, pBest, pCmsa, antsPercentage, localSearchAntsPercentage, 0, 0, 0,
 									})
 							}
 						}
@@ -638,8 +686,7 @@ func generateParameters() []ExperimentParameters {
 }
 
 var resultsDirectoryName = "results"
-var resultFileName = "mmas.csv"
-var threeOptResultFileName = "mmas+3opt.csv"
+var resultFileName = "result.csv"
 
 type AtspData struct {
 	name         string
@@ -650,8 +697,8 @@ type AtspData struct {
 
 	cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
 
-	resultFilePath, threeOptResultFilePath,
-	resultPlotFilePrefix, threeOptResultPlotFilePrefix,
+	resultFilePath,
+	resultPlotFilePrefix,
 
 	optimalUniqueToursCsvPath, toursHeatmapPlotPath, toursHistogramPlotPath string
 }
@@ -666,9 +713,7 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 	cmsaHistogramPlotPath := filepath.Join(plotsDirectoryPath, "cmsa_histogram.png")
 
 	resultFilePath := filepath.Join(resultsDirectoryPath, resultFileName)
-	threeOptResultFilePath := filepath.Join(resultsDirectoryPath, threeOptResultFileName)
-	resultPlotFilePrefix := filepath.Join(plotsDirectoryPath, "best_mmas")
-	threeOptResultPlotFilePrefix := filepath.Join(plotsDirectoryPath, "best_mmas+3opt")
+	resultPlotFilePrefix := filepath.Join(plotsDirectoryPath, "best_result")
 
 	optimalUniqueToursCsvPath := filepath.Join(resultsDirectoryPath, "solutions.csv")
 	toursHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "tours_heatmap.png")
@@ -683,8 +728,8 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 
 		cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
 
-		resultFilePath, threeOptResultFilePath,
-		resultPlotFilePrefix, threeOptResultPlotFilePrefix,
+		resultFilePath,
+		resultPlotFilePrefix,
 
 		optimalUniqueToursCsvPath, toursHeatmapPlotPath, toursHistogramPlotPath,
 	}
@@ -819,30 +864,19 @@ func main() {
 
 		numberOfExperiments := 10
 		experimentData := make([]ExperimentsData, 0)
-		threeOptExperimentData := make([]ExperimentsData, 0)
 
 		for _, parameters := range experimentParameters {
 			setDimensionDependantParameters(dimension, &parameters)
 			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, cmsa)
 			data := ExperimentsData{parameters, results}
 
-			if parameters.useLocalSearch {
-				threeOptExperimentData = append(threeOptExperimentData, data)
-			} else {
-				experimentData = append(experimentData, data)
-			}
+			experimentData = append(experimentData, data)
 		}
 
 		statistics := calculateStatistics(experimentData)
 		if len(statistics) != 0 {
 			saveStatistics(atspData.resultFilePath, statistics)
 			saveExperimentPlots(statistics, "MMAS deviation per iteration", atspData.resultPlotFilePrefix)
-		}
-
-		threeOptStatistics := calculateStatistics(threeOptExperimentData)
-		if len(threeOptStatistics) != 0 {
-			saveStatistics(atspData.threeOptResultFilePath, threeOptStatistics)
-			saveExperimentPlots(threeOptStatistics, "MMAS+3opt deviation per iteration", atspData.threeOptResultPlotFilePrefix)
 		}
 
 		uniqueOptimalTours, err := getOptimalTourStatistics(atspData.optimalUniqueToursCsvPath)
@@ -852,14 +886,6 @@ func main() {
 		}
 
 		for _, data := range experimentData {
-			for _, result := range data.results {
-				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
-					addUniqueTour(uniqueOptimalTours, result.bestTour)
-				}
-			}
-		}
-
-		for _, data := range threeOptExperimentData {
 			for _, result := range data.results {
 				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
 					addUniqueTour(uniqueOptimalTours, result.bestTour)
@@ -922,26 +948,22 @@ func main() {
 	}
 
 	resultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", resultFileName))
-	threeOptResultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", threeOptResultFileName))
 
 	bestStatistics := getBestStatisticsFromFiles(resultsFilePaths)
-	bestThreeOptStatistics := getBestStatisticsFromFiles(threeOptResultsFilePaths)
-	bestOverallStatistics := append(bestStatistics, bestThreeOptStatistics...)
 
 	saveBestParametersInfo("best_parameters_report.md", bestStatistics)
-	saveBestParametersInfo("best_3opt_parameters_report.md", bestThreeOptStatistics)
-	saveBestParametersInfo("best_overall_parameters_report.md", bestOverallStatistics)
 }
 
 func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plotPathPrefix string) {
 	bestStatistic := statistics[0]
 
 	for _, statistic := range statistics {
-		if statistic.alpha != bestStatistic.alpha &&
-			statistic.beta != bestStatistic.beta &&
-			statistic.rho != bestStatistic.rho &&
-			statistic.pBest != bestStatistic.pBest &&
-			statistic.antsPercentage != bestStatistic.antsPercentage {
+		if statistic.alpha != bestStatistic.alpha ||
+			statistic.beta != bestStatistic.beta ||
+			statistic.rho != bestStatistic.rho ||
+			statistic.pBest != bestStatistic.pBest ||
+			statistic.antsPercentage != bestStatistic.antsPercentage ||
+			statistic.localSearchAntsPercentage != bestStatistic.localSearchAntsPercentage {
 			continue
 		}
 
@@ -950,8 +972,8 @@ func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plot
 		maxDeviationPlotData := utilities.LinePlotData{Name: "max deviation", Color: color.RGBA{R: 255, A: 255}, Values: statistic.maxDeviationPerIteration}
 		lines := []utilities.LinePlotData{minDeviationPlotData, avgDeviationPlotData, maxDeviationPlotData}
 
-		titleSuffix := fmt.Sprintf(" (alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pCmsa=%.2f, antsFraction=%.2f)",
-			statistic.alpha, statistic.beta, statistic.rho, statistic.pBest, statistic.pCmsa, statistic.antsPercentage)
+		titleSuffix := fmt.Sprintf(" (alpha=%.2f, beta=%.2f, rho=%.2f, pBest=%.2f, pCmsa=%.2f, antsFraction=%.2f, localSearchAntsFraction=%.2f)",
+			statistic.alpha, statistic.beta, statistic.rho, statistic.pBest, statistic.pCmsa, statistic.antsPercentage, statistic.localSearchAntsPercentage)
 
 		pCmsaPlotSuffix := "_pCmsa=" + strconv.Itoa(int(100*statistic.pCmsa)) + "%"
 		plotPath := plotPathPrefix + pCmsaPlotSuffix + ".png"

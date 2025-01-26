@@ -10,49 +10,35 @@ import (
 )
 
 type ACO struct {
-	useLocalSearch                                                                 bool
-	alpha, beta, rho, pDec, pCmsa                                                  float64
-	ants, iterations, currentIteration, BestAtIteration, dimension                 int
-	distances, pheromones, desirabilitiesPreCalc, probabilities, cmsaProbabilities [][]float64
-	cmsa                                                                           [][]float64
-	tauMin, tauMax, BestLength                                                     float64
-	BestTour                                                                       []int
-	reducedThreeOpt                                                                *threeOpt.ReducedThreeOpt
-	targetTourLength                                                               float64
-	DeviationPerIteration                                                          []float64
-	ThreeOptImprovementsCount                                                      int
-	neighborsLists                                                                 [][]int
+	alpha, beta, rho, pDec, pCmsa                                  float64
+	ants, localSearchAnts, iterations, currentIteration, dimension int
+	distances                                                      [][]float64
+	cmsa                                                           [][]float64
+	tauMin, tauMax, BestLength                                     float64
+	reducedThreeOpt                                                *threeOpt.ReducedThreeOpt
+	targetTourLength                                               float64
+	neighborsLists                                                 [][]int
+
+	pheromones, desirabilitiesPreCalc, probabilities, cmsaProbabilities [][]float64
+
+	BestAtIteration           int
+	BestTour                  []int
+	DeviationPerIteration     []float64
+	ThreeOptImprovementsCount int
 }
 
-func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants, iterations int, targetTourLength float64, distances, cmsa [][]float64) *ACO {
+func NewACO(alpha, beta, rho, pBest, pCmsa float64, ants, localSearchAnts, iterations int, targetTourLength float64, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
 	desirabilitiesPreCalc := make([][]float64, dimension)
 	probabilities := make([][]float64, dimension)
 	cmsaProbabilities := make([][]float64, dimension)
 
-	// Arbitrary high value: `4.3. Pheromone trail initialization`
 	for i := range pheromones {
-
 		pheromones[i] = make([]float64, dimension)
 		desirabilitiesPreCalc[i] = make([]float64, dimension)
 		probabilities[i] = make([]float64, dimension)
 		cmsaProbabilities[i] = make([]float64, dimension)
-
-		for j := range pheromones[i] {
-			pheromones[i][j] = 1.0
-
-			pheromone := math.Pow(pheromones[i][j], alpha)
-
-			// Adding 1 to each distance in calculation to avoid division by 0.
-			heuristic := 1.0 / (distances[i][j] + 1.0)
-			desirability := math.Pow(heuristic, beta)
-
-			desirabilitiesPreCalc[i][j] = desirability
-
-			probabilities[i][j] = pheromone * desirability
-			cmsaProbabilities[i][j] = probabilities[i][j] + cmsa[i][j]
-		}
 	}
 
 	maxLocalSearchNeighborsListSize := 80
@@ -73,33 +59,60 @@ func NewACO(useLocalSearch bool, alpha, beta, rho, pBest, pCmsa float64, ants, i
 	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, localSearchNeighborsLists)
 
 	return &ACO{
-		useLocalSearch:            useLocalSearch,
-		alpha:                     alpha,
-		beta:                      beta,
-		rho:                       rho,
-		pDec:                      math.Pow(pBest, 1.0/float64(dimension)),
-		pCmsa:                     pCmsa,
-		ants:                      ants,
-		iterations:                iterations,
-		dimension:                 dimension,
-		distances:                 distances,
-		cmsa:                      cmsa,
-		pheromones:                pheromones,
-		desirabilitiesPreCalc:     desirabilitiesPreCalc,
-		probabilities:             probabilities,
-		cmsaProbabilities:         cmsaProbabilities,
+		alpha:            alpha,
+		beta:             beta,
+		rho:              rho,
+		pDec:             math.Pow(pBest, 1.0/float64(dimension)),
+		pCmsa:            pCmsa,
+		ants:             ants,
+		localSearchAnts:  localSearchAnts,
+		iterations:       iterations,
+		dimension:        dimension,
+		distances:        distances,
+		cmsa:             cmsa,
+		reducedThreeOpt:  reducedThreeOpt,
+		targetTourLength: targetTourLength,
+		neighborsLists:   tourConstructionNeighborsLists,
+
+		pheromones:            pheromones,
+		desirabilitiesPreCalc: desirabilitiesPreCalc,
+		probabilities:         probabilities,
+		cmsaProbabilities:     cmsaProbabilities,
+
+		BestAtIteration:           math.MaxInt,
 		BestLength:                math.MaxFloat64,
 		BestTour:                  make([]int, dimension),
-		reducedThreeOpt:           reducedThreeOpt,
-		targetTourLength:          targetTourLength,
 		DeviationPerIteration:     make([]float64, iterations),
 		ThreeOptImprovementsCount: 0,
-		neighborsLists:            tourConstructionNeighborsLists,
 	}
 }
 
 // Main loop to run MMAS
 func (aco *ACO) Run() {
+
+	for i := range aco.pheromones {
+		for j := range aco.pheromones[i] {
+			// Arbitrary high value: `4.3. Pheromone trail initialization`
+			aco.pheromones[i][j] = 1.0
+
+			pheromone := math.Pow(aco.pheromones[i][j], aco.alpha)
+
+			// Adding 1 to each distance in calculation to avoid division by 0.
+			heuristic := 1.0 / (aco.distances[i][j] + 1.0)
+			desirability := math.Pow(heuristic, aco.beta)
+
+			aco.desirabilitiesPreCalc[i][j] = desirability
+
+			aco.probabilities[i][j] = pheromone * desirability
+			aco.cmsaProbabilities[i][j] = aco.probabilities[i][j] + aco.cmsa[i][j]
+		}
+	}
+
+	aco.BestAtIteration = math.MaxInt
+	aco.BestLength = math.MaxFloat64
+	aco.BestTour = make([]int, aco.dimension)
+	aco.DeviationPerIteration = make([]float64, aco.iterations)
+	aco.ThreeOptImprovementsCount = 0
 
 	tours := make([][]int, aco.ants)
 	canVisitBits := make([][]float64, aco.ants)
@@ -111,8 +124,6 @@ func (aco *ACO) Run() {
 		probabilities[i] = make([]float64, aco.dimension)
 	}
 
-	maxLocalSearchAntId := int(math.Floor(float64(aco.ants) * 0.5))
-
 	for aco.currentIteration = 0; aco.currentIteration < aco.iterations; aco.currentIteration++ {
 
 		iterationBestLength := math.MaxFloat64
@@ -122,7 +133,7 @@ func (aco *ACO) Run() {
 		for i := 0; i < aco.ants; i++ {
 			aco.constructTour(tours[i], canVisitBits[i], probabilities[i])
 
-			if aco.useLocalSearch && i <= maxLocalSearchAntId {
+			if i < aco.localSearchAnts {
 				aco.reducedThreeOpt.Run(tours[i])
 			}
 
