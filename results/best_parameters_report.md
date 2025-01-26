@@ -1,12 +1,21 @@
 # Best Parameters Report
 
-Found **1** best unique parameter combinations.
+Found **10** best unique parameter combinations.
 
 ## Best Parameters
 
 | Alpha | Beta | Rho | pBest | pCmsa | AntsPercentage | LocalSearchAntsPercentage |
 |-------|------|-----|-------|-------|----------------|---------------------------|
 | 1.00 | 5.00 | 0.80 | 0.05 | 0.25 | 0.80 | 1.00 |
+| 1.00 | 5.00 | 0.80 | 0.05 | 0.25 | 0.80 | 0.00 |
+| 1.00 | 5.00 | 0.80 | 0.05 | 0.25 | 0.80 | 0.50 |
+| 1.00 | 5.00 | 0.80 | 0.05 | 0.00 | 0.80 | 0.50 |
+| 1.00 | 5.00 | 0.80 | 0.05 | 0.50 | 0.80 | 1.00 |
+| 1.00 | 5.00 | 0.80 | 0.05 | 1.00 | 0.80 | 0.00 |
+| 1.00 | 5.00 | 0.80 | 0.05 | 0.00 | 0.80 | 1.00 |
+| 1.00 | 5.00 | 0.80 | 0.05 | 0.75 | 0.80 | 0.50 |
+| 1.00 | 5.00 | 0.80 | 0.05 | 0.50 | 0.80 | 0.50 |
+| 1.00 | 5.00 | 0.80 | 0.05 | 0.75 | 0.80 | 1.00 |
 
 ## Parameter Values Occurrences
 
@@ -14,43 +23,49 @@ Found **1** best unique parameter combinations.
 
 | Value | Count |
 |-------|-------|
-| 1.00 | 1 |
+| 1.00 | 10 |
 
 ### Beta
 
 | Value | Count |
 |-------|-------|
-| 5.00 | 1 |
+| 5.00 | 10 |
 
 ### Rho
 
 | Value | Count |
 |-------|-------|
-| 0.80 | 1 |
+| 0.80 | 10 |
 
 ### PBest
 
 | Value | Count |
 |-------|-------|
-| 0.05 | 1 |
+| 0.05 | 10 |
 
 ### pCmsa
 
 | Value | Count |
 |-------|-------|
-| 0.25 | 1 |
+| 0.00 | 2 |
+| 0.25 | 3 |
+| 0.50 | 2 |
+| 0.75 | 2 |
+| 1.00 | 1 |
 
 ### AntsPercentage
 
 | Value | Count |
 |-------|-------|
-| 0.80 | 1 |
+| 0.80 | 10 |
 
 ### LocalSearchAntsPercentage
 
 | Value | Count |
 |-------|-------|
-| 1.00 | 1 |
+| 0.00 | 2 |
+| 0.50 | 4 |
+| 1.00 | 4 |
 
 ## Parameter Ranges
 
@@ -58,6 +73,6 @@ Found **1** best unique parameter combinations.
 - **Beta**: 5.00 - 5.00
 - **Rho**: 0.80 - 0.80
 - **pBest**: 0.05 - 0.05
-- **pCmsa**: 0.25 - 0.25
+- **pCmsa**: 0.00 - 1.00
 - **AntsPercentage**: 0.80 - 0.80
-- **LocalSearchAntsPercentage**: 1.00 - 1.00
+- **LocalSearchAntsPercentage**: 0.00 - 1.00
