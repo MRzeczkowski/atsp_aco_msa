@@ -756,28 +756,28 @@ func main() {
 				"atex4.atsp",
 				"atex5.atsp",
 				"br17.atsp",
-				"code198.atsp",
-				"crane100_0.atsp",
-				"crane100_1.atsp",
-				"crane100_2.atsp",
+				// "code198.atsp",
+				// "crane100_0.atsp",
+				// "crane100_1.atsp",
+				// "crane100_2.atsp",
 				"crane66_0.atsp",
 				"crane66_1.atsp",
 				"crane66_2.atsp",
-				"dc112.atsp",
-				"dc126.atsp",
-				"dc134.atsp",
-				"dc176.atsp",
-				"dc188.atsp",
+				//			"dc112.atsp",
+				//			"dc126.atsp",
+				//			"dc134.atsp",
+				//			"dc176.atsp",
+				//			"dc188.atsp",
 				"ft53.atsp",
 				"ft70.atsp",
-				"ftv100.atsp",
-				"ftv110.atsp",
-				"ftv120.atsp",
-				"ftv130.atsp",
-				"ftv140.atsp",
-				"ftv150.atsp",
-				"ftv160.atsp",
-				"ftv170.atsp",
+				// "ftv100.atsp",
+				// "ftv110.atsp",
+				// "ftv120.atsp",
+				// "ftv130.atsp",
+				// "ftv140.atsp",
+				// "ftv150.atsp",
+				// "ftv160.atsp",
+				// "ftv170.atsp",
 				"ftv33.atsp",
 				"ftv35.atsp",
 				"ftv38.atsp",
@@ -793,13 +793,13 @@ func main() {
 				"rbg403.atsp",
 				"rbg443.atsp",
 				"ry48p.atsp",
-				"td100_1.atsp",
+				// "td100_1.atsp",
 			}
 
 			inputFileName := path.Base(filePath)
 			for _, file := range files {
 				assumedProblemSize, _ := utilities.ExtractNumber(file)
-				if inputFileName == file && assumedProblemSize < 100 {
+				if inputFileName == file && 100 <= assumedProblemSize && assumedProblemSize < 200 {
 					return true
 				}
 			}
