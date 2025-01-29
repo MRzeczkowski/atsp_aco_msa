@@ -1,5 +1,7 @@
 package threeOpt
 
+import "atsp_aco_msa/modules/utilities"
+
 var spacing int = 3 // Minimal spacing between indices
 
 type ReducedThreeOpt struct {
@@ -29,6 +31,15 @@ func NewReducedThreeOpt(distances [][]float64, neighborsLists [][]int) *ReducedT
 // Input `tour` is changed in-place.
 func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 	n := len(tour)
+
+	// Initialize total costs and thresholds
+	improvementThreshold := 0.005 // 0.5% of initial tour cost
+	maxConsecutiveMinorGain := 20 // Allowed minor improvements
+
+	initialLength := utilities.TourLength(tour, threeOpt.distances)
+	currentLength := initialLength
+	consecutiveMinorGain := 0
+	absoluteThreshold := initialLength * improvementThreshold
 
 	setPositions(threeOpt.positions, tour)
 
@@ -105,6 +116,16 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 						continue
 					}
 
+					// Early termination check
+					if -gain < absoluteThreshold { // Improvement smaller than threshold
+						consecutiveMinorGain++
+						if consecutiveMinorGain > maxConsecutiveMinorGain {
+							return // Exit early
+						}
+						continue
+					}
+					consecutiveMinorGain = 0 // Reset counter
+
 					pos := 0
 
 					// First Segment
@@ -132,6 +153,7 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 					}
 
 					copy(tour, threeOpt.newTour)
+					currentLength += gain
 
 					setPositions(threeOpt.positions, tour)
 
