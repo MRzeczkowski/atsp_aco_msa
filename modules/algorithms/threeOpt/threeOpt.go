@@ -33,13 +33,12 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 	n := len(tour)
 
 	// Initialize total costs and thresholds
-	improvementThreshold := 0.005 // 0.5% of initial tour cost
+	improvementThreshold := 0.001 // 0.1% of initial tour cost
 	maxConsecutiveMinorGain := 20 // Allowed minor improvements
 
-	initialLength := utilities.TourLength(tour, threeOpt.distances)
-	currentLength := initialLength
+	currentLength := utilities.TourLength(tour, threeOpt.distances)
+	minorGainThreshold := -currentLength * improvementThreshold
 	consecutiveMinorGain := 0
-	absoluteThreshold := initialLength * improvementThreshold
 
 	setPositions(threeOpt.positions, tour)
 
@@ -116,9 +115,9 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 						continue
 					}
 
-					// Early termination check
-					if -gain < absoluteThreshold { // Improvement smaller than threshold
+					if gain > minorGainThreshold {
 						consecutiveMinorGain++
+						// Early termination check
 						if consecutiveMinorGain > maxConsecutiveMinorGain {
 							return // Exit early
 						}
@@ -154,6 +153,7 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 
 					copy(tour, threeOpt.newTour)
 					currentLength += gain
+					minorGainThreshold = -currentLength * improvementThreshold
 
 					setPositions(threeOpt.positions, tour)
 
