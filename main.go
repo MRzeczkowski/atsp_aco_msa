@@ -168,6 +168,7 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 func findMinMax(counts map[float64]int) (float64, float64) {
 	min := math.MaxFloat64
 	max := -math.MaxFloat64
+
 	for value := range counts {
 		if value < min {
 			min = value
@@ -176,6 +177,7 @@ func findMinMax(counts map[float64]int) (float64, float64) {
 			max = value
 		}
 	}
+
 	return min, max
 }
 
@@ -664,12 +666,12 @@ func generateParameters() []ExperimentParameters {
 	parameters := make([]ExperimentParameters, 0)
 
 	for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
-		for _, beta := range utilities.GenerateRange(5.0, 5.0, 1.0) {
+		for _, beta := range utilities.GenerateRange(2.0, 2.0, 1.0) {
 			for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
-				for _, pBest := range utilities.GenerateRange(0.05, 0.05, 0.005) {
-					for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+				for _, pBest := range utilities.GenerateRange(0.005, 0.005, 0.005) {
+					for _, pCmsa := range utilities.GenerateRange(0.0, 0.0, 0.25) {
 						for _, antsPercentage := range utilities.GenerateRange(0.8, 0.8, 0.1) {
-							for _, localSearchAntsPercentage := range utilities.GenerateRange(0.0, 1.0, 0.5) {
+							for _, localSearchAntsPercentage := range utilities.GenerateRange(0.5, 0.5, 0.5) {
 								parameters = append(parameters,
 									ExperimentParameters{
 										alpha, beta, rho, pBest, pCmsa, antsPercentage, localSearchAntsPercentage, 0, 0, 0,
@@ -764,10 +766,10 @@ func main() {
 				"crane66_1.atsp",
 				"crane66_2.atsp",
 				"dc112.atsp",
-				"dc126.atsp",
-				"dc134.atsp",
-				"dc176.atsp",
-				"dc188.atsp",
+				// "dc126.atsp",
+				// "dc134.atsp",
+				// "dc176.atsp",
+				// "dc188.atsp",
 				"ft53.atsp",
 				"ft70.atsp",
 				// "ftv100.atsp",
@@ -798,6 +800,7 @@ func main() {
 
 			inputFileName := path.Base(filePath)
 			for _, file := range files {
+				file = "ftv170.atsp"
 				assumedProblemSize, _ := utilities.ExtractNumber(file)
 				if inputFileName == file && 100 <= assumedProblemSize && assumedProblemSize < 200 {
 					return true

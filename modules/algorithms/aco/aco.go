@@ -4,6 +4,7 @@ import (
 	"atsp_aco_msa/modules/algorithms/nearestNeighbors"
 	"atsp_aco_msa/modules/algorithms/threeOpt"
 	"atsp_aco_msa/modules/utilities"
+	"fmt"
 	"math"
 
 	"pgregory.net/rand"
@@ -89,22 +90,14 @@ func NewACO(alpha, beta, rho, pBest, pCmsa float64, ants, localSearchAnts, itera
 
 // Main loop to run MMAS
 func (aco *ACO) Run() {
-
 	for i := range aco.pheromones {
 		for j := range aco.pheromones[i] {
-			// Arbitrary high value: `4.3. Pheromone trail initialization`
-			aco.pheromones[i][j] = 1.0
-
-			pheromone := math.Pow(aco.pheromones[i][j], aco.alpha)
-
 			// Adding 1 to each distance in calculation to avoid division by 0.
 			heuristic := 1.0 / (aco.distances[i][j] + 1.0)
 			desirability := math.Pow(heuristic, aco.beta)
-
 			aco.desirabilitiesPreCalc[i][j] = desirability
 
-			aco.probabilities[i][j] = pheromone * desirability
-			aco.cmsaProbabilities[i][j] = aco.probabilities[i][j] + aco.cmsa[i][j]
+			aco.setPheromone(i, j, 100.0)
 		}
 	}
 
@@ -124,12 +117,15 @@ func (aco *ACO) Run() {
 		probabilities[i] = make([]float64, aco.dimension)
 	}
 
+	// Restart mechanism state
+	noImproveGlobal := 0
+
 	for aco.currentIteration = 0; aco.currentIteration < aco.iterations; aco.currentIteration++ {
 
 		iterationBestLength := math.MaxFloat64
 		iterationBestTour := make([]int, aco.dimension)
 
-		currentDeviation := 1.0
+		globalImproved := false
 		for i := 0; i < aco.ants; i++ {
 			aco.constructTour(tours[i], canVisitBits[i], probabilities[i])
 
@@ -147,20 +143,74 @@ func (aco *ACO) Run() {
 					aco.BestLength = iterationBestLength
 					copy(aco.BestTour, iterationBestTour)
 					aco.BestAtIteration = aco.currentIteration
+					aco.updateLimits()
+
+					globalImproved = true
 				}
 
-				currentDeviation = 100 * (iterationBestLength - aco.targetTourLength) / aco.targetTourLength
+				currentDeviation := 100 * (iterationBestLength - aco.targetTourLength) / aco.targetTourLength
 				aco.DeviationPerIteration[aco.currentIteration] = currentDeviation
 
 				if currentDeviation == 0.0 {
+					fmt.Println("DONE!")
 					return
 				}
 			}
 		}
 
-		aco.globalPheromoneUpdate(iterationBestTour, iterationBestLength)
-		aco.updateLimits()
-		aco.clampPheromoneLevels()
+		// Update improvement counters
+		if !globalImproved {
+			noImproveGlobal++
+		} else {
+			noImproveGlobal = 0
+		}
+
+		// Check restart conditions
+		if noImproveGlobal >= 50 {
+			bf := aco.calculateBranchingFactor(0.1)
+			if bf <= 1.1 {
+				for i := range aco.pheromones {
+					for j := range aco.pheromones[i] {
+						aco.setPheromone(i, j, aco.tauMax)
+					}
+				}
+			}
+		}
+
+		aco.evaporatePheromones()
+
+		var depositTour []int
+		var pheromoneDeposit float64
+
+		var useGlobal bool
+		if aco.currentIteration <= 25 {
+			useGlobal = false
+		} else {
+			var phase int
+
+			switch {
+			case aco.currentIteration <= 75:
+				phase = 5
+			case aco.currentIteration <= 125:
+				phase = 3
+			case aco.currentIteration <= 250:
+				phase = 2
+			default:
+				phase = 1
+			}
+
+			useGlobal = aco.currentIteration%phase == 0
+		}
+
+		if useGlobal {
+			depositTour = aco.BestTour
+			pheromoneDeposit = 1.0 / aco.BestLength
+		} else {
+			depositTour = iterationBestTour
+			pheromoneDeposit = 1.0 / iterationBestLength
+		}
+
+		aco.depositPheromones(depositTour, pheromoneDeposit)
 	}
 
 	aco.ThreeOptImprovementsCount = aco.reducedThreeOpt.Improvements
@@ -250,90 +300,106 @@ func (aco *ACO) selectNextCity(current int, canVisitBits []float64, probabilitie
 func (aco *ACO) updateLimits() {
 	aco.tauMax = 1.0 / ((1 - aco.rho) * aco.BestLength)
 
-	pDec := aco.pDec
+	numerator := aco.tauMax * (1.0 - aco.pDec)
+
 	nEffective := float64(aco.dimension) / 2.0 // Average possible choices.
+	denominator := (nEffective - 1.0) * aco.pDec
 
-	numerator := aco.tauMax * (1.0 - pDec)
-	denominator := (nEffective - 1.0) * pDec
 	aco.tauMin = numerator / denominator
-}
 
-func (aco *ACO) clampPheromoneLevels() {
 	for i := range aco.pheromones {
 		for j := range aco.pheromones[i] {
-			if aco.pheromones[i][j] > aco.tauMax {
-				aco.pheromones[i][j] = aco.tauMax
-			} else if aco.pheromones[i][j] < aco.tauMin {
-				aco.pheromones[i][j] = aco.tauMin
-			}
+			aco.setPheromone(i, j, aco.clampPheromoneLevel(aco.pheromones[i][j]))
 		}
 	}
 }
 
-// Global pheromones update (best ant)
-func (aco *ACO) globalPheromoneUpdate(iterationBestTour []int, iterationBestLength float64) {
+func (aco *ACO) setPheromone(i, j int, value float64) {
+	aco.pheromones[i][j] = value
+	pheromone := math.Pow(aco.pheromones[i][j], aco.alpha)
+	aco.probabilities[i][j] = pheromone * aco.desirabilitiesPreCalc[i][j]
+	aco.cmsaProbabilities[i][j] = aco.probabilities[i][j] + aco.cmsa[i][j]
+}
 
-	evaporationCoefficient := 1 - aco.rho
+func (aco *ACO) calculateBranchingFactor(lambda float64) float64 {
+	total := 0.0
+	for i := 0; i < aco.dimension; i++ {
+		// Get all outgoing edges from node i
+		edges := aco.pheromones[i]
+		tauMin, tauMax := findMinMaxExcludingIndex(edges, i)
+
+		threshold := tauMin + lambda*(tauMax-tauMin)
+		count := 0
+		for j, tau := range edges {
+			if i != j && tau > threshold {
+				count++
+			}
+		}
+
+		total += float64(count)
+	}
+
+	return total / float64(aco.dimension)
+}
+
+func findMinMaxExcludingIndex(slice []float64, index int) (float64, float64) {
+	min := math.MaxFloat64
+	max := -math.MaxFloat64
+
+	for i, value := range slice {
+		if i == index {
+			continue
+		}
+
+		if value < min {
+			min = value
+		}
+
+		if value > max {
+			max = value
+		}
+	}
+
+	return min, max
+}
+
+func (aco *ACO) clampPheromoneLevel(pheromone float64) float64 {
+	if pheromone > aco.tauMax {
+		return aco.tauMax
+	} else if pheromone < aco.tauMin {
+		return aco.tauMin
+	}
+
+	return pheromone
+}
+
+func (aco *ACO) evaporatePheromones() {
+	// TODO: Evaporate only edges that are in nearest neighbors lists!
+	// This will be faster, same as in MMAS paper and will hopefully increase branching factor.
+	// There are some issue with it however, since not all edges are updated the branching factor seems to be useless.
+	// for i := 0; i < aco.dimension; i++ {
+	// 	for _, j := range aco.neighborsLists[i] {
+
 	// Evaporate pheromones globally
 	for i := range aco.pheromones {
 		for j := range aco.pheromones[i] {
-			aco.pheromones[i][j] *= evaporationCoefficient
-
-			pheromone := math.Pow(aco.pheromones[i][j], aco.alpha)
-			aco.probabilities[i][j] = pheromone * aco.desirabilitiesPreCalc[i][j]
-			aco.cmsaProbabilities[i][j] = aco.probabilities[i][j] + aco.cmsa[i][j]
+			evaporatedValue := aco.clampPheromoneLevel(aco.pheromones[i][j] * aco.rho)
+			aco.setPheromone(i, j, evaporatedValue)
 		}
 	}
+}
 
-	var pheromoneDeposit float64
-	var bestTour []int
+func (aco *ACO) depositPheromones(tour []int, pheromoneDeposit float64) {
+	for i := 0; i < aco.dimension-1; i++ {
+		start, end := tour[i], tour[i+1]
 
-	if aco.currentIteration <= 25 {
-		pheromoneDeposit = 1.0 / iterationBestLength
-		bestTour = iterationBestTour
-	} else {
-		var f_gb int
-
-		if aco.currentIteration > 25 && aco.currentIteration <= 75 {
-			f_gb = 5
-		}
-
-		if aco.currentIteration > 75 && aco.currentIteration <= 125 {
-			f_gb = 3
-		}
-
-		if aco.currentIteration > 125 && aco.currentIteration <= 250 {
-			f_gb = 2
-		}
-
-		if aco.currentIteration > 250 {
-			f_gb = 1
-		}
-
-		if aco.currentIteration%f_gb == 0 {
-			pheromoneDeposit = 1.0 / aco.BestLength
-			bestTour = aco.BestTour
-		} else {
-			pheromoneDeposit = 1.0 / iterationBestLength
-			bestTour = iterationBestTour
-		}
-	}
-
-	// Global update: Only the best tour deposits pheromones
-	for j := 0; j < aco.dimension-1; j++ {
-		start, end := bestTour[j], bestTour[j+1]
-		aco.pheromones[start][end] += aco.rho * pheromoneDeposit
-
-		pheromone := math.Pow(aco.pheromones[start][end], aco.alpha)
-		aco.probabilities[start][end] = pheromone * aco.desirabilitiesPreCalc[start][end]
-		aco.cmsaProbabilities[start][end] = aco.probabilities[start][end] + aco.cmsa[start][end]
+		newValue := aco.clampPheromoneLevel(aco.pheromones[start][end] + pheromoneDeposit)
+		aco.setPheromone(start, end, newValue)
 	}
 
 	// Handle the wrap-around from the last to the first node
-	last, first := bestTour[aco.dimension-1], bestTour[0]
-	aco.pheromones[last][first] += aco.rho * pheromoneDeposit
+	last, first := tour[aco.dimension-1], tour[0]
 
-	pheromone := math.Pow(aco.pheromones[last][first], aco.alpha)
-	aco.probabilities[last][first] = pheromone * aco.desirabilitiesPreCalc[last][first]
-	aco.cmsaProbabilities[last][first] = aco.probabilities[last][first] + aco.cmsa[last][first]
+	newValue := aco.clampPheromoneLevel(aco.pheromones[last][first] + pheromoneDeposit)
+	aco.setPheromone(last, first, newValue)
 }
