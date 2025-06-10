@@ -669,7 +669,7 @@ func generateParameters() []ExperimentParameters {
 		for _, beta := range utilities.GenerateRange(2.0, 2.0, 1.0) {
 			for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
 				for _, pBest := range utilities.GenerateRange(0.005, 0.005, 0.005) {
-					for _, pCmsa := range utilities.GenerateRange(0.0, 0.0, 0.25) {
+					for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 						for _, antsPercentage := range utilities.GenerateRange(0.8, 0.8, 0.1) {
 							for _, localSearchAntsPercentage := range utilities.GenerateRange(0.5, 0.5, 0.5) {
 								parameters = append(parameters,

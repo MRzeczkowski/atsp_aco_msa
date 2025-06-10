@@ -42,7 +42,7 @@ func NewACO(alpha, beta, rho, pBest, pCmsa float64, ants, localSearchAnts, itera
 		cmsaProbabilities[i] = make([]float64, dimension)
 	}
 
-	maxLocalSearchNeighborsListSize := 80
+	maxLocalSearchNeighborsListSize := 40
 	localSearchNeighborsListSize := min(maxLocalSearchNeighborsListSize, dimension)
 	localSearchNeighborsLists := nearestNeighbors.BuildNearestNeighborsLists(distances, localSearchNeighborsListSize)
 
@@ -117,15 +117,11 @@ func (aco *ACO) Run() {
 		probabilities[i] = make([]float64, aco.dimension)
 	}
 
-	// Restart mechanism state
-	noImproveGlobal := 0
-
 	for aco.currentIteration = 0; aco.currentIteration < aco.iterations; aco.currentIteration++ {
 
 		iterationBestLength := math.MaxFloat64
 		iterationBestTour := make([]int, aco.dimension)
 
-		globalImproved := false
 		for i := 0; i < aco.ants; i++ {
 			aco.constructTour(tours[i], canVisitBits[i], probabilities[i])
 
@@ -144,8 +140,6 @@ func (aco *ACO) Run() {
 					copy(aco.BestTour, iterationBestTour)
 					aco.BestAtIteration = aco.currentIteration
 					aco.updateLimits()
-
-					globalImproved = true
 				}
 
 				currentDeviation := 100 * (iterationBestLength - aco.targetTourLength) / aco.targetTourLength
@@ -154,25 +148,6 @@ func (aco *ACO) Run() {
 				if currentDeviation == 0.0 {
 					fmt.Println("DONE!")
 					return
-				}
-			}
-		}
-
-		// Update improvement counters
-		if !globalImproved {
-			noImproveGlobal++
-		} else {
-			noImproveGlobal = 0
-		}
-
-		// Check restart conditions
-		if noImproveGlobal >= 50 {
-			bf := aco.calculateBranchingFactor(0.1)
-			if bf <= 1.1 {
-				for i := range aco.pheromones {
-					for j := range aco.pheromones[i] {
-						aco.setPheromone(i, j, aco.tauMax)
-					}
 				}
 			}
 		}
@@ -298,14 +273,8 @@ func (aco *ACO) selectNextCity(current int, canVisitBits []float64, probabilitie
 }
 
 func (aco *ACO) updateLimits() {
-	aco.tauMax = 1.0 / ((1 - aco.rho) * aco.BestLength)
-
-	numerator := aco.tauMax * (1.0 - aco.pDec)
-
-	nEffective := float64(aco.dimension) / 2.0 // Average possible choices.
-	denominator := (nEffective - 1.0) * aco.pDec
-
-	aco.tauMin = numerator / denominator
+	aco.tauMax = 1.0 / ((1.0 - aco.rho) * aco.BestLength)
+	aco.tauMin = aco.tauMax / (2.0 * float64(aco.dimension))
 
 	for i := range aco.pheromones {
 		for j := range aco.pheromones[i] {
@@ -321,48 +290,6 @@ func (aco *ACO) setPheromone(i, j int, value float64) {
 	aco.cmsaProbabilities[i][j] = aco.probabilities[i][j] + aco.cmsa[i][j]
 }
 
-func (aco *ACO) calculateBranchingFactor(lambda float64) float64 {
-	total := 0.0
-	for i := 0; i < aco.dimension; i++ {
-		// Get all outgoing edges from node i
-		edges := aco.pheromones[i]
-		tauMin, tauMax := findMinMaxExcludingIndex(edges, i)
-
-		threshold := tauMin + lambda*(tauMax-tauMin)
-		count := 0
-		for j, tau := range edges {
-			if i != j && tau > threshold {
-				count++
-			}
-		}
-
-		total += float64(count)
-	}
-
-	return total / float64(aco.dimension)
-}
-
-func findMinMaxExcludingIndex(slice []float64, index int) (float64, float64) {
-	min := math.MaxFloat64
-	max := -math.MaxFloat64
-
-	for i, value := range slice {
-		if i == index {
-			continue
-		}
-
-		if value < min {
-			min = value
-		}
-
-		if value > max {
-			max = value
-		}
-	}
-
-	return min, max
-}
-
 func (aco *ACO) clampPheromoneLevel(pheromone float64) float64 {
 	if pheromone > aco.tauMax {
 		return aco.tauMax
@@ -374,15 +301,8 @@ func (aco *ACO) clampPheromoneLevel(pheromone float64) float64 {
 }
 
 func (aco *ACO) evaporatePheromones() {
-	// TODO: Evaporate only edges that are in nearest neighbors lists!
-	// This will be faster, same as in MMAS paper and will hopefully increase branching factor.
-	// There are some issue with it however, since not all edges are updated the branching factor seems to be useless.
-	// for i := 0; i < aco.dimension; i++ {
-	// 	for _, j := range aco.neighborsLists[i] {
-
-	// Evaporate pheromones globally
-	for i := range aco.pheromones {
-		for j := range aco.pheromones[i] {
+	for i := 0; i < aco.dimension; i++ {
+		for _, j := range aco.neighborsLists[i] {
 			evaporatedValue := aco.clampPheromoneLevel(aco.pheromones[i][j] * aco.rho)
 			aco.setPheromone(i, j, evaporatedValue)
 		}
