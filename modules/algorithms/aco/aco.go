@@ -11,7 +11,7 @@ import (
 )
 
 type ACO struct {
-	alpha, beta, rho, pDec, pCmsa                                  float64
+	alpha, beta, rho, pCmsa                                        float64
 	ants, localSearchAnts, iterations, currentIteration, dimension int
 	distances                                                      [][]float64
 	cmsa                                                           [][]float64
@@ -28,7 +28,7 @@ type ACO struct {
 	ThreeOptImprovementsCount int
 }
 
-func NewACO(alpha, beta, rho, pBest, pCmsa float64, ants, localSearchAnts, iterations int, targetTourLength float64, distances, cmsa [][]float64) *ACO {
+func NewACO(alpha, beta, rho, pCmsa float64, ants, localSearchAnts, iterations int, targetTourLength float64, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
 	desirabilitiesPreCalc := make([][]float64, dimension)
@@ -63,7 +63,6 @@ func NewACO(alpha, beta, rho, pBest, pCmsa float64, ants, localSearchAnts, itera
 		alpha:            alpha,
 		beta:             beta,
 		rho:              rho,
-		pDec:             math.Pow(pBest, 1.0/float64(dimension)),
 		pCmsa:            pCmsa,
 		ants:             ants,
 		localSearchAnts:  localSearchAnts,
