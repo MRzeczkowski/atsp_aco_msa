@@ -1,6 +1,6 @@
-Alpha,Beta,Rho,pCmsa,Ants fraction,Ants number,Local search ants fraction,Iterations,Min best at iteration,Avg best at iteration,Max best at iteration,Min local search improvements,Avg local search improvements,Max local search improvements,Min best deviation,Avg best deviation,Max best deviation,Success rate [%],Avg computation time [ms]
-1.00,2.00,0.80,0.00,0.80,90,0.50,6222,3354,4841.00,6048,0,24.00,5,1.50,1.91,2.67,0.00,17536
-1.00,2.00,0.80,1.00,0.80,90,0.50,6222,1089,5192.90,6221,0,181.00,26,1.74,1.98,2.30,0.00,17936
-1.00,2.00,0.80,0.50,0.80,90,0.50,6222,3557,4888.40,5968,2,152.00,22,1.72,2.03,2.48,0.00,17862
-1.00,2.00,0.80,0.75,0.80,90,0.50,6222,3785,5119.20,6143,2,55.00,11,1.76,2.14,2.66,0.00,17710
-1.00,2.00,0.80,0.25,0.80,90,0.50,6222,2750,4709.10,6077,1,42.00,10,1.67,2.16,2.52,0.00,17672
+Alpha,Beta,Rho,pCmsa,Iterations,Min best at iteration,Avg best at iteration,Max best at iteration,Min local search improvements,Avg local search improvements,Max local search improvements,Min best deviation,Avg best deviation,Max best deviation,Success rate [%],Avg computation time [ms]
+1.00,2.00,0.80,0.75,5000,2076,4140.90,4991,4734,224379.00,40771,2.06,2.89,3.64,0.00,3909
+1.00,2.00,0.80,0.25,5000,2692,4155.90,4999,3145,210273.00,39605,2.65,3.13,3.84,0.00,3871
+1.00,2.00,0.80,0.00,5000,1099,3870.80,4932,4186,214192.00,40524,2.32,3.16,3.69,0.00,3801
+1.00,2.00,0.80,1.00,5000,857,3258.70,4917,4112,222352.00,39677,2.95,3.21,3.69,0.00,3914
+1.00,2.00,0.80,0.50,5000,2272,4175.20,4824,3177,208422.00,38896,2.70,3.28,3.73,0.00,3884
