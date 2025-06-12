@@ -1,6 +1,2 @@
 Alpha,Beta,Rho,pCmsa,Ants fraction,Ants number,Local search ants fraction,Iterations,Min best at iteration,Avg best at iteration,Max best at iteration,Min local search improvements,Avg local search improvements,Max local search improvements,Min best deviation,Avg best deviation,Max best deviation,Success rate [%],Avg computation time [ms]
-1.00,2.00,0.80,0.75,0.80,32,0.50,121,53,79.40,107,0,11410.00,11410,0.00,0.04,0.39,90.00,15
-1.00,2.00,0.80,0.25,0.80,32,0.50,121,21,55.60,106,0,256168.00,74756,0.00,0.09,0.39,50.00,13
-1.00,2.00,0.80,1.00,0.80,32,0.50,121,41,80.30,116,0,80397.00,80397,0.00,0.10,1.05,90.00,15
-1.00,2.00,0.80,0.50,0.80,32,0.50,121,18,61.20,98,0,119078.00,68395,0.00,0.22,1.11,80.00,12
-1.00,2.00,0.80,0.00,0.80,32,0.50,121,21,47.50,82,0,397181.00,77563,0.00,0.39,2.55,10.00,15
+1.00,2.00,0.80,0.00,0.80,32,0.00,121,43,74.00,117,0,0.00,0,0.39,2.75,5.23,0.00,7
