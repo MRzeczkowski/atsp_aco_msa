@@ -4,7 +4,6 @@ import (
 	"atsp_aco_msa/modules/algorithms/nearestNeighbors"
 	"atsp_aco_msa/modules/algorithms/threeOpt"
 	"atsp_aco_msa/modules/utilities"
-	"fmt"
 	"math"
 
 	"pgregory.net/rand"
@@ -35,19 +34,19 @@ func NewACO(alpha, beta, rho, pCmsa float64, ants, localSearchAnts, iterations i
 	probabilities := make([][]float64, dimension)
 	cmsaProbabilities := make([][]float64, dimension)
 
-	for i := range pheromones {
+	for i := 0; i < dimension; i++ {
 		pheromones[i] = make([]float64, dimension)
 		desirabilitiesPreCalc[i] = make([]float64, dimension)
 		probabilities[i] = make([]float64, dimension)
 		cmsaProbabilities[i] = make([]float64, dimension)
 	}
 
-	maxLocalSearchNeighborsListSize := 40
-	localSearchNeighborsListSize := min(maxLocalSearchNeighborsListSize, dimension)
+	maxLocalSearchNeighborsListSize := 20
+	localSearchNeighborsListSize := min(maxLocalSearchNeighborsListSize, dimension-1)
 	localSearchNeighborsLists := nearestNeighbors.BuildNearestNeighborsLists(distances, localSearchNeighborsListSize)
 
 	// We use smaller lists for tour construction than for local search. Just like: https://sci-hub.se/https://doi.org/10.1016/S0167-739X(00)00043-1
-	tourConstructionNeighborsListSize := min(maxLocalSearchNeighborsListSize/2, dimension)
+	tourConstructionNeighborsListSize := min(maxLocalSearchNeighborsListSize/2, dimension-1)
 	tourConstructionNeighborsLists := make([][]int, dimension)
 	for i := 0; i < dimension; i++ {
 		tourConstructionNeighborsLists[i] = make([]int, tourConstructionNeighborsListSize)
@@ -87,16 +86,18 @@ func NewACO(alpha, beta, rho, pCmsa float64, ants, localSearchAnts, iterations i
 	}
 }
 
-// Main loop to run MMAS
 func (aco *ACO) Run() {
-	for i := range aco.pheromones {
-		for j := range aco.pheromones[i] {
+
+	initialPheromoneValue := 100000.0 // Arbitrary large value
+	for i := 0; i < aco.dimension; i++ {
+		for j := 0; j < aco.dimension; j++ {
+
 			// Adding 1 to each distance in calculation to avoid division by 0.
 			heuristic := 1.0 / (aco.distances[i][j] + 1.0)
 			desirability := math.Pow(heuristic, aco.beta)
 			aco.desirabilitiesPreCalc[i][j] = desirability
 
-			aco.setPheromone(i, j, 100.0)
+			aco.setPheromone(i, j, initialPheromoneValue)
 		}
 	}
 
@@ -138,43 +139,37 @@ func (aco *ACO) Run() {
 					aco.BestLength = iterationBestLength
 					copy(aco.BestTour, iterationBestTour)
 					aco.BestAtIteration = aco.currentIteration
-					aco.updateLimits()
 				}
 
 				currentDeviation := 100 * (iterationBestLength - aco.targetTourLength) / aco.targetTourLength
 				aco.DeviationPerIteration[aco.currentIteration] = currentDeviation
 
 				if currentDeviation == 0.0 {
-					fmt.Println("DONE!")
 					return
 				}
 			}
 		}
 
+		aco.updateLimits()
 		aco.evaporatePheromones()
+
+		var useGlobal bool
+
+		switch {
+		case aco.currentIteration < 25:
+			useGlobal = false
+		case aco.currentIteration < 75:
+			useGlobal = aco.currentIteration%5 == 0
+		case aco.currentIteration < 125:
+			useGlobal = aco.currentIteration%3 == 0
+		case aco.currentIteration < 250:
+			useGlobal = aco.currentIteration%2 == 0
+		default:
+			useGlobal = true
+		}
 
 		var depositTour []int
 		var pheromoneDeposit float64
-
-		var useGlobal bool
-		if aco.currentIteration <= 25 {
-			useGlobal = false
-		} else {
-			var phase int
-
-			switch {
-			case aco.currentIteration <= 75:
-				phase = 5
-			case aco.currentIteration <= 125:
-				phase = 3
-			case aco.currentIteration <= 250:
-				phase = 2
-			default:
-				phase = 1
-			}
-
-			useGlobal = aco.currentIteration%phase == 0
-		}
 
 		if useGlobal {
 			depositTour = aco.BestTour
@@ -274,12 +269,6 @@ func (aco *ACO) selectNextCity(current int, canVisitBits []float64, probabilitie
 func (aco *ACO) updateLimits() {
 	aco.tauMax = 1.0 / ((1.0 - aco.rho) * aco.BestLength)
 	aco.tauMin = aco.tauMax / (2.0 * float64(aco.dimension))
-
-	for i := range aco.pheromones {
-		for j := range aco.pheromones[i] {
-			aco.setPheromone(i, j, aco.clampPheromoneLevel(aco.pheromones[i][j]))
-		}
-	}
 }
 
 func (aco *ACO) setPheromone(i, j int, value float64) {
@@ -301,7 +290,7 @@ func (aco *ACO) clampPheromoneLevel(pheromone float64) float64 {
 
 func (aco *ACO) evaporatePheromones() {
 	for i := 0; i < aco.dimension; i++ {
-		for _, j := range aco.neighborsLists[i] {
+		for j := 0; j < aco.dimension; j++ {
 			evaporatedValue := aco.clampPheromoneLevel(aco.pheromones[i][j] * aco.rho)
 			aco.setPheromone(i, j, evaporatedValue)
 		}

@@ -753,7 +753,7 @@ func main() {
 				"crane66_0.atsp",
 				"crane66_1.atsp",
 				"crane66_2.atsp",
-				"dc112.atsp",
+				// "dc112.atsp",
 				// "dc126.atsp",
 				// "dc134.atsp",
 				// "dc176.atsp",
@@ -778,19 +778,18 @@ func main() {
 				"ftv70.atsp",
 				"ftv90.atsp",
 				"p43.atsp",
-				"rbg323.atsp",
-				"rbg358.atsp",
-				"rbg403.atsp",
-				"rbg443.atsp",
+				// "rbg323.atsp",
+				// "rbg358.atsp",
+				// "rbg403.atsp",
+				// "rbg443.atsp",
 				"ry48p.atsp",
 				// "td100_1.atsp",
 			}
 
 			inputFileName := path.Base(filePath)
 			for _, file := range files {
-				file = "dc112.atsp"
-				assumedProblemSize, _ := utilities.ExtractNumber(file)
-				if inputFileName == file && 100 <= assumedProblemSize && assumedProblemSize < 200 {
+				// assumedProblemSize, _ := utilities.ExtractNumber(file)
+				if inputFileName == file {
 					return true
 				}
 			}
