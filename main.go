@@ -29,8 +29,8 @@ type ExperimentsData struct {
 }
 
 type ExperimentParameters struct {
-	alpha, beta, rho, pCmsa, antsPercentage, localSearchAntsPercentage float64
-	antsNumber, localSearchAntsNumber, iterations                      int
+	alpha, beta, rho, pCmsa float64
+	iterations              int
 }
 
 type ExperimentResult struct {
@@ -88,7 +88,6 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 
 	for _, statistic := range bestStatistics {
 		parameters := statistic.ExperimentParameters
-		parameters.antsNumber = 0
 		parameters.iterations = 0
 		uniqueParameters[parameters] = true
 	}
@@ -97,8 +96,6 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 	betaCounts := make(map[float64]int)
 	rhoCounts := make(map[float64]int)
 	pCmsaCounts := make(map[float64]int)
-	antsPercentageCounts := make(map[float64]int)
-	localSearchAntsPercentageCounts := make(map[float64]int)
 
 	// Count the occurrences
 	for params := range uniqueParameters {
@@ -106,8 +103,6 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 		betaCounts[params.beta]++
 		rhoCounts[params.rho]++
 		pCmsaCounts[params.pCmsa]++
-		antsPercentageCounts[params.antsPercentage]++
-		localSearchAntsPercentageCounts[params.localSearchAntsPercentage]++
 	}
 
 	// Markdown content
@@ -118,12 +113,11 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 
 	// Best parameters
 	markdown += "## Best Parameters\n\n"
-	markdown += "| Alpha | Beta | Rho | pCmsa | AntsPercentage | LocalSearchAntsPercentage |\n"
-	markdown += "|-------|------|-----|-------|----------------|---------------------------|\n"
+	markdown += "| Alpha | Beta | Rho | pCmsa |\n"
+	markdown += "|-------|------|-----|-------|\n"
 	for parameters := range uniqueParameters {
-		markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %.2f | %.2f |\n",
-			parameters.alpha, parameters.beta, parameters.rho,
-			parameters.pCmsa, parameters.antsPercentage, parameters.localSearchAntsPercentage)
+		markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f |\n",
+			parameters.alpha, parameters.beta, parameters.rho, parameters.pCmsa)
 	}
 	markdown += "\n"
 
@@ -133,8 +127,6 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 	markdown += generateMarkdownCounts("Beta", betaCounts)
 	markdown += generateMarkdownCounts("Rho", rhoCounts)
 	markdown += generateMarkdownCounts("pCmsa", pCmsaCounts)
-	markdown += generateMarkdownCounts("AntsPercentage", antsPercentageCounts)
-	markdown += generateMarkdownCounts("LocalSearchAntsPercentage", localSearchAntsPercentageCounts)
 
 	// Parameter ranges
 	markdown += "## Parameter Ranges\n\n"
@@ -142,15 +134,11 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 	minBeta, maxBeta := findMinMax(betaCounts)
 	minRho, maxRho := findMinMax(rhoCounts)
 	minPCmsa, maxPCmsa := findMinMax(pCmsaCounts)
-	minAntsPercentage, maxAntsPercentage := findMinMax(antsPercentageCounts)
-	minLocalSearchAntsPercentage, maxLocalSearchAntsPercentage := findMinMax(localSearchAntsPercentageCounts)
 
 	markdown += fmt.Sprintf("- **Alpha**: %.2f - %.2f\n", minAlpha, maxAlpha)
 	markdown += fmt.Sprintf("- **Beta**: %.2f - %.2f\n", minBeta, maxBeta)
 	markdown += fmt.Sprintf("- **Rho**: %.2f - %.2f\n", minRho, maxRho)
 	markdown += fmt.Sprintf("- **pCmsa**: %.2f - %.2f\n", minPCmsa, maxPCmsa)
-	markdown += fmt.Sprintf("- **AntsPercentage**: %.2f - %.2f\n", minAntsPercentage, maxAntsPercentage)
-	markdown += fmt.Sprintf("- **LocalSearchAntsPercentage**: %.2f - %.2f\n", minLocalSearchAntsPercentage, maxLocalSearchAntsPercentage)
 
 	// Save to a file
 	reportPath := filepath.Join(resultsDirectoryName, fileName)
@@ -386,32 +374,26 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 		beta, _ := strconv.ParseFloat(record[1], 64)
 		rho, _ := strconv.ParseFloat(record[2], 64)
 		pCmsa, _ := strconv.ParseFloat(record[3], 64)
-		antsPercentage, _ := strconv.ParseFloat(record[4], 64)
-		antsNumber, _ := strconv.Atoi(record[5])
-		localSearchAntsPercentage, _ := strconv.ParseFloat(record[6], 64)
-		iterations, _ := strconv.Atoi(record[7])
-		minBestAtIteration, _ := strconv.Atoi(record[8])
-		averageBestAtIteration, _ := strconv.ParseFloat(record[9], 64)
-		maxBestAtIteration, _ := strconv.Atoi(record[10])
-		minThreeOptImprovementsCount, _ := strconv.Atoi(record[11])
-		averageThreeOptImprovementsCount, _ := strconv.ParseFloat(record[12], 64)
-		maxThreeOptImprovementsCount, _ := strconv.Atoi(record[13])
-		minBestDeviation, _ := strconv.ParseFloat(record[14], 64)
-		averageBestDeviation, _ := strconv.ParseFloat(record[15], 64)
-		maxBestDeviation, _ := strconv.ParseFloat(record[16], 64)
-		successRate, _ := strconv.ParseFloat(record[17], 64)
-		averageComputationTime, _ := strconv.ParseInt(record[18], 10, 64)
+		iterations, _ := strconv.Atoi(record[4])
+		minBestAtIteration, _ := strconv.Atoi(record[5])
+		averageBestAtIteration, _ := strconv.ParseFloat(record[6], 64)
+		maxBestAtIteration, _ := strconv.Atoi(record[7])
+		minThreeOptImprovementsCount, _ := strconv.Atoi(record[8])
+		averageThreeOptImprovementsCount, _ := strconv.ParseFloat(record[9], 64)
+		maxThreeOptImprovementsCount, _ := strconv.Atoi(record[10])
+		minBestDeviation, _ := strconv.ParseFloat(record[11], 64)
+		averageBestDeviation, _ := strconv.ParseFloat(record[12], 64)
+		maxBestDeviation, _ := strconv.ParseFloat(record[13], 64)
+		successRate, _ := strconv.ParseFloat(record[14], 64)
+		averageComputationTime, _ := strconv.ParseInt(record[15], 10, 64)
 
 		statistic := ExperimentsDataStatistics{
 			ExperimentParameters: ExperimentParameters{
-				alpha:                     alpha,
-				beta:                      beta,
-				rho:                       rho,
-				pCmsa:                     pCmsa,
-				antsPercentage:            antsPercentage,
-				antsNumber:                antsNumber,
-				localSearchAntsPercentage: localSearchAntsPercentage,
-				iterations:                iterations,
+				alpha:      alpha,
+				beta:       beta,
+				rho:        rho,
+				pCmsa:      pCmsa,
+				iterations: iterations,
 			},
 			minBestAtIteration:               minBestAtIteration,
 			averageBestAtIteration:           averageBestAtIteration,
@@ -438,9 +420,6 @@ func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics
 		"Beta",
 		"Rho",
 		"pCmsa",
-		"Ants fraction",
-		"Ants number",
-		"Local search ants fraction",
 		"Iterations",
 		"Min best at iteration",
 		"Avg best at iteration",
@@ -469,9 +448,6 @@ func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics
 			fmt.Sprintf(floatFormat, statistic.beta),
 			fmt.Sprintf(floatFormat, statistic.rho),
 			fmt.Sprintf(floatFormat, statistic.pCmsa),
-			fmt.Sprintf(floatFormat, statistic.antsPercentage),
-			strconv.Itoa(statistic.antsNumber),
-			fmt.Sprintf(floatFormat, statistic.localSearchAntsPercentage),
 			strconv.Itoa(statistic.iterations),
 			strconv.Itoa(statistic.minBestAtIteration),
 			fmt.Sprintf(floatFormat, statistic.averageBestAtIteration),
@@ -591,10 +567,6 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 			return statistics[i].successRate > statistics[j].successRate
 		}
 
-		if statistics[i].localSearchAntsPercentage != statistics[j].localSearchAntsPercentage {
-			return statistics[i].localSearchAntsPercentage < statistics[j].localSearchAntsPercentage
-		}
-
 		return statistics[i].averageBestAtIteration < statistics[j].averageBestAtIteration
 	})
 
@@ -609,8 +581,6 @@ func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOpti
 		parameters.beta,
 		parameters.rho,
 		parameters.pCmsa,
-		parameters.antsNumber,
-		parameters.localSearchAntsNumber,
 		parameters.iterations,
 		knownOptimal,
 		matrix,
@@ -647,9 +617,7 @@ func setDimensionDependantParameters(dimension int, parameters *ExperimentParame
 
 	totalIterations := dimension * iterations
 
-	parameters.antsNumber = int(math.Ceil(float64(dimension) * parameters.antsPercentage))
-	parameters.localSearchAntsNumber = int(math.Floor(float64(parameters.antsNumber) * parameters.localSearchAntsPercentage))
-	parameters.iterations = totalIterations / parameters.antsNumber
+	parameters.iterations = totalIterations / min(25, dimension)
 }
 
 func generateParameters() []ExperimentParameters {
@@ -658,15 +626,12 @@ func generateParameters() []ExperimentParameters {
 	for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 		for _, beta := range utilities.GenerateRange(2.0, 2.0, 1.0) {
 			for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
-				for _, pCmsa := range utilities.GenerateRange(0.0, 0.0, 0.25) {
-					for _, antsPercentage := range utilities.GenerateRange(0.8, 0.8, 0.1) {
-						for _, localSearchAntsPercentage := range utilities.GenerateRange(0.0, 0.0, 0.5) {
-							parameters = append(parameters,
-								ExperimentParameters{
-									alpha, beta, rho, pCmsa, antsPercentage, localSearchAntsPercentage, 0, 0, 0,
-								})
-						}
-					}
+				for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+
+					parameters = append(parameters,
+						ExperimentParameters{
+							alpha, beta, rho, pCmsa, 0,
+						})
 				}
 			}
 		}
@@ -951,9 +916,7 @@ func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plot
 	for _, statistic := range statistics {
 		if statistic.alpha != bestStatistic.alpha ||
 			statistic.beta != bestStatistic.beta ||
-			statistic.rho != bestStatistic.rho ||
-			statistic.antsPercentage != bestStatistic.antsPercentage ||
-			statistic.localSearchAntsPercentage != bestStatistic.localSearchAntsPercentage {
+			statistic.rho != bestStatistic.rho {
 			continue
 		}
 
@@ -962,8 +925,8 @@ func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plot
 		maxDeviationPlotData := utilities.LinePlotData{Name: "max deviation", Color: color.RGBA{R: 255, A: 255}, Values: statistic.maxDeviationPerIteration}
 		lines := []utilities.LinePlotData{minDeviationPlotData, avgDeviationPlotData, maxDeviationPlotData}
 
-		titleSuffix := fmt.Sprintf(" (alpha=%.2f, beta=%.2f, rho=%.2f, pCmsa=%.2f, antsFraction=%.2f, localSearchAntsFraction=%.2f)",
-			statistic.alpha, statistic.beta, statistic.rho, statistic.pCmsa, statistic.antsPercentage, statistic.localSearchAntsPercentage)
+		titleSuffix := fmt.Sprintf(" (alpha=%.2f, beta=%.2f, rho=%.2f, pCmsa=%.2f)",
+			statistic.alpha, statistic.beta, statistic.rho, statistic.pCmsa)
 
 		pCmsaPlotSuffix := "_pCmsa=" + strconv.Itoa(int(100*statistic.pCmsa)) + "%"
 		plotPath := plotPathPrefix + pCmsaPlotSuffix + ".png"

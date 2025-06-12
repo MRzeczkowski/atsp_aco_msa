@@ -10,14 +10,14 @@ import (
 )
 
 type ACO struct {
-	alpha, beta, rho, pCmsa                                        float64
-	ants, localSearchAnts, iterations, currentIteration, dimension int
-	distances                                                      [][]float64
-	cmsa                                                           [][]float64
-	tauMin, tauMax, BestLength                                     float64
-	reducedThreeOpt                                                *threeOpt.ReducedThreeOpt
-	targetTourLength                                               float64
-	neighborsLists                                                 [][]int
+	alpha, beta, rho, pCmsa                 float64
+	iterations, currentIteration, dimension int
+	distances                               [][]float64
+	cmsa                                    [][]float64
+	tauMin, tauMax, BestLength              float64
+	reducedThreeOpt                         *threeOpt.ReducedThreeOpt
+	targetTourLength                        float64
+	neighborsLists                          [][]int
 
 	pheromones, desirabilitiesPreCalc, probabilities, cmsaProbabilities [][]float64
 
@@ -27,7 +27,7 @@ type ACO struct {
 	ThreeOptImprovementsCount int
 }
 
-func NewACO(alpha, beta, rho, pCmsa float64, ants, localSearchAnts, iterations int, targetTourLength float64, distances, cmsa [][]float64) *ACO {
+func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength float64, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
 	desirabilitiesPreCalc := make([][]float64, dimension)
@@ -63,8 +63,6 @@ func NewACO(alpha, beta, rho, pCmsa float64, ants, localSearchAnts, iterations i
 		beta:             beta,
 		rho:              rho,
 		pCmsa:            pCmsa,
-		ants:             ants,
-		localSearchAnts:  localSearchAnts,
 		iterations:       iterations,
 		dimension:        dimension,
 		distances:        distances,
@@ -72,6 +70,8 @@ func NewACO(alpha, beta, rho, pCmsa float64, ants, localSearchAnts, iterations i
 		reducedThreeOpt:  reducedThreeOpt,
 		targetTourLength: targetTourLength,
 		neighborsLists:   tourConstructionNeighborsLists,
+		tauMin:           -math.MaxInt,
+		tauMax:           math.MaxInt,
 
 		pheromones:            pheromones,
 		desirabilitiesPreCalc: desirabilitiesPreCalc,
@@ -88,6 +88,7 @@ func NewACO(alpha, beta, rho, pCmsa float64, ants, localSearchAnts, iterations i
 
 func (aco *ACO) Run() {
 
+	ants := min(25, aco.dimension)
 	initialPheromoneValue := 100000.0 // Arbitrary large value
 	for i := 0; i < aco.dimension; i++ {
 		for j := 0; j < aco.dimension; j++ {
@@ -107,11 +108,11 @@ func (aco *ACO) Run() {
 	aco.DeviationPerIteration = make([]float64, aco.iterations)
 	aco.ThreeOptImprovementsCount = 0
 
-	tours := make([][]int, aco.ants)
-	canVisitBits := make([][]float64, aco.ants)
-	probabilities := make([][]float64, aco.ants)
+	tours := make([][]int, ants)
+	canVisitBits := make([][]float64, ants)
+	probabilities := make([][]float64, ants)
 
-	for i := 0; i < aco.ants; i++ {
+	for i := 0; i < ants; i++ {
 		tours[i] = make([]int, aco.dimension)
 		canVisitBits[i] = make([]float64, aco.dimension)
 		probabilities[i] = make([]float64, aco.dimension)
@@ -122,12 +123,10 @@ func (aco *ACO) Run() {
 		iterationBestLength := math.MaxFloat64
 		iterationBestTour := make([]int, aco.dimension)
 
-		for i := 0; i < aco.ants; i++ {
+		for i := 0; i < ants; i++ {
 			aco.constructTour(tours[i], canVisitBits[i], probabilities[i])
 
-			if i < aco.localSearchAnts {
-				aco.reducedThreeOpt.Run(tours[i])
-			}
+			aco.reducedThreeOpt.Run(tours[i])
 
 			length := utilities.TourLength(tours[i], aco.distances)
 
@@ -271,8 +270,15 @@ func (aco *ACO) updateLimits() {
 	aco.tauMin = aco.tauMax / (2.0 * float64(aco.dimension))
 }
 
-func (aco *ACO) setPheromone(i, j int, value float64) {
-	aco.pheromones[i][j] = value
+func (aco *ACO) setPheromone(i, j int, newValue float64) {
+	newValue = aco.clampPheromoneLevel(newValue)
+
+	oldValue := aco.pheromones[i][j]
+	if oldValue == newValue {
+		return
+	}
+
+	aco.pheromones[i][j] = newValue
 	pheromone := math.Pow(aco.pheromones[i][j], aco.alpha)
 	aco.probabilities[i][j] = pheromone * aco.desirabilitiesPreCalc[i][j]
 	aco.cmsaProbabilities[i][j] = aco.probabilities[i][j] + aco.cmsa[i][j]
@@ -291,7 +297,7 @@ func (aco *ACO) clampPheromoneLevel(pheromone float64) float64 {
 func (aco *ACO) evaporatePheromones() {
 	for i := 0; i < aco.dimension; i++ {
 		for j := 0; j < aco.dimension; j++ {
-			evaporatedValue := aco.clampPheromoneLevel(aco.pheromones[i][j] * aco.rho)
+			evaporatedValue := aco.pheromones[i][j] * aco.rho
 			aco.setPheromone(i, j, evaporatedValue)
 		}
 	}
@@ -301,13 +307,13 @@ func (aco *ACO) depositPheromones(tour []int, pheromoneDeposit float64) {
 	for i := 0; i < aco.dimension-1; i++ {
 		start, end := tour[i], tour[i+1]
 
-		newValue := aco.clampPheromoneLevel(aco.pheromones[start][end] + pheromoneDeposit)
+		newValue := aco.pheromones[start][end] + pheromoneDeposit
 		aco.setPheromone(start, end, newValue)
 	}
 
 	// Handle the wrap-around from the last to the first node
 	last, first := tour[aco.dimension-1], tour[0]
 
-	newValue := aco.clampPheromoneLevel(aco.pheromones[last][first] + pheromoneDeposit)
+	newValue := aco.pheromones[last][first] + pheromoneDeposit
 	aco.setPheromone(last, first, newValue)
 }
