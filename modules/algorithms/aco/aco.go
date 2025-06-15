@@ -19,7 +19,7 @@ type ACO struct {
 	targetTourLength                        float64
 	neighborsLists                          [][]int
 
-	pheromones, desirabilitiesPreCalc, probabilities, cmsaProbabilities [][]float64
+	pheromones, heuristics, desirabilities, cmsaDesirabilities [][]float64
 
 	BestAtIteration           int
 	BestTour                  []int
@@ -30,15 +30,15 @@ type ACO struct {
 func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength float64, distances, cmsa [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
-	desirabilitiesPreCalc := make([][]float64, dimension)
-	probabilities := make([][]float64, dimension)
-	cmsaProbabilities := make([][]float64, dimension)
+	heuristics := make([][]float64, dimension)
+	desirabilities := make([][]float64, dimension)
+	cmsaDesirabilities := make([][]float64, dimension)
 
 	for i := 0; i < dimension; i++ {
 		pheromones[i] = make([]float64, dimension)
-		desirabilitiesPreCalc[i] = make([]float64, dimension)
-		probabilities[i] = make([]float64, dimension)
-		cmsaProbabilities[i] = make([]float64, dimension)
+		heuristics[i] = make([]float64, dimension)
+		desirabilities[i] = make([]float64, dimension)
+		cmsaDesirabilities[i] = make([]float64, dimension)
 	}
 
 	maxLocalSearchNeighborsListSize := 20
@@ -73,10 +73,10 @@ func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength fl
 		tauMin:           -math.MaxInt,
 		tauMax:           math.MaxInt,
 
-		pheromones:            pheromones,
-		desirabilitiesPreCalc: desirabilitiesPreCalc,
-		probabilities:         probabilities,
-		cmsaProbabilities:     cmsaProbabilities,
+		pheromones:         pheromones,
+		heuristics:         heuristics,
+		desirabilities:     desirabilities,
+		cmsaDesirabilities: cmsaDesirabilities,
 
 		BestAtIteration:           math.MaxInt,
 		BestLength:                math.MaxFloat64,
@@ -94,9 +94,9 @@ func (aco *ACO) Run() {
 		for j := 0; j < aco.dimension; j++ {
 
 			// Adding 1 to each distance in calculation to avoid division by 0.
-			heuristic := 1.0 / (aco.distances[i][j] + 1.0)
-			desirability := math.Pow(heuristic, aco.beta)
-			aco.desirabilitiesPreCalc[i][j] = desirability
+			heuristicBase := 1.0 / (aco.distances[i][j] + 1.0)
+			heuristic := math.Pow(heuristicBase, aco.beta)
+			aco.heuristics[i][j] = heuristic
 
 			aco.setPheromone(i, j, initialPheromoneValue)
 		}
@@ -110,12 +110,12 @@ func (aco *ACO) Run() {
 
 	tours := make([][]int, ants)
 	canVisitBits := make([][]float64, ants)
-	probabilities := make([][]float64, ants)
+	desirabilities := make([][]float64, ants)
 
 	for i := 0; i < ants; i++ {
 		tours[i] = make([]int, aco.dimension)
 		canVisitBits[i] = make([]float64, aco.dimension)
-		probabilities[i] = make([]float64, aco.dimension)
+		desirabilities[i] = make([]float64, aco.dimension)
 	}
 
 	for aco.currentIteration = 0; aco.currentIteration < aco.iterations; aco.currentIteration++ {
@@ -124,7 +124,7 @@ func (aco *ACO) Run() {
 		iterationBestTour := make([]int, aco.dimension)
 
 		for i := 0; i < ants; i++ {
-			aco.constructTour(tours[i], canVisitBits[i], probabilities[i])
+			aco.constructTour(tours[i], canVisitBits[i], desirabilities[i])
 
 			aco.reducedThreeOpt.Run(tours[i])
 
@@ -185,7 +185,7 @@ func (aco *ACO) Run() {
 }
 
 // Function to construct tour for each ant
-func (aco *ACO) constructTour(tour []int, canVisitBits []float64, probabilities []float64) {
+func (aco *ACO) constructTour(tour []int, canVisitBits []float64, desirabilities []float64) {
 	current := rand.Intn(aco.dimension)
 	tour[0] = current
 
@@ -195,7 +195,7 @@ func (aco *ACO) constructTour(tour []int, canVisitBits []float64, probabilities 
 	canVisitBits[current] = 0.0
 
 	for i := 1; i < aco.dimension; i++ {
-		next := aco.selectNextCity(current, canVisitBits, probabilities)
+		next := aco.selectNextCity(current, canVisitBits, desirabilities)
 
 		tour[i] = next
 		canVisitBits[next] = 0.0
@@ -205,21 +205,21 @@ func (aco *ACO) constructTour(tour []int, canVisitBits []float64, probabilities 
 }
 
 // Function to select the next city for an ant
-func (aco *ACO) selectNextCity(current int, canVisitBits []float64, probabilities []float64) int {
+func (aco *ACO) selectNextCity(current int, canVisitBits []float64, desirabilities []float64) int {
 
 	q := rand.Float64()
-	probabilitiesToUse := aco.probabilities[current]
+	desirabilitiesToUse := aco.desirabilities[current]
 	// Use CMSA logic to bias towards hopefully better tours. Other tours will also take part in roulette-wheel selection.
 	adaptiveCmsaProbability := aco.pCmsa * (1.0 - float64(aco.currentIteration)/float64(aco.iterations))
 	if q < adaptiveCmsaProbability {
-		probabilitiesToUse = aco.cmsaProbabilities[current]
+		desirabilitiesToUse = aco.cmsaDesirabilities[current]
 	}
 
 	total := 0.0
 	neighbors := aco.neighborsLists[current]
 	for _, i := range neighbors {
-		prob := canVisitBits[i] * probabilitiesToUse[i]
-		probabilities[i] = prob
+		prob := canVisitBits[i] * desirabilitiesToUse[i]
+		desirabilities[i] = prob
 
 		total += prob
 	}
@@ -231,26 +231,26 @@ func (aco *ACO) selectNextCity(current int, canVisitBits []float64, probabilitie
 	// Check if total is zero (no valid neighbors left), then fallback to all remaining nodes
 	if total != 0.0 {
 		for _, i := range neighbors {
-			if nextCity == -1 && probabilities[i] > 0.0 {
-				cumulativeProbability += probabilities[i]
+			if nextCity == -1 && desirabilities[i] > 0.0 {
+				cumulativeProbability += desirabilities[i]
 				if threshold < cumulativeProbability {
 					nextCity = i
 				}
 			}
 
-			probabilities[i] = 0.0
+			desirabilities[i] = 0.0
 		}
 	} else {
-		for i, probability := range probabilitiesToUse {
+		for i, probability := range desirabilitiesToUse {
 			prob := canVisitBits[i] * probability
-			probabilities[i] = prob
+			desirabilities[i] = prob
 
 			total += prob
 		}
 
 		threshold = q * total
 
-		for i, probability := range probabilities {
+		for i, probability := range desirabilities {
 			if nextCity == -1 && probability > 0.0 {
 				cumulativeProbability += probability
 				if threshold < cumulativeProbability {
@@ -258,7 +258,7 @@ func (aco *ACO) selectNextCity(current int, canVisitBits []float64, probabilitie
 				}
 			}
 
-			probabilities[i] = 0.0
+			desirabilities[i] = 0.0
 		}
 	}
 
@@ -280,8 +280,8 @@ func (aco *ACO) setPheromone(i, j int, newValue float64) {
 
 	aco.pheromones[i][j] = newValue
 	pheromone := math.Pow(aco.pheromones[i][j], aco.alpha)
-	aco.probabilities[i][j] = pheromone * aco.desirabilitiesPreCalc[i][j]
-	aco.cmsaProbabilities[i][j] = aco.probabilities[i][j] + aco.cmsa[i][j]
+	aco.desirabilities[i][j] = pheromone * aco.heuristics[i][j]
+	aco.cmsaDesirabilities[i][j] = aco.desirabilities[i][j] + aco.cmsa[i][j]
 }
 
 func (aco *ACO) clampPheromoneLevel(pheromone float64) float64 {
