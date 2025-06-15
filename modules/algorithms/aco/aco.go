@@ -19,7 +19,7 @@ type ACO struct {
 	targetTourLength                        float64
 	neighborsLists                          [][]int
 
-	pheromones, heuristics, desirabilities, cmsaDesirabilities [][]float64
+	pheromones, heuristics, desirabilities [][]float64
 
 	BestAtIteration           int
 	BestTour                  []int
@@ -32,13 +32,11 @@ func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength fl
 	pheromones := make([][]float64, dimension)
 	heuristics := make([][]float64, dimension)
 	desirabilities := make([][]float64, dimension)
-	cmsaDesirabilities := make([][]float64, dimension)
 
 	for i := 0; i < dimension; i++ {
 		pheromones[i] = make([]float64, dimension)
 		heuristics[i] = make([]float64, dimension)
 		desirabilities[i] = make([]float64, dimension)
-		cmsaDesirabilities[i] = make([]float64, dimension)
 	}
 
 	maxLocalSearchNeighborsListSize := 20
@@ -73,10 +71,9 @@ func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength fl
 		tauMin:           -math.MaxInt,
 		tauMax:           math.MaxInt,
 
-		pheromones:         pheromones,
-		heuristics:         heuristics,
-		desirabilities:     desirabilities,
-		cmsaDesirabilities: cmsaDesirabilities,
+		pheromones:     pheromones,
+		heuristics:     heuristics,
+		desirabilities: desirabilities,
 
 		BestAtIteration:           math.MaxInt,
 		BestLength:                math.MaxFloat64,
@@ -95,6 +92,11 @@ func (aco *ACO) Run() {
 
 			// Adding 1 to each distance in calculation to avoid division by 0.
 			heuristicBase := 1.0 / (aco.distances[i][j] + 1.0)
+
+			if aco.cmsa[i][j] != 0 {
+				heuristicBase *= 1 + ((aco.cmsa[i][j] / float64(aco.dimension)) * aco.pCmsa)
+			}
+
 			heuristic := math.Pow(heuristicBase, aco.beta)
 			aco.heuristics[i][j] = heuristic
 
@@ -281,7 +283,6 @@ func (aco *ACO) setPheromone(i, j int, newValue float64) {
 	aco.pheromones[i][j] = newValue
 	pheromone := math.Pow(aco.pheromones[i][j], aco.alpha)
 	aco.desirabilities[i][j] = pheromone * aco.heuristics[i][j]
-	aco.cmsaDesirabilities[i][j] = aco.desirabilities[i][j] + aco.cmsa[i][j]
 }
 
 func (aco *ACO) clampPheromoneLevel(pheromone float64) float64 {
