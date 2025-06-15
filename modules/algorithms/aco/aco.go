@@ -210,10 +210,10 @@ func (aco *ACO) selectNextCity(current int, canVisitBits []float64, desirabiliti
 	q := rand.Float64()
 	desirabilitiesToUse := aco.desirabilities[current]
 	// Use CMSA logic to bias towards hopefully better tours. Other tours will also take part in roulette-wheel selection.
-	adaptiveCmsaProbability := aco.pCmsa * (1.0 - float64(aco.currentIteration)/float64(aco.iterations))
-	if q < adaptiveCmsaProbability {
-		desirabilitiesToUse = aco.cmsaDesirabilities[current]
-	}
+	// adaptiveCmsaProbability := aco.pCmsa * (1.0 - float64(aco.currentIteration)/float64(aco.iterations))
+	// if q < adaptiveCmsaProbability {
+	// 	desirabilitiesToUse = aco.cmsaDesirabilities[current]
+	// }
 
 	total := 0.0
 	neighbors := aco.neighborsLists[current]

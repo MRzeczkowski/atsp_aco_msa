@@ -624,7 +624,7 @@ func generateParameters() []ExperimentParameters {
 	for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 		for _, beta := range utilities.GenerateRange(2.0, 2.0, 1.0) {
 			for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
-				for _, pCmsa := range utilities.GenerateRange(1.0, 1.0, 0.25) {
+				for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
 
 					parameters = append(parameters,
 						ExperimentParameters{
