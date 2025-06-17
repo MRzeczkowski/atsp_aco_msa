@@ -80,16 +80,24 @@ func generateMarkdownCounts(paramName string, counts map[float64]int) string {
 }
 
 func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataStatistics) {
-	sort.Slice(bestStatistics, func(i, j int) bool {
-		return bestStatistics[i].averageBestDeviation < bestStatistics[j].averageBestDeviation
+	sort.SliceStable(bestStatistics, func(i, j int) bool {
+		if bestStatistics[i].averageBestDeviation != bestStatistics[j].averageBestDeviation {
+			return bestStatistics[i].averageBestDeviation < bestStatistics[j].averageBestDeviation
+		}
+
+		if bestStatistics[i].successRate != bestStatistics[j].successRate {
+			return bestStatistics[i].successRate > bestStatistics[j].successRate
+		}
+
+		return bestStatistics[i].averageBestAtIteration < bestStatistics[j].averageBestAtIteration
 	})
 
-	uniqueParameters := map[ExperimentParameters]bool{}
+	uniqueParameters := map[ExperimentParameters]int{}
 
 	for _, statistic := range bestStatistics {
 		parameters := statistic.ExperimentParameters
 		parameters.iterations = 0
-		uniqueParameters[parameters] = true
+		uniqueParameters[parameters]++
 	}
 
 	alphaCounts := make(map[float64]int)
@@ -113,11 +121,11 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 
 	// Best parameters
 	markdown += "## Best Parameters\n\n"
-	markdown += "| Alpha | Beta | Rho | pCmsa |\n"
-	markdown += "|-------|------|-----|-------|\n"
-	for parameters := range uniqueParameters {
-		markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f |\n",
-			parameters.alpha, parameters.beta, parameters.rho, parameters.pCmsa)
+	markdown += "| Alpha | Beta | Rho | pCmsa | Times used |\n"
+	markdown += "|-------|------|-----|-------|------------|\n"
+	for parameters, timesUsed := range uniqueParameters {
+		markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %d |\n",
+			parameters.alpha, parameters.beta, parameters.rho, parameters.pCmsa, timesUsed)
 	}
 	markdown += "\n"
 
@@ -624,7 +632,7 @@ func generateParameters() []ExperimentParameters {
 	for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 		for _, beta := range utilities.GenerateRange(2.0, 2.0, 1.0) {
 			for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
-				for _, pCmsa := range utilities.GenerateRange(0.0, 1.0, 0.25) {
+				for _, pCmsa := range []float64{0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0} {
 
 					parameters = append(parameters,
 						ExperimentParameters{
@@ -934,7 +942,7 @@ func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plot
 }
 
 func getBestStatisticsFromFiles(resultsFilePaths []string) []ExperimentsDataStatistics {
-	topNumber := 1
+	topNumber := 3
 	bestStatistics := make([]ExperimentsDataStatistics, 0)
 
 	for _, path := range resultsFilePaths {

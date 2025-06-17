@@ -6,18 +6,19 @@ import (
 	"atsp_aco_msa/modules/utilities"
 	"math"
 
-	"pgregory.net/rand"
+	"math/rand/v2"
 )
 
 type ACO struct {
 	alpha, beta, rho, pCmsa                 float64
 	iterations, currentIteration, dimension int
 	distances                               [][]float64
-	cmsa                                    [][]float64
+	hints                                   [][]float64
 	tauMin, tauMax, BestLength              float64
 	reducedThreeOpt                         *threeOpt.ReducedThreeOpt
 	targetTourLength                        float64
 	neighborsLists                          [][]int
+	rng                                     *rand.Rand
 
 	pheromones, heuristics, desirabilities [][]float64
 
@@ -27,7 +28,7 @@ type ACO struct {
 	ThreeOptImprovementsCount int
 }
 
-func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength float64, distances, cmsa [][]float64) *ACO {
+func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength float64, distances, hints [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
 	heuristics := make([][]float64, dimension)
@@ -56,6 +57,9 @@ func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength fl
 
 	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, localSearchNeighborsLists)
 
+	src := rand.NewPCG(4, 2)
+	rng := rand.New(src)
+
 	return &ACO{
 		alpha:            alpha,
 		beta:             beta,
@@ -64,12 +68,13 @@ func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength fl
 		iterations:       iterations,
 		dimension:        dimension,
 		distances:        distances,
-		cmsa:             cmsa,
+		hints:            hints,
+		tauMin:           -math.MaxInt,
+		tauMax:           math.MaxInt,
 		reducedThreeOpt:  reducedThreeOpt,
 		targetTourLength: targetTourLength,
 		neighborsLists:   tourConstructionNeighborsLists,
-		tauMin:           -math.MaxInt,
-		tauMax:           math.MaxInt,
+		rng:              rng,
 
 		pheromones:     pheromones,
 		heuristics:     heuristics,
@@ -85,6 +90,16 @@ func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength fl
 
 func (aco *ACO) Run() {
 
+	hintsSums := make([]float64, aco.dimension)
+
+	for i := 0; i < aco.dimension; i++ {
+		hintsSums[i] = 0
+
+		for j := 0; j < aco.dimension; j++ {
+			hintsSums[i] += aco.hints[i][j]
+		}
+	}
+
 	ants := min(25, aco.dimension)
 	initialPheromoneValue := 100000.0 // Arbitrary large value
 	for i := 0; i < aco.dimension; i++ {
@@ -93,8 +108,8 @@ func (aco *ACO) Run() {
 			// Adding 1 to each distance in calculation to avoid division by 0.
 			heuristicBase := 1.0 / (aco.distances[i][j] + 1.0)
 
-			if aco.cmsa[i][j] != 0 {
-				heuristicBase *= 1 + ((aco.cmsa[i][j] / float64(aco.dimension)) * aco.pCmsa)
+			if aco.hints[i][j] != 0 {
+				heuristicBase *= 1 + ((aco.hints[i][j] / hintsSums[i]) * aco.pCmsa)
 			}
 
 			heuristic := math.Pow(heuristicBase, aco.beta)
@@ -188,7 +203,7 @@ func (aco *ACO) Run() {
 
 // Function to construct tour for each ant
 func (aco *ACO) constructTour(tour []int, canVisitBits []float64, desirabilities []float64) {
-	current := rand.Intn(aco.dimension)
+	current := aco.rng.IntN(aco.dimension)
 	tour[0] = current
 
 	for i := 0; i < aco.dimension; i++ {
@@ -208,14 +223,7 @@ func (aco *ACO) constructTour(tour []int, canVisitBits []float64, desirabilities
 
 // Function to select the next city for an ant
 func (aco *ACO) selectNextCity(current int, canVisitBits []float64, desirabilities []float64) int {
-
-	q := rand.Float64()
 	desirabilitiesToUse := aco.desirabilities[current]
-	// Use CMSA logic to bias towards hopefully better tours. Other tours will also take part in roulette-wheel selection.
-	// adaptiveCmsaProbability := aco.pCmsa * (1.0 - float64(aco.currentIteration)/float64(aco.iterations))
-	// if q < adaptiveCmsaProbability {
-	// 	desirabilitiesToUse = aco.cmsaDesirabilities[current]
-	// }
 
 	total := 0.0
 	neighbors := aco.neighborsLists[current]
@@ -226,6 +234,7 @@ func (aco *ACO) selectNextCity(current int, canVisitBits []float64, desirabiliti
 		total += prob
 	}
 
+	q := aco.rng.Float64()
 	threshold := q * total
 	cumulativeProbability := 0.0
 	nextCity := -1

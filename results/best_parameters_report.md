@@ -1,16 +1,18 @@
 # Best Parameters Report
 
-Found **5** best unique parameter combinations.
+Found **7** best unique parameter combinations.
 
 ## Best Parameters
 
-| Alpha | Beta | Rho | pCmsa |
-|-------|------|-----|-------|
-| 1.00 | 2.00 | 0.80 | 0.00 |
-| 1.00 | 2.00 | 0.80 | 0.75 |
-| 1.00 | 2.00 | 0.80 | 0.25 |
-| 1.00 | 2.00 | 0.80 | 1.00 |
-| 1.00 | 2.00 | 0.80 | 0.50 |
+| Alpha | Beta | Rho | pCmsa | Times used |
+|-------|------|-----|-------|------------|
+| 1.00 | 2.00 | 0.80 | 0.50 | 29 |
+| 1.00 | 2.00 | 0.80 | 1.00 | 12 |
+| 1.00 | 2.00 | 0.80 | 0.75 | 19 |
+| 1.00 | 2.00 | 0.80 | 0.40 | 1 |
+| 1.00 | 2.00 | 0.80 | 0.90 | 1 |
+| 1.00 | 2.00 | 0.80 | 0.00 | 32 |
+| 1.00 | 2.00 | 0.80 | 0.25 | 35 |
 
 ## Parameter Values Occurrences
 
@@ -18,19 +20,19 @@ Found **5** best unique parameter combinations.
 
 | Value | Count |
 |-------|-------|
-| 1.00 | 5 |
+| 1.00 | 7 |
 
 ### Beta
 
 | Value | Count |
 |-------|-------|
-| 2.00 | 5 |
+| 2.00 | 7 |
 
 ### Rho
 
 | Value | Count |
 |-------|-------|
-| 0.80 | 5 |
+| 0.80 | 7 |
 
 ### pCmsa
 
@@ -38,8 +40,10 @@ Found **5** best unique parameter combinations.
 |-------|-------|
 | 0.00 | 1 |
 | 0.25 | 1 |
+| 0.40 | 1 |
 | 0.50 | 1 |
 | 0.75 | 1 |
+| 0.90 | 1 |
 | 1.00 | 1 |
 
 ## Parameter Ranges
