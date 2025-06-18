@@ -467,7 +467,8 @@ func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics
 			fmt.Sprintf(floatFormat, statistic.averageBestDeviation),
 			fmt.Sprintf(floatFormat, statistic.maxBestDeviation),
 			fmt.Sprintf(floatFormat, statistic.successRate),
-			strconv.FormatInt(statistic.averageComputationTime, 10),
+			// strconv.FormatInt(statistic.averageComputationTime, 10),
+			strconv.FormatInt(0.0, 10),
 		}
 
 		writer.Write(record)
@@ -760,7 +761,7 @@ func main() {
 			inputFileName := path.Base(filePath)
 			for _, file := range files {
 				assumedProblemSize, _ := utilities.ExtractNumber(file)
-				if inputFileName == file && assumedProblemSize == 170 {
+				if inputFileName == file && assumedProblemSize < 300 {
 					return true
 				}
 			}
