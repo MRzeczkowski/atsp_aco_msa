@@ -143,7 +143,7 @@ func (aco *ACO) Run() {
 		for i := 0; i < ants; i++ {
 			aco.constructTour(tours[i], canVisitBits[i], desirabilities[i])
 
-			aco.reducedThreeOpt.Run(tours[i])
+			// aco.reducedThreeOpt.Run(tours[i])
 
 			length := utilities.TourLength(tours[i], aco.distances)
 
