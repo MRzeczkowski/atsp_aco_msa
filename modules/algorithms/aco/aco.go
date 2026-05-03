@@ -102,14 +102,19 @@ func (aco *ACO) Run() {
 
 	ants := min(25, aco.dimension)
 	initialPheromoneValue := 100000.0 // Arbitrary large value
+	zeroDistanceHeuristicBase := 1000000.0
+
 	for i := 0; i < aco.dimension; i++ {
 		for j := 0; j < aco.dimension; j++ {
 			if i == j {
 				continue
 			}
 
-			// Adding 1 to each distance in calculation to avoid division by 0.
-			heuristicBase := 1.0 / (aco.distances[i][j] + 1.0)
+			distance := aco.distances[i][j]
+			heuristicBase := zeroDistanceHeuristicBase
+			if distance != 0.0 {
+				heuristicBase = 1.0 / distance
+			}
 
 			if aco.hints[i][j] != 0 {
 				heuristicBase *= 1 + ((aco.hints[i][j] / hintsSums[i]) * aco.pCmsa)
@@ -239,13 +244,14 @@ func (aco *ACO) selectNextCity(current int, canVisitBits []float64, desirabiliti
 		total += prob
 	}
 
-	q := aco.rng.Float64()
-	threshold := q * total
 	cumulativeProbability := 0.0
 	nextCity := -1
 
 	// Check if total is zero (no valid neighbors left), then fallback to all remaining nodes
 	if total != 0.0 {
+		q := aco.rng.Float64()
+		threshold := q * total
+
 		for _, i := range neighbors {
 			if nextCity == -1 && desirabilities[i] > 0.0 {
 				cumulativeProbability += desirabilities[i]
@@ -257,24 +263,18 @@ func (aco *ACO) selectNextCity(current int, canVisitBits []float64, desirabiliti
 			desirabilities[i] = 0.0
 		}
 	} else {
+		bestDesirability := -math.MaxFloat64
 		for i, probability := range desirabilitiesToUse {
-			prob := canVisitBits[i] * probability
-			desirabilities[i] = prob
+			desirabilities[i] = 0.0
 
-			total += prob
-		}
-
-		threshold = q * total
-
-		for i, probability := range desirabilities {
-			if nextCity == -1 && probability > 0.0 {
-				cumulativeProbability += probability
-				if threshold < cumulativeProbability {
-					nextCity = i
-				}
+			if canVisitBits[i] == 0.0 {
+				continue
 			}
 
-			desirabilities[i] = 0.0
+			if probability > bestDesirability {
+				bestDesirability = probability
+				nextCity = i
+			}
 		}
 	}
 

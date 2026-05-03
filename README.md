@@ -32,6 +32,8 @@
 
 - Disjoint-set implementation in Go: https://github.com/spakin/disjoint
 
+- https://github.com/ferasboulala/chu-liu-edmond/blob/master/msa.py
+
 ## ACO
 
 - Hybrid ACS for TSP: https://sci-hub.se/10.1109/ICICTA.2010.731

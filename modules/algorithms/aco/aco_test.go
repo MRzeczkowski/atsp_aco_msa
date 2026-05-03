@@ -1,6 +1,9 @@
 package aco
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestRunKeepsSelfLoopDesirabilityZero(t *testing.T) {
 	distances := [][]float64{
@@ -27,5 +30,53 @@ func TestRunKeepsSelfLoopDesirabilityZero(t *testing.T) {
 		if aco.desirabilities[i][i] != 0 {
 			t.Fatalf("expected self-loop desirability at %d,%d to remain zero, got %f", i, i, aco.desirabilities[i][i])
 		}
+	}
+}
+
+func TestSelectNextCityUsesDeterministicFallback(t *testing.T) {
+	aco := &ACO{
+		neighborsLists: [][]int{
+			{1},
+		},
+		desirabilities: [][]float64{
+			{0, 0, 2, 5},
+		},
+	}
+	canVisitBits := []float64{0, 0, 1, 1}
+	desirabilities := make([]float64, 4)
+
+	nextCity := aco.selectNextCity(0, canVisitBits, desirabilities)
+
+	if nextCity != 3 {
+		t.Fatalf("expected deterministic fallback to choose city 3, got %d", nextCity)
+	}
+}
+
+func TestRunHandlesZeroDistanceHeuristic(t *testing.T) {
+	distances := [][]float64{
+		{0, 0, 2},
+		{1, 0, 3},
+		{4, 5, 0},
+	}
+	hints := [][]float64{
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
+	}
+
+	aco := NewACO(1.0, 1.0, 0.8, 0.0, 1, 100.0, distances, hints)
+	aco.Run()
+
+	if aco.heuristics[1][0] != 1.0 {
+		t.Fatalf("expected positive edge heuristic to use 1/distance, got %f", aco.heuristics[1][0])
+	}
+	if aco.heuristics[0][2] != 0.5 {
+		t.Fatalf("expected positive edge heuristic to use 1/distance, got %f", aco.heuristics[0][2])
+	}
+	if math.IsInf(aco.heuristics[0][1], 0) || math.IsNaN(aco.heuristics[0][1]) {
+		t.Fatalf("expected zero edge heuristic to stay finite, got %f", aco.heuristics[0][1])
+	}
+	if aco.heuristics[0][1] <= aco.heuristics[1][0] {
+		t.Fatalf("expected zero edge heuristic to be preferred over the shortest positive edge, got zero=%f positive=%f", aco.heuristics[0][1], aco.heuristics[1][0])
 	}
 }
