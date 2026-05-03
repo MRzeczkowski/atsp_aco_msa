@@ -104,6 +104,9 @@ func (aco *ACO) Run() {
 	initialPheromoneValue := 100000.0 // Arbitrary large value
 	for i := 0; i < aco.dimension; i++ {
 		for j := 0; j < aco.dimension; j++ {
+			if i == j {
+				continue
+			}
 
 			// Adding 1 to each distance in calculation to avoid division by 0.
 			heuristicBase := 1.0 / (aco.distances[i][j] + 1.0)
@@ -126,6 +129,8 @@ func (aco *ACO) Run() {
 	aco.ThreeOptImprovementsCount = 0
 
 	tours := make([][]int, ants)
+
+	// This is used to implement "branchless programming" i.e. get rid of if statements in tight loops.
 	canVisitBits := make([][]float64, ants)
 	desirabilities := make([][]float64, ants)
 
@@ -282,6 +287,10 @@ func (aco *ACO) updateLimits() {
 }
 
 func (aco *ACO) setPheromone(i, j int, newValue float64) {
+	if i == j {
+		return
+	}
+
 	newValue = aco.clampPheromoneLevel(newValue)
 
 	oldValue := aco.pheromones[i][j]

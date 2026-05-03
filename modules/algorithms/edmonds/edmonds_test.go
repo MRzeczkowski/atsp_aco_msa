@@ -65,6 +65,44 @@ func TestFindMSAWithCycle(t *testing.T) {
 	}
 }
 
+func TestFindMSAIgnoresSelfLoops(t *testing.T) {
+	V := []int{0, 1, 2}
+	E := []Edge{
+		{From: 0, To: 1},
+		{From: 0, To: 2},
+		{From: 1, To: 2},
+		{From: 1, To: 1},
+		{From: 2, To: 2},
+	}
+	w := map[Edge]float64{
+		{From: 0, To: 1}: 1.0,
+		{From: 0, To: 2}: 5.0,
+		{From: 1, To: 2}: 1.0,
+		{From: 1, To: 1}: 0.0,
+		{From: 2, To: 2}: 0.0,
+	}
+
+	expected := []Edge{
+		{From: 0, To: 1},
+		{From: 1, To: 2},
+	}
+
+	result := FindMSA(0, V, E, w)
+	if !compareEdges(result, expected) {
+		t.Errorf("Expected %v, got %v", expected, result)
+	}
+}
+
+func TestMakeSuperNodeUsesUnusedNegativeVertex(t *testing.T) {
+	vertices := []int{0, 1, 2, -1, -2}
+
+	superNode := makeSuperNode(vertices)
+
+	if superNode != -3 {
+		t.Fatalf("expected -3, got %d", superNode)
+	}
+}
+
 func compareEdges(a, b []Edge) bool {
 	if len(a) != len(b) {
 		return false

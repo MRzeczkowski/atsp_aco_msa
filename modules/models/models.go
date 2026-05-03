@@ -13,6 +13,10 @@ func ConvertToEdges(matrix [][]float64) ([]int, []Edge, map[Edge]float64) {
 		vertices = append(vertices, i)
 
 		for j := range matrix[i] {
+			if i == j {
+				continue
+			}
+
 			edge := Edge{From: i, To: j}
 			edges = append(edges, edge)
 			weights[edge] = matrix[i][j]

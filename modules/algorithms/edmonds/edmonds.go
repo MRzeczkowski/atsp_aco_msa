@@ -13,7 +13,7 @@ func FindMSA(root int, vertices []int, edges []Edge, weights map[Edge]float64) [
 	filteredEdges := make([]Edge, 0, len(edges))
 
 	for _, edge := range edges {
-		if edge.To != root {
+		if edge.To != root && edge.From != edge.To {
 			filteredEdges = append(filteredEdges, edge)
 		}
 	}
@@ -47,7 +47,7 @@ func FindMSA(root int, vertices []int, edges []Edge, weights map[Edge]float64) [
 	}
 
 	// Step 6: Contract the cycle into a new node
-	superNode := -(cycleVertex * cycleVertex) // Unique identifier for the super-node
+	superNode := makeSuperNode(vertices)
 
 	// Create new vertices list excluding the cycle vertices and including super-node
 	contractedVerticesCount := len(vertices) - len(cycleVertices) + 1
@@ -193,6 +193,24 @@ func getParentPointers(root int, vertices []int, filteredEdges []Edge, weights m
 	}
 
 	return parentPointers
+}
+
+func makeSuperNode(vertices []int) int {
+	used := make(map[int]bool, len(vertices))
+	superNode := -1
+
+	for _, vertex := range vertices {
+		used[vertex] = true
+		if vertex <= superNode {
+			superNode = vertex - 1
+		}
+	}
+
+	for used[superNode] {
+		superNode--
+	}
+
+	return superNode
 }
 
 func getCycleVertex(vertices []int, parentPointers map[int]int) (int, bool) {
