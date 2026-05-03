@@ -71,10 +71,10 @@ func Create(matrix [][]float64, rootCmsaPath string) ([][]float64, error) {
 		msaMatrix, _ := readFromCsv(msaPath)
 
 		if msaMatrix != nil {
-			_, msa, weights = models.ConvertToEdges(msaMatrix)
+			_, msa, msaMatrixWeights := models.ConvertToEdges(msaMatrix)
 
 			for _, edge := range msa {
-				if weights[edge] == 0 {
+				if msaMatrixWeights[edge] == 0 {
 					continue
 				}
 
