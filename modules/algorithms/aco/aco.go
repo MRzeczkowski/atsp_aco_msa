@@ -89,17 +89,6 @@ func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength fl
 }
 
 func (aco *ACO) Run() {
-
-	hintsSums := make([]float64, aco.dimension)
-
-	for i := 0; i < aco.dimension; i++ {
-		hintsSums[i] = 0
-
-		for j := 0; j < aco.dimension; j++ {
-			hintsSums[i] += aco.hints[i][j]
-		}
-	}
-
 	ants := min(25, aco.dimension)
 	initialPheromoneValue := 100000.0 // Arbitrary large value
 	zeroDistanceHeuristicBase := 1000000.0
@@ -117,7 +106,8 @@ func (aco *ACO) Run() {
 			}
 
 			if aco.hints[i][j] != 0 {
-				heuristicBase *= 1 + ((aco.hints[i][j] / hintsSums[i]) * aco.pCmsa)
+				cmsaSignal := aco.hints[i][j] / float64(aco.dimension-1)
+				heuristicBase *= 1 + (cmsaSignal * aco.pCmsa)
 			}
 
 			heuristic := math.Pow(heuristicBase, aco.beta)
