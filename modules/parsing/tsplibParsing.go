@@ -54,6 +54,29 @@ var optimalSolutions = map[string]float64{
 	"td100_1.atsp":    268636,
 }
 
+func HasKnownOptimalSolution(name string) bool {
+	_, ok := KnownOptimalSolution(name)
+	return ok
+}
+
+func KnownOptimalSolution(name string) (float64, bool) {
+	if optimalSolution, ok := optimalSolutions[name]; ok {
+		return optimalSolution, true
+	}
+
+	nameWithoutExtension := strings.TrimSuffix(name, ".atsp")
+	if optimalSolution, ok := optimalSolutions[nameWithoutExtension]; ok {
+		return optimalSolution, true
+	}
+
+	nameWithExtension := nameWithoutExtension + ".atsp"
+	if optimalSolution, ok := optimalSolutions[nameWithExtension]; ok {
+		return optimalSolution, true
+	}
+
+	return 0, false
+}
+
 func ParseTSPLIBFile(path string) (name string, matrix [][]float64, knownOptimal float64, err error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -126,5 +149,6 @@ func ParseTSPLIBFile(path string) (name string, matrix [][]float64, knownOptimal
 		}
 	}
 
-	return name, matrix, optimalSolutions[name], nil
+	knownOptimal, _ = KnownOptimalSolution(name)
+	return name, matrix, knownOptimal, nil
 }

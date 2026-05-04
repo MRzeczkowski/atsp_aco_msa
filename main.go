@@ -8,11 +8,11 @@ import (
 	"atsp_aco_msa/modules/utilities"
 	"encoding/csv"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"image/color"
 	"math"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime/pprof"
 	"sort"
@@ -36,7 +36,6 @@ type ExperimentParameters struct {
 type ExperimentResult struct {
 	bestAtIteration, threeOptImprovementsCount int
 	bestTour                                   []int
-	computationTime                            int64
 	deviationPerIteration                      []float64
 }
 
@@ -49,8 +48,64 @@ type ExperimentsDataStatistics struct {
 	averageThreeOptImprovementsCount                                                 float64
 	maxThreeOptImprovementsCount                                                     int
 	minBestDeviation, averageBestDeviation, maxBestDeviation, successRate            float64
-	averageComputationTime                                                           int64
 	minDeviationPerIteration, averageDeviationPerIteration, maxDeviationPerIteration []float64
+}
+
+const (
+	instanceSetSmoke    = "smoke"
+	instanceSetBalanced = "balanced"
+	instanceSetAllKnown = "all-known"
+)
+
+var smokeInstanceFiles = []string{"ftv170.atsp"}
+
+var balancedInstanceFiles = []string{
+	"ft53.atsp",
+	"ftv55.atsp",
+	"ftv64.atsp",
+	"crane66_0.atsp",
+	"crane66_1.atsp",
+	"crane66_2.atsp",
+	"ft70.atsp",
+	"ftv70.atsp",
+	"atex5.atsp",
+	"ftv90.atsp",
+	"crane100_0.atsp",
+	"crane100_1.atsp",
+	"crane100_2.atsp",
+	"ftv100.atsp",
+	"td100_1.atsp",
+	"ftv110.atsp",
+	"dc112.atsp",
+	"ftv120.atsp",
+	"dc126.atsp",
+	"ftv130.atsp",
+	"dc134.atsp",
+	"ftv140.atsp",
+	"ftv150.atsp",
+	"ftv160.atsp",
+	"ftv170.atsp",
+	"dc176.atsp",
+	"dc188.atsp",
+	"code198.atsp",
+}
+
+var statisticsCsvHeader = []string{
+	"Alpha",
+	"Beta",
+	"Rho",
+	"pCmsa",
+	"Iterations",
+	"Min best at iteration",
+	"Avg best at iteration",
+	"Max best at iteration",
+	"Min local search improvements",
+	"Avg local search improvements",
+	"Max local search improvements",
+	"Min best deviation",
+	"Avg best deviation",
+	"Max best deviation",
+	"Success rate [%]",
 }
 
 type TourStatistics struct {
@@ -123,7 +178,27 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 	markdown += "## Best Parameters\n\n"
 	markdown += "| Alpha | Beta | Rho | pCmsa | Times used |\n"
 	markdown += "|-------|------|-----|-------|------------|\n"
-	for parameters, timesUsed := range uniqueParameters {
+
+	sortedParameters := make([]ExperimentParameters, 0, len(uniqueParameters))
+	for parameters := range uniqueParameters {
+		sortedParameters = append(sortedParameters, parameters)
+	}
+	sort.Slice(sortedParameters, func(i, j int) bool {
+		left, right := sortedParameters[i], sortedParameters[j]
+		if left.alpha != right.alpha {
+			return left.alpha < right.alpha
+		}
+		if left.beta != right.beta {
+			return left.beta < right.beta
+		}
+		if left.rho != right.rho {
+			return left.rho < right.rho
+		}
+		return left.pCmsa < right.pCmsa
+	})
+
+	for _, parameters := range sortedParameters {
+		timesUsed := uniqueParameters[parameters]
 		markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %d |\n",
 			parameters.alpha, parameters.beta, parameters.rho, parameters.pCmsa, timesUsed)
 	}
@@ -360,9 +435,12 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 	reader := csv.NewReader(file)
 
 	// Read the header and skip it
-	_, err = reader.Read() // Read the first line (header)
+	header, err := reader.Read() // Read the first line (header)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read header: %w", err)
+	}
+	if len(header) != len(statisticsCsvHeader) {
+		return nil, fmt.Errorf("invalid header length: %d", len(header))
 	}
 
 	var statistics []ExperimentsDataStatistics
@@ -374,7 +452,7 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 	}
 
 	for _, record := range records {
-		if len(record) < 16 {
+		if len(record) != len(statisticsCsvHeader) {
 			return nil, fmt.Errorf("invalid record length: %d", len(record))
 		}
 
@@ -393,7 +471,6 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 		averageBestDeviation, _ := strconv.ParseFloat(record[12], 64)
 		maxBestDeviation, _ := strconv.ParseFloat(record[13], 64)
 		successRate, _ := strconv.ParseFloat(record[14], 64)
-		averageComputationTime, _ := strconv.ParseInt(record[15], 10, 64)
 
 		statistic := ExperimentsDataStatistics{
 			ExperimentParameters: ExperimentParameters{
@@ -413,7 +490,6 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 			averageBestDeviation:             averageBestDeviation,
 			maxBestDeviation:                 maxBestDeviation,
 			successRate:                      successRate,
-			averageComputationTime:           averageComputationTime,
 		}
 
 		statistics = append(statistics, statistic)
@@ -423,30 +499,12 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 }
 
 func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics) {
-	header := []string{
-		"Alpha",
-		"Beta",
-		"Rho",
-		"pCmsa",
-		"Iterations",
-		"Min best at iteration",
-		"Avg best at iteration",
-		"Max best at iteration",
-		"Min local search improvements",
-		"Avg local search improvements",
-		"Max local search improvements",
-		"Min best deviation",
-		"Avg best deviation",
-		"Max best deviation",
-		"Success rate [%]",
-		"Avg computation time [ms]"}
-
 	file, _ := os.Create(resultCsvPath)
 	defer file.Close()
 
 	writer := csv.NewWriter(file)
 
-	_ = writer.Write(header)
+	_ = writer.Write(statisticsCsvHeader)
 
 	floatFormat := "%.2f"
 	for _, statistic := range statistics {
@@ -467,8 +525,6 @@ func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics
 			fmt.Sprintf(floatFormat, statistic.averageBestDeviation),
 			fmt.Sprintf(floatFormat, statistic.maxBestDeviation),
 			fmt.Sprintf(floatFormat, statistic.successRate),
-			// strconv.FormatInt(statistic.averageComputationTime, 10),
-			strconv.FormatInt(0.0, 10),
 		}
 
 		writer.Write(record)
@@ -494,7 +550,6 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 		maxBestDeviation := -math.MaxFloat64
 
 		successCounter := 0.0
-		var averageComputationTime int64 = 0
 		minDeviationPerIteration := make([]float64, data.iterations)
 		averageDeviationPerIteration := make([]float64, data.iterations)
 		maxDeviationPerIteration := make([]float64, data.iterations)
@@ -542,29 +597,28 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 			if bestDeviation == 0 {
 				successCounter++
 			}
-
-			averageComputationTime += result.computationTime
 		}
 
 		averageBestAtIteration /= resultsLen
 		averageBestDeviation /= resultsLen
 		successRate := 100.0 * successCounter / resultsLen
-		averageComputationTime /= int64(resultsLen)
 
 		statistics[i] = ExperimentsDataStatistics{
-			data.ExperimentParameters,
-			minBestAtIteration,
-			averageBestAtIteration,
-			maxBestAtIteration,
-			minThreeOptImprovementsCount,
-			averageThreeOptImprovementsCount,
-			maxThreeOptImprovementsCount,
-			minBestDeviation,
-			averageBestDeviation,
-			maxBestDeviation,
-			successRate,
-			averageComputationTime,
-			minDeviationPerIteration, averageDeviationPerIteration, maxDeviationPerIteration}
+			ExperimentParameters:             data.ExperimentParameters,
+			minBestAtIteration:               minBestAtIteration,
+			averageBestAtIteration:           averageBestAtIteration,
+			maxBestAtIteration:               maxBestAtIteration,
+			minThreeOptImprovementsCount:     minThreeOptImprovementsCount,
+			averageThreeOptImprovementsCount: averageThreeOptImprovementsCount,
+			maxThreeOptImprovementsCount:     maxThreeOptImprovementsCount,
+			minBestDeviation:                 minBestDeviation,
+			averageBestDeviation:             averageBestDeviation,
+			maxBestDeviation:                 maxBestDeviation,
+			successRate:                      successRate,
+			minDeviationPerIteration:         minDeviationPerIteration,
+			averageDeviationPerIteration:     averageDeviationPerIteration,
+			maxDeviationPerIteration:         maxDeviationPerIteration,
+		}
 	}
 
 	sort.SliceStable(statistics, func(i, j int) bool {
@@ -597,11 +651,14 @@ func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOpti
 
 	for i := 0; i < numberOfRuns; i++ {
 
-		start := time.Now()
 		aco.Run()
-		elapsed := time.Since(start)
 
-		results[i] = ExperimentResult{aco.BestAtIteration, aco.ThreeOptImprovementsCount, aco.BestTour, elapsed.Milliseconds(), aco.DeviationPerIteration}
+		results[i] = ExperimentResult{
+			bestAtIteration:           aco.BestAtIteration,
+			threeOptImprovementsCount: aco.ThreeOptImprovementsCount,
+			bestTour:                  aco.BestTour,
+			deviationPerIteration:     aco.DeviationPerIteration,
+		}
 	}
 
 	return results
@@ -697,7 +754,54 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 	}
 }
 
+func selectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, error) {
+	switch instanceSet {
+	case instanceSetSmoke:
+		return selectConfiguredAtspFiles(atspFilePaths, smokeInstanceFiles)
+	case instanceSetBalanced:
+		return selectConfiguredAtspFiles(atspFilePaths, balancedInstanceFiles)
+	case instanceSetAllKnown:
+		selected := make([]string, 0, len(atspFilePaths))
+		for _, atspFilePath := range atspFilePaths {
+			if parsing.HasKnownOptimalSolution(filepath.Base(atspFilePath)) {
+				selected = append(selected, atspFilePath)
+			}
+		}
+
+		sort.Strings(selected)
+		if len(selected) == 0 {
+			return nil, fmt.Errorf("no ATSP files with known optima were found")
+		}
+
+		return selected, nil
+	default:
+		return nil, fmt.Errorf("unsupported -instances value %q; use %q, %q, or %q", instanceSet, instanceSetSmoke, instanceSetBalanced, instanceSetAllKnown)
+	}
+}
+
+func selectConfiguredAtspFiles(atspFilePaths, configuredFiles []string) ([]string, error) {
+	pathByFileName := make(map[string]string, len(atspFilePaths))
+	for _, atspFilePath := range atspFilePaths {
+		pathByFileName[filepath.Base(atspFilePath)] = atspFilePath
+	}
+
+	selected := make([]string, 0, len(configuredFiles))
+	for _, fileName := range configuredFiles {
+		atspFilePath, ok := pathByFileName[fileName]
+		if !ok {
+			return nil, fmt.Errorf("configured ATSP instance %q was not found", fileName)
+		}
+
+		selected = append(selected, atspFilePath)
+	}
+
+	return selected, nil
+}
+
 func main() {
+	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, balanced, or all-known")
+	flag.Parse()
+
 	cf, cerr := os.Create("cpu.prof")
 	if cerr != nil {
 		fmt.Println(cerr)
@@ -707,72 +811,32 @@ func main() {
 	defer pprof.StopCPUProfile()
 
 	tsplibDir := "tsplib_files"
-	atspFilesPaths, _ := filepath.Glob(filepath.Join(tsplibDir, "*.atsp"))
+	atspFilesPaths, err := filepath.Glob(filepath.Join(tsplibDir, "*.atsp"))
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-	atspFilesPaths = utilities.FilterStrings(
-		atspFilesPaths,
-		func(filePath string) bool {
-			var files = []string{
-				"atex1.atsp",
-				"atex3.atsp",
-				"atex4.atsp",
-				"atex5.atsp",
-				"br17.atsp",
-				"code198.atsp",
-				"crane100_0.atsp",
-				"crane100_1.atsp",
-				"crane100_2.atsp",
-				"crane66_0.atsp",
-				"crane66_1.atsp",
-				"crane66_2.atsp",
-				"dc112.atsp",
-				"dc126.atsp",
-				"dc134.atsp",
-				"dc176.atsp",
-				"dc188.atsp",
-				"ft53.atsp",
-				"ft70.atsp",
-				"ftv100.atsp",
-				"ftv110.atsp",
-				"ftv120.atsp",
-				"ftv130.atsp",
-				"ftv140.atsp",
-				"ftv150.atsp",
-				"ftv160.atsp",
-				"ftv170.atsp",
-				"ftv33.atsp",
-				"ftv35.atsp",
-				"ftv38.atsp",
-				"ftv44.atsp",
-				"ftv47.atsp",
-				"ftv55.atsp",
-				"ftv64.atsp",
-				"ftv70.atsp",
-				"ftv90.atsp",
-				"p43.atsp",
-				"rbg323.atsp",
-				"rbg358.atsp",
-				"rbg403.atsp",
-				"rbg443.atsp",
-				"ry48p.atsp",
-				"td100_1.atsp",
-			}
-
-			inputFileName := path.Base(filePath)
-			for _, file := range files {
-				assumedProblemSize, _ := utilities.ExtractNumber(file)
-				if inputFileName == file && assumedProblemSize == 170 {
-					return true
-				}
-			}
-
-			return false
-		})
+	atspFilesPaths, err = selectAtspFiles(atspFilesPaths, *instances)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("Selected %d ATSP instance(s) with -instances=%s\n", len(atspFilesPaths), *instances)
 
 	atspsData := make([]AtspData, len(atspFilesPaths))
 
 	for i, atspFilePath := range atspFilesPaths {
-		name, matrix, knownOptimal, _ := parsing.ParseTSPLIBFile(atspFilePath)
+		name, matrix, knownOptimal, err := parsing.ParseTSPLIBFile(atspFilePath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if knownOptimal == 0 {
+			fmt.Printf("Missing known optimal solution for %s\n", atspFilePath)
+			return
+		}
+
 		atspsData[i] = makeAtspData(name, matrix, knownOptimal)
 	}
 
@@ -814,10 +878,12 @@ func main() {
 	}
 
 	experimentParameters := generateParameters()
+	numberOfExperiments := 10
 	for _, atspData := range atspsData {
 		matrix := atspData.matrix
 		knownOptimal := atspData.knownOptimal
 		dimension := len(matrix)
+		instanceStart := time.Now()
 
 		cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
 		if err != nil {
@@ -825,15 +891,33 @@ func main() {
 			return
 		}
 
-		numberOfExperiments := 10
+		fmt.Printf("Starting %s (dimension=%d, parameters=%d, runs/parameter=%d)\n",
+			atspData.name,
+			dimension,
+			len(experimentParameters),
+			numberOfExperiments)
+
 		experimentData := make([]ExperimentsData, 0)
 
 		for _, parameters := range experimentParameters {
 			setDimensionDependantParameters(dimension, &parameters)
+			parameterStart := time.Now()
 			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, cmsa)
 			data := ExperimentsData{parameters, results}
 
 			experimentData = append(experimentData, data)
+
+			parameterStatistics := calculateStatistics([]ExperimentsData{data})
+			if len(parameterStatistics) != 0 {
+				statistic := parameterStatistics[0]
+				fmt.Printf("\tpCmsa=%.2f iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+					parameters.pCmsa,
+					parameters.iterations,
+					numberOfExperiments,
+					time.Since(parameterStart).Round(time.Millisecond),
+					statistic.minBestDeviation,
+					statistic.averageBestDeviation)
+			}
 		}
 
 		statistics := calculateStatistics(experimentData)
@@ -859,6 +943,8 @@ func main() {
 		cmsaDirectoryPath := atspData.cmsaDirectoryPath
 		toursStatistics := calculateToursStatistics(cmsaDirectoryPath, uniqueOptimalTours)
 		saveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, toursStatistics)
+
+		fmt.Printf("Finished %s in %s\n", atspData.name, time.Since(instanceStart).Round(time.Millisecond))
 	}
 
 	for _, atspData := range atspsData {
