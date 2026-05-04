@@ -166,14 +166,14 @@ func (aco *ACO) Run() {
 					copy(aco.BestTour, iterationBestTour)
 					aco.BestAtIteration = aco.currentIteration
 				}
-
-				currentDeviation := 100 * (iterationBestLength - aco.targetTourLength) / aco.targetTourLength
-				aco.DeviationPerIteration[aco.currentIteration] = currentDeviation
-
-				if currentDeviation == 0.0 {
-					return
-				}
 			}
+		}
+
+		currentDeviation := 100 * (aco.BestLength - aco.targetTourLength) / aco.targetTourLength
+		aco.DeviationPerIteration[aco.currentIteration] = currentDeviation
+
+		if currentDeviation == 0.0 {
+			return
 		}
 
 		aco.updateLimits()

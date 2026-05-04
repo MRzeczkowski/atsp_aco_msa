@@ -761,7 +761,7 @@ func main() {
 			inputFileName := path.Base(filePath)
 			for _, file := range files {
 				assumedProblemSize, _ := utilities.ExtractNumber(file)
-				if inputFileName == file && assumedProblemSize == 170 {
+				if inputFileName == file && assumedProblemSize < 200 {
 					return true
 				}
 			}
