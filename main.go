@@ -352,6 +352,45 @@ func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]in
 	return toursStatistics
 }
 
+func buildToursMatrix(uniqueOptimalTours map[string][]int, dimension int) [][]float64 {
+	toursMatrix := make([][]float64, dimension)
+	for i := 0; i < dimension; i++ {
+		toursMatrix[i] = make([]float64, dimension)
+	}
+
+	for _, tour := range uniqueOptimalTours {
+		n := len(tour)
+		for i := 0; i < n-1; i++ {
+			start, end := tour[i], tour[i+1]
+			toursMatrix[start][end]++
+		}
+
+		last, first := tour[n-1], tour[0]
+		toursMatrix[last][first]++
+	}
+
+	return toursMatrix
+}
+
+func buildCmsaToursOverlapMatrix(cmsa, toursMatrix [][]float64, toursCount int) [][]float64 {
+	dimension := len(cmsa)
+	overlapMatrix := make([][]float64, dimension)
+
+	maxCmsaSelections := float64(dimension - 1)
+	maxTourSelections := float64(toursCount)
+
+	for i := 0; i < dimension; i++ {
+		overlapMatrix[i] = make([]float64, dimension)
+		for j := 0; j < dimension; j++ {
+			cmsaFrequency := cmsa[i][j] / maxCmsaSelections
+			toursFrequency := toursMatrix[i][j] / maxTourSelections
+			overlapMatrix[i][j] = cmsaFrequency * toursFrequency
+		}
+	}
+
+	return overlapMatrix
+}
+
 func normalizeTour(tour []int) []int {
 	if len(tour) == 0 {
 		return tour
@@ -719,7 +758,10 @@ type AtspData struct {
 	resultFilePath,
 	resultPlotFilePrefix,
 
-	optimalUniqueToursCsvPath, toursHeatmapPlotPath, toursHistogramPlotPath string
+	optimalUniqueToursCsvPath,
+	toursHeatmapPlotPath,
+	toursHistogramPlotPath,
+	cmsaToursOverlapHeatmapPlotPath string
 }
 
 func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspData {
@@ -737,6 +779,7 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 	optimalUniqueToursCsvPath := filepath.Join(resultsDirectoryPath, "solutions.csv")
 	toursHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "tours_heatmap.png")
 	toursHistogramPlotPath := filepath.Join(plotsDirectoryPath, "tours_histogram.png")
+	cmsaToursOverlapHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "cmsa_tours_overlap_heatmap.png")
 
 	return AtspData{
 		name,
@@ -750,7 +793,10 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 		resultFilePath,
 		resultPlotFilePrefix,
 
-		optimalUniqueToursCsvPath, toursHeatmapPlotPath, toursHistogramPlotPath,
+		optimalUniqueToursCsvPath,
+		toursHeatmapPlotPath,
+		toursHistogramPlotPath,
+		cmsaToursOverlapHeatmapPlotPath,
 	}
 }
 
@@ -960,24 +1006,23 @@ func main() {
 
 		toursCount := len(uniqueOptimalTours)
 		if toursCount > 0 {
-			toursMatrix := make([][]float64, dimension)
-			for i := 0; i < dimension; i++ {
-				toursMatrix[i] = make([]float64, dimension)
-			}
-
-			for _, tour := range uniqueOptimalTours {
-				n := len(tour)
-				for i := 0; i < n-1; i++ {
-					start, end := tour[i], tour[i+1]
-					toursMatrix[start][end]++
-				}
-
-				last, first := tour[n-1], tour[0]
-				toursMatrix[last][first]++
-			}
+			toursMatrix := buildToursMatrix(uniqueOptimalTours, dimension)
 
 			toursHeatmapPlotTitle := name + " tours heatmap"
 			err = utilities.SaveHeatmapFromMatrix(toursMatrix, toursHeatmapPlotTitle, atspData.toursHeatmapPlotPath)
+			if err != nil {
+				fmt.Println(err)
+			}
+
+			cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			cmsaToursOverlapMatrix := buildCmsaToursOverlapMatrix(cmsa, toursMatrix, toursCount)
+			cmsaToursOverlapHeatmapPlotTitle := name + " CMSA/tours overlap heatmap"
+			err = utilities.SaveHeatmapFromMatrix(cmsaToursOverlapMatrix, cmsaToursOverlapHeatmapPlotTitle, atspData.cmsaToursOverlapHeatmapPlotPath)
 			if err != nil {
 				fmt.Println(err)
 			}
