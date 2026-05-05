@@ -116,6 +116,7 @@ func (aco *ACO) Run() {
 
 			if aco.hints[i][j] != 0 {
 				cmsaSignal := aco.hints[i][j] / float64(aco.dimension-1)
+				cmsaSignal *= cmsaSignal
 				heuristicBase *= 1 + (cmsaSignal * aco.pCmsa)
 			}
 
