@@ -1,0 +1,21 @@
+Metric,Value
+Instance,ftv90
+Dimension,91
+Unique found-optimal tours,40
+Unique found-optimal edges,113
+Found-optimal edge density [%],1.38
+CMSA positive edges,141
+CMSA positive density [%],1.72
+High CMSA threshold,0.800000
+High CMSA edges,87
+High CMSA density [%],1.06
+Found-optimal edge CMSA coverage [%],68.14
+High-CMSA precision vs found-optimal edges [%],59.77
+High-CMSA recall vs found-optimal edges [%],46.02
+High-CMSA lift vs found-optimal edge density,43.320110
+Avg normalized CMSA on found-optimal edges,0.478269
+Median normalized CMSA on found-optimal edges,0.233333
+Avg normalized CMSA on positive edges not seen in found-optimal tours,0.577431
+Median normalized CMSA on positive edges not seen in found-optimal tours,0.916667
+Missing found-optimal edges,36
+High-CMSA edges not seen in found-optimal tours,35

@@ -3,11 +3,10 @@ package main
 import (
 	"atsp_aco_msa/modules/algorithms/aco"
 	"atsp_aco_msa/modules/algorithms/compositeMsa"
-	"atsp_aco_msa/modules/models"
+	"atsp_aco_msa/modules/analysis/cmsaTours"
 	"atsp_aco_msa/modules/parsing"
 	"atsp_aco_msa/modules/utilities"
 	"encoding/csv"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"image/color"
@@ -20,8 +19,6 @@ import (
 	"strings"
 	"time"
 )
-
-type Edge = models.Edge
 
 type ExperimentsData struct {
 	ExperimentParameters
@@ -55,6 +52,12 @@ const (
 	instanceSetSmoke    = "smoke"
 	instanceSetBalanced = "balanced"
 	instanceSetAllKnown = "all-known"
+)
+
+const (
+	runModeExperiment = "experiment"
+	runModeAnalyze    = "analyze"
+	runModeAll        = "all"
 )
 
 var smokeInstanceFiles = []string{"ftv170.atsp"}
@@ -106,11 +109,6 @@ var statisticsCsvHeader = []string{
 	"Avg best deviation",
 	"Max best deviation",
 	"Success rate [%]",
-}
-
-type TourStatistics struct {
-	tourId                                                                                       string
-	commonalityWithCmsa, minCommonalityWithMsa, averageCommonalityWithMsa, maxCommonalityWithMsa float64
 }
 
 func generateMarkdownCounts(paramName string, counts map[float64]int) string {
@@ -245,223 +243,6 @@ func findMinMax(counts map[float64]int) (float64, float64) {
 	}
 
 	return min, max
-}
-
-func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, toursStatistics []TourStatistics) {
-	header := []string{
-		"Tour",
-		"Commonality with CMSA",
-		"Min commonality with MSA",
-		"Avg commonality with MSA",
-		"Max commonality with MSA",
-	}
-
-	file, _ := os.Create(optimalUniqueToursCsvPath)
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-
-	_ = writer.Write(header)
-	floatFormat := "%.2f"
-
-	for _, tourStatistics := range toursStatistics {
-		record := []string{
-			tourStatistics.tourId,
-			fmt.Sprintf(floatFormat, tourStatistics.commonalityWithCmsa),
-			fmt.Sprintf(floatFormat, tourStatistics.minCommonalityWithMsa),
-			fmt.Sprintf(floatFormat, tourStatistics.averageCommonalityWithMsa),
-			fmt.Sprintf(floatFormat, tourStatistics.maxCommonalityWithMsa),
-		}
-
-		writer.Write(record)
-	}
-
-	writer.Flush()
-}
-
-func calculateCommonalityWithMatrix(tourEdges []Edge, matrix [][]float64) float64 {
-	commonality := 0.0
-	for _, edge := range tourEdges {
-		if matrix[edge.From][edge.To] > 0 {
-			commonality++
-		}
-	}
-	tourLen := len(tourEdges)
-
-	commonality = 100 * commonality / float64(tourLen)
-
-	return commonality
-}
-
-func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]int) []TourStatistics {
-
-	cmsa, err := compositeMsa.Read(cmsaDir)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	msas, err := compositeMsa.ReadMsas(cmsaDir)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	toursStatistics := make([]TourStatistics, len(uniqueOptimalTours))
-	i := 0
-	for tourId, tour := range uniqueOptimalTours {
-		tourEdges := models.ConvertTourToEdges(tour)
-
-		commonalityWithCmsa := calculateCommonalityWithMatrix(tourEdges, cmsa)
-
-		minCommonalityWithMsa := math.MaxFloat64
-		averageCommonalityWithMsa := 0.0
-		maxCommonalityWithMsa := -math.MaxFloat64
-
-		for _, msa := range msas {
-			commonalityWithMsa := calculateCommonalityWithMatrix(tourEdges, msa)
-
-			if commonalityWithMsa < minCommonalityWithMsa {
-				minCommonalityWithMsa = commonalityWithMsa
-			}
-
-			averageCommonalityWithMsa += commonalityWithMsa
-
-			if commonalityWithMsa > maxCommonalityWithMsa {
-				maxCommonalityWithMsa = commonalityWithMsa
-			}
-		}
-
-		averageCommonalityWithMsa /= float64(len(msas))
-
-		toursStatistics[i] = TourStatistics{tourId, commonalityWithCmsa, minCommonalityWithMsa, averageCommonalityWithMsa, maxCommonalityWithMsa}
-		i++
-	}
-
-	sort.SliceStable(toursStatistics, func(i, j int) bool {
-		if toursStatistics[i].commonalityWithCmsa != toursStatistics[j].commonalityWithCmsa {
-			return toursStatistics[i].commonalityWithCmsa > toursStatistics[j].commonalityWithCmsa
-		}
-
-		if toursStatistics[i].averageCommonalityWithMsa != toursStatistics[j].averageCommonalityWithMsa {
-			return toursStatistics[i].averageCommonalityWithMsa > toursStatistics[j].averageCommonalityWithMsa
-		}
-
-		// Tiebreaker so that results don't change unnecessarily.
-		return toursStatistics[i].tourId > toursStatistics[j].tourId
-	})
-
-	return toursStatistics
-}
-
-func buildToursMatrix(uniqueOptimalTours map[string][]int, dimension int) [][]float64 {
-	toursMatrix := make([][]float64, dimension)
-	for i := 0; i < dimension; i++ {
-		toursMatrix[i] = make([]float64, dimension)
-	}
-
-	for _, tour := range uniqueOptimalTours {
-		n := len(tour)
-		for i := 0; i < n-1; i++ {
-			start, end := tour[i], tour[i+1]
-			toursMatrix[start][end]++
-		}
-
-		last, first := tour[n-1], tour[0]
-		toursMatrix[last][first]++
-	}
-
-	return toursMatrix
-}
-
-func buildCmsaToursOverlapMatrix(cmsa, toursMatrix [][]float64, toursCount int) [][]float64 {
-	dimension := len(cmsa)
-	overlapMatrix := make([][]float64, dimension)
-
-	maxCmsaSelections := float64(dimension - 1)
-	maxTourSelections := float64(toursCount)
-
-	for i := 0; i < dimension; i++ {
-		overlapMatrix[i] = make([]float64, dimension)
-		for j := 0; j < dimension; j++ {
-			cmsaFrequency := cmsa[i][j] / maxCmsaSelections
-			toursFrequency := toursMatrix[i][j] / maxTourSelections
-			overlapMatrix[i][j] = cmsaFrequency * toursFrequency
-		}
-	}
-
-	return overlapMatrix
-}
-
-func normalizeTour(tour []int) []int {
-	if len(tour) == 0 {
-		return tour
-	}
-
-	// Find the smallest element to determine the starting point
-	minIndex := 0
-	for i, v := range tour {
-		if v < tour[minIndex] {
-			minIndex = i
-		}
-	}
-
-	// Rotate the tour to start at the smallest element
-	normalized := make([]int, len(tour))
-	for i := range tour {
-		normalized[i] = tour[(minIndex+i)%len(tour)]
-	}
-
-	return normalized
-}
-
-func addUniqueTour(savedTours map[string][]int, tour []int) {
-	normalizedTour := normalizeTour(tour)
-	keyJson, _ := json.Marshal(normalizedTour)
-	key := string(keyJson)
-
-	if _, exists := savedTours[key]; exists {
-		return
-	}
-
-	savedTours[key] = tour
-}
-
-func getOptimalTourStatistics(optimalUniqueToursCsvPath string) (map[string][]int, error) {
-	result := make(map[string][]int)
-
-	file, err := os.Open(optimalUniqueToursCsvPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return result, nil
-		}
-		return nil, fmt.Errorf("failed to open file: %w", err)
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-	rows, err := reader.ReadAll()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read file: %w", err)
-	}
-
-	for i, row := range rows {
-		if i == 0 {
-			// Skip header if present
-			continue
-		}
-
-		if len(row) < 1 {
-			return nil, fmt.Errorf("invalid row format at line %d", i+1)
-		}
-
-		var value []int
-		if err := json.Unmarshal([]byte(row[0]), &value); err != nil {
-			return nil, fmt.Errorf("failed to parse JSON at line %d: %w", i+1, err)
-		}
-
-		result[row[0]] = value
-	}
-
-	return result, nil
 }
 
 func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
@@ -761,7 +542,9 @@ type AtspData struct {
 	optimalUniqueToursCsvPath,
 	toursHeatmapPlotPath,
 	toursHistogramPlotPath,
-	cmsaToursOverlapHeatmapPlotPath string
+	cmsaToursOverlapHeatmapPlotPath,
+	cmsaSolutionAnalysisCsvPath,
+	cmsaSolutionThresholdsCsvPath string
 }
 
 func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspData {
@@ -780,6 +563,8 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 	toursHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "tours_heatmap.png")
 	toursHistogramPlotPath := filepath.Join(plotsDirectoryPath, "tours_histogram.png")
 	cmsaToursOverlapHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "cmsa_tours_overlap_heatmap.png")
+	cmsaSolutionAnalysisCsvPath := filepath.Join(resultsDirectoryPath, "cmsa_solution_analysis.csv")
+	cmsaSolutionThresholdsCsvPath := filepath.Join(resultsDirectoryPath, "cmsa_solution_thresholds.csv")
 
 	return AtspData{
 		name,
@@ -797,6 +582,8 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 		toursHeatmapPlotPath,
 		toursHistogramPlotPath,
 		cmsaToursOverlapHeatmapPlotPath,
+		cmsaSolutionAnalysisCsvPath,
+		cmsaSolutionThresholdsCsvPath,
 	}
 }
 
@@ -844,83 +631,106 @@ func selectConfiguredAtspFiles(atspFilePaths, configuredFiles []string) ([]strin
 	return selected, nil
 }
 
+func isValidRunMode(mode string) bool {
+	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll
+}
+
+func shouldRunExperiments(mode string) bool {
+	return mode == runModeExperiment || mode == runModeAll
+}
+
+func shouldRunAnalysis(mode string) bool {
+	return mode == runModeAnalyze || mode == runModeAll
+}
+
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, balanced, or all-known")
+	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, or all")
 	flag.Parse()
 
-	cf, cerr := os.Create("cpu.prof")
-	if cerr != nil {
-		fmt.Println(cerr)
+	if !isValidRunMode(*mode) {
+		fmt.Printf("Unsupported -mode value %q; use %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll)
 		return
 	}
-	pprof.StartCPUProfile(cf)
-	defer pprof.StopCPUProfile()
 
-	tsplibDir := "tsplib_files"
-	atspFilesPaths, err := filepath.Glob(filepath.Join(tsplibDir, "*.atsp"))
+	atspsData, err := loadSelectedAtspData(*instances)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	fmt.Printf("Selected %d ATSP instance(s) with -instances=%s\n", len(atspsData), *instances)
 
-	atspFilesPaths, err = selectAtspFiles(atspFilesPaths, *instances)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	fmt.Printf("Selected %d ATSP instance(s) with -instances=%s\n", len(atspFilesPaths), *instances)
-
-	atspsData := make([]AtspData, len(atspFilesPaths))
-
-	for i, atspFilePath := range atspFilesPaths {
-		name, matrix, knownOptimal, err := parsing.ParseTSPLIBFile(atspFilePath)
+	if shouldRunExperiments(*mode) {
+		stopProfiling, err := startCPUProfile()
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		if knownOptimal == 0 {
-			fmt.Printf("Missing known optimal solution for %s\n", atspFilePath)
+
+		err = runExperimentMode(atspsData)
+		stopProfiling()
+		if err != nil {
+			fmt.Println(err)
 			return
+		}
+	}
+
+	if shouldRunAnalysis(*mode) {
+		if err := runAnalysisMode(atspsData); err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+}
+
+func loadSelectedAtspData(instances string) ([]AtspData, error) {
+	tsplibDir := "tsplib_files"
+	atspFilesPaths, err := filepath.Glob(filepath.Join(tsplibDir, "*.atsp"))
+	if err != nil {
+		return nil, err
+	}
+
+	atspFilesPaths, err = selectAtspFiles(atspFilesPaths, instances)
+	if err != nil {
+		return nil, err
+	}
+
+	atspsData := make([]AtspData, len(atspFilesPaths))
+	for i, atspFilePath := range atspFilesPaths {
+		name, matrix, knownOptimal, err := parsing.ParseTSPLIBFile(atspFilePath)
+		if err != nil {
+			return nil, err
+		}
+		if knownOptimal == 0 {
+			return nil, fmt.Errorf("missing known optimal solution for %s", atspFilePath)
 		}
 
 		atspsData[i] = makeAtspData(name, matrix, knownOptimal)
 	}
 
-	for _, atspData := range atspsData {
-		name := atspData.name
-		matrix := atspData.matrix
-		cmsaDirectoryPath := atspData.cmsaDirectoryPath
+	return atspsData, nil
+}
 
-		cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
+func startCPUProfile() (func(), error) {
+	cf, err := os.Create("cpu.prof")
+	if err != nil {
+		return nil, err
+	}
 
-		if err != nil {
-			start := time.Now()
-			cmsa, err = compositeMsa.Create(matrix, cmsaDirectoryPath)
-			elapsed := time.Since(start)
+	if err := pprof.StartCPUProfile(cf); err != nil {
+		cf.Close()
+		return nil, err
+	}
 
-			fmt.Printf("\tCreating %s took: %d ms\n", cmsaDirectoryPath, elapsed.Milliseconds())
+	return func() {
+		pprof.StopCPUProfile()
+		cf.Close()
+	}, nil
+}
 
-			if err != nil {
-				fmt.Println("\tError saving CMSA: ", err)
-				return
-			}
-		}
-
-		cmsaHeatmapPlotTitle := name + " CMSA heatmap"
-
-		err = utilities.SaveHeatmapFromMatrix(cmsa, cmsaHeatmapPlotTitle, atspData.cmsaHeatmapPlotPath)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		dataForHistogram := filterZeroes(flattenMatrix(cmsa))
-		cmsaHistogramPlotTitle := name + " CMSA histogram"
-
-		dimension := len(matrix)
-		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, cmsaHistogramPlotTitle, atspData.cmsaHistogramPlotPath)
-		if err != nil {
-			fmt.Println(err)
-		}
+func runExperimentMode(atspsData []AtspData) error {
+	if err := ensureCmsaArtifacts(atspsData); err != nil {
+		return err
 	}
 
 	experimentParameters := generateParameters()
@@ -933,8 +743,7 @@ func main() {
 
 		cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return err
 		}
 
 		fmt.Printf("Starting %s (dimension=%d, parameters=%d, runs/parameter=%d)\n",
@@ -972,80 +781,106 @@ func main() {
 			saveExperimentPlots(statistics, "MMAS deviation per iteration", atspData.resultPlotFilePrefix)
 		}
 
-		uniqueOptimalTours, err := getOptimalTourStatistics(atspData.optimalUniqueToursCsvPath)
+		uniqueOptimalTours, err := cmsaTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
 		if err != nil {
-			fmt.Println(err)
-			return
+			return err
 		}
 
 		for _, data := range experimentData {
 			for _, result := range data.results {
 				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
-					addUniqueTour(uniqueOptimalTours, result.bestTour)
+					cmsaTours.AddUniqueTour(uniqueOptimalTours, result.bestTour)
 				}
 			}
 		}
 
-		cmsaDirectoryPath := atspData.cmsaDirectoryPath
-		toursStatistics := calculateToursStatistics(cmsaDirectoryPath, uniqueOptimalTours)
-		saveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, toursStatistics)
+		if err := cmsaTours.SaveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, atspData.cmsaDirectoryPath, uniqueOptimalTours); err != nil {
+			return err
+		}
 
 		fmt.Printf("Finished %s in %s\n", atspData.name, time.Since(instanceStart).Round(time.Millisecond))
 	}
 
+	resultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", resultFileName))
+	bestStatistics := getBestStatisticsFromFiles(resultsFilePaths)
+	saveBestParametersInfo("best_parameters_report.md", bestStatistics)
+
+	return nil
+}
+
+func ensureCmsaArtifacts(atspsData []AtspData) error {
 	for _, atspData := range atspsData {
 		name := atspData.name
-		dimension := len(atspData.matrix)
+		matrix := atspData.matrix
+		cmsaDirectoryPath := atspData.cmsaDirectoryPath
 
-		uniqueOptimalTours, err := getOptimalTourStatistics(atspData.optimalUniqueToursCsvPath)
+		cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
 
 		if err != nil {
-			fmt.Println(err)
-			return
+			start := time.Now()
+			cmsa, err = compositeMsa.Create(matrix, cmsaDirectoryPath)
+			elapsed := time.Since(start)
+
+			fmt.Printf("\tCreating %s took: %d ms\n", cmsaDirectoryPath, elapsed.Milliseconds())
+
+			if err != nil {
+				return fmt.Errorf("error saving CMSA: %w", err)
+			}
 		}
 
-		toursCount := len(uniqueOptimalTours)
-		if toursCount > 0 {
-			toursMatrix := buildToursMatrix(uniqueOptimalTours, dimension)
+		cmsaHeatmapPlotTitle := name + " CMSA heatmap"
 
-			toursHeatmapPlotTitle := name + " tours heatmap"
-			err = utilities.SaveHeatmapFromMatrix(toursMatrix, toursHeatmapPlotTitle, atspData.toursHeatmapPlotPath)
-			if err != nil {
-				fmt.Println(err)
-			}
+		err = utilities.SaveHeatmapFromMatrix(cmsa, cmsaHeatmapPlotTitle, atspData.cmsaHeatmapPlotPath)
+		if err != nil {
+			return err
+		}
 
-			cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
+		dataForHistogram := filterZeroes(flattenMatrix(cmsa))
+		cmsaHistogramPlotTitle := name + " CMSA histogram"
 
-			cmsaToursOverlapMatrix := buildCmsaToursOverlapMatrix(cmsa, toursMatrix, toursCount)
-			cmsaToursOverlapHeatmapPlotTitle := name + " CMSA/tours overlap heatmap"
-			err = utilities.SaveHeatmapFromMatrix(cmsaToursOverlapMatrix, cmsaToursOverlapHeatmapPlotTitle, atspData.cmsaToursOverlapHeatmapPlotPath)
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			if toursCount > 1 {
-				dataForHistogram := filterZeroes(flattenMatrix(toursMatrix))
-				toursHistogramPlotTitle := name + " tours histogram"
-
-				numberOfBins := countUniqueValues(dataForHistogram)
-
-				err = utilities.SaveHistogramFromData(dataForHistogram, numberOfBins, toursHistogramPlotTitle, atspData.toursHistogramPlotPath)
-				if err != nil {
-					fmt.Println(err)
-				}
-			}
+		dimension := len(matrix)
+		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, cmsaHistogramPlotTitle, atspData.cmsaHistogramPlotPath)
+		if err != nil {
+			return err
 		}
 	}
 
-	resultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", resultFileName))
+	return nil
+}
 
-	bestStatistics := getBestStatisticsFromFiles(resultsFilePaths)
+func runAnalysisMode(atspsData []AtspData) error {
+	configs := make([]cmsaTours.InstanceConfig, 0, len(atspsData))
+	for _, atspData := range atspsData {
+		configs = append(configs, cmsaTours.InstanceConfig{
+			Name:                        atspData.name,
+			Dimension:                   len(atspData.matrix),
+			CmsaDirectoryPath:           atspData.cmsaDirectoryPath,
+			OptimalToursCsvPath:         atspData.optimalUniqueToursCsvPath,
+			ToursHeatmapPath:            atspData.toursHeatmapPlotPath,
+			ToursHistogramPath:          atspData.toursHistogramPlotPath,
+			CmsaToursOverlapHeatmapPath: atspData.cmsaToursOverlapHeatmapPlotPath,
+			AnalysisCsvPath:             atspData.cmsaSolutionAnalysisCsvPath,
+			ThresholdsCsvPath:           atspData.cmsaSolutionThresholdsCsvPath,
+		})
+	}
 
-	saveBestParametersInfo("best_parameters_report.md", bestStatistics)
+	summaryPath := filepath.Join(resultsDirectoryName, "cmsa_solution_analysis_summary.csv")
+	reportPath := filepath.Join(resultsDirectoryName, "cmsa_solution_analysis_report.md")
+
+	_, err := cmsaTours.AnalyzeInstances(cmsaTours.Config{
+		Instances:      configs,
+		SummaryCsvPath: summaryPath,
+		ReportPath:     reportPath,
+		HighThreshold:  0.8,
+		Thresholds:     cmsaTours.DefaultThresholds(),
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Analysis summary saved to %s\n", summaryPath)
+	fmt.Printf("Analysis report saved to %s\n", reportPath)
+	return nil
 }
 
 func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plotPathPrefix string) {
@@ -1094,15 +929,6 @@ func getBestStatisticsFromFiles(resultsFilePaths []string) []ExperimentsDataStat
 	}
 
 	return bestStatistics
-}
-
-func countUniqueValues(data []float64) int {
-	unique := make(map[float64]struct{})
-	for _, value := range data {
-		unique[value] = struct{}{}
-	}
-
-	return len(unique)
 }
 
 func filterZeroes(data []float64) []float64 {
