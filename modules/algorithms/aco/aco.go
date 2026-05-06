@@ -9,6 +9,10 @@ import (
 	"math/rand/v2"
 )
 
+const (
+	cmsaHighSignalThreshold = 0.8
+)
+
 type ACO struct {
 	alpha, beta, rho, pCmsa                 float64
 	iterations, currentIteration, dimension int
@@ -46,23 +50,7 @@ func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength fl
 
 	// We use smaller lists for tour construction than for local search. Just like: https://sci-hub.se/https://doi.org/10.1016/S0167-739X(00)00043-1
 	tourConstructionNeighborsListSize := min(maxLocalSearchNeighborsListSize/2, dimension-1)
-	tourConstructionDistances := distances
-
-	if pCmsa != 0.0 {
-		tourConstructionDistances = make([][]float64, dimension)
-		for i := 0; i < dimension; i++ {
-			tourConstructionDistances[i] = make([]float64, dimension)
-
-			for j := 0; j < dimension; j++ {
-				tourConstructionDistances[i][j] = distances[i][j]
-				if i != j && hints[i][j] != 0.0 {
-					cmsaSignal := hints[i][j] / float64(dimension-1)
-					tourConstructionDistances[i][j] /= 1.0 + (cmsaSignal * pCmsa)
-				}
-			}
-		}
-	}
-	tourConstructionNeighborsLists := nearestNeighbors.BuildNearestNeighborsLists(tourConstructionDistances, tourConstructionNeighborsListSize)
+	tourConstructionNeighborsLists := nearestNeighbors.BuildNearestNeighborsLists(distances, tourConstructionNeighborsListSize)
 
 	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, localSearchNeighborsLists)
 
@@ -116,8 +104,9 @@ func (aco *ACO) Run() {
 
 			if aco.hints[i][j] != 0 {
 				cmsaSignal := aco.hints[i][j] / float64(aco.dimension-1)
-				cmsaSignal *= cmsaSignal
-				heuristicBase *= 1 + (cmsaSignal * aco.pCmsa)
+				if cmsaSignal >= cmsaHighSignalThreshold {
+					heuristicBase *= 1 + (cmsaSignal * aco.pCmsa)
+				}
 			}
 
 			heuristic := math.Pow(heuristicBase, aco.beta)
