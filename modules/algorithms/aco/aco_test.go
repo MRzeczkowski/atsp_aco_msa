@@ -52,7 +52,7 @@ func TestSelectNextCityUsesDeterministicFallback(t *testing.T) {
 	}
 }
 
-func TestNewACOUsesCmsaInTourConstructionNeighbors(t *testing.T) {
+func TestNewACOKeepsTourConstructionNeighborsDistanceOnly(t *testing.T) {
 	distances := make([][]float64, 12)
 	hints := make([][]float64, 12)
 	for i := range distances {
@@ -72,26 +72,29 @@ func TestNewACOUsesCmsaInTourConstructionNeighbors(t *testing.T) {
 	withoutCmsa := NewACO(1.0, 1.0, 0.8, 0.0, 1, 100.0, distances, hints)
 	withCmsa := NewACO(1.0, 1.0, 0.8, 1.0, 1, 100.0, distances, hints)
 
-	foundWithoutCmsa := false
-	for _, neighbor := range withoutCmsa.neighborsLists[0] {
-		if neighbor == 11 {
-			foundWithoutCmsa = true
-		}
+	if !equalIntSlices(withoutCmsa.neighborsLists[0], withCmsa.neighborsLists[0]) {
+		t.Fatalf("expected pCmsa not to change candidate list, got without=%v with=%v", withoutCmsa.neighborsLists[0], withCmsa.neighborsLists[0])
 	}
 
-	foundWithCmsa := false
 	for _, neighbor := range withCmsa.neighborsLists[0] {
 		if neighbor == 11 {
-			foundWithCmsa = true
+			t.Fatalf("expected distance-only candidate list to exclude far CMSA edge, got %v", withCmsa.neighborsLists[0])
+		}
+	}
+}
+
+func equalIntSlices(left, right []int) bool {
+	if len(left) != len(right) {
+		return false
+	}
+
+	for i := range left {
+		if left[i] != right[i] {
+			return false
 		}
 	}
 
-	if foundWithoutCmsa {
-		t.Fatalf("expected distance-only candidate list to exclude city 11")
-	}
-	if !foundWithCmsa {
-		t.Fatalf("expected CMSA candidate list to include city 11")
-	}
+	return true
 }
 
 func TestRunHandlesZeroDistanceHeuristic(t *testing.T) {
