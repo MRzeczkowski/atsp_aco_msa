@@ -1,0 +1,51 @@
+Metric,Value
+Instance,ftv120
+Dimension,121
+Unique found-optimal tours,64
+Unique found-optimal edges,158
+Found-optimal edge density [%],1.09
+Cycle cover cost,2025.000000
+Cycle cover gap to known optimum [%],6.51
+Cycle cover cycles,16
+Cycle cover min cycle length,2
+Cycle cover avg cycle length,7.562500
+Cycle cover max cycle length,49
+Cycle cover edges,121
+Cycle cover edge density [%],0.83
+Cycle cover found-optimal edges,93
+Cycle cover edges not seen in found-optimal tours,28
+Cycle cover precision vs found-optimal edges [%],76.86
+Cycle cover recall vs found-optimal edges [%],58.86
+Cycle cover lift vs found-optimal edge density,70.632911
+High CMSA threshold,1.000000
+High CMSA edges,73
+High CMSA edge density [%],0.50
+High CMSA found-optimal edges,50
+High CMSA edges not seen in found-optimal tours,23
+High CMSA precision vs found-optimal edges [%],68.49
+High CMSA recall vs found-optimal edges [%],31.65
+High CMSA lift vs found-optimal edge density,62.944338
+Cycle cover positive-CMSA edges,96
+Cycle cover positive-CMSA edge density [%],0.66
+Cycle cover positive-CMSA found-optimal edges,79
+Cycle cover positive-CMSA edges not seen in found-optimal tours,17
+Cycle cover positive-CMSA precision vs found-optimal edges [%],82.29
+Cycle cover positive-CMSA recall vs found-optimal edges [%],50.00
+Cycle cover positive-CMSA lift vs found-optimal edge density,75.625000
+Cycle cover high-CMSA edges,52
+Cycle cover high-CMSA edge density [%],0.36
+Cycle cover high-CMSA found-optimal edges,45
+Cycle cover high-CMSA edges not seen in found-optimal tours,7
+Cycle cover high-CMSA precision vs found-optimal edges [%],86.54
+Cycle cover high-CMSA recall vs found-optimal edges [%],28.48
+Cycle cover high-CMSA lift vs found-optimal edge density,79.527751
+Cycle cover edges with positive CMSA,96
+Cycle cover edges with high CMSA,52
+High-CMSA edges removed by cycle-cover gate,21
+High-CMSA found-optimal edges removed by cycle-cover gate,5
+High-CMSA precision gain from cycle-cover gate,0.180453
+High-CMSA recall loss from cycle-cover gate,0.031646
+Found-optimal edges in both cycle cover and high CMSA,45
+Found-optimal edges in cycle cover but not high CMSA,48
+Found-optimal edges in high CMSA but not cycle cover,5
+Found-optimal edges in neither cycle cover nor high CMSA,60

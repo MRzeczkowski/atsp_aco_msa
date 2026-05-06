@@ -4,6 +4,7 @@ import (
 	"atsp_aco_msa/modules/algorithms/aco"
 	"atsp_aco_msa/modules/algorithms/compositeMsa"
 	"atsp_aco_msa/modules/analysis/cmsaTours"
+	"atsp_aco_msa/modules/analysis/cycleCover"
 	"atsp_aco_msa/modules/parsing"
 	"atsp_aco_msa/modules/utilities"
 	"encoding/csv"
@@ -544,7 +545,11 @@ type AtspData struct {
 	toursHistogramPlotPath,
 	cmsaToursOverlapHeatmapPlotPath,
 	cmsaSolutionAnalysisCsvPath,
-	cmsaSolutionThresholdsCsvPath string
+	cmsaSolutionThresholdsCsvPath,
+	cycleCoverEdgesCsvPath,
+	cycleCoverAnalysisCsvPath,
+	cycleCoverThresholdsCsvPath,
+	cycleCoverCmsaOverlapCsvPath string
 }
 
 func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspData {
@@ -565,6 +570,10 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 	cmsaToursOverlapHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "cmsa_tours_overlap_heatmap.png")
 	cmsaSolutionAnalysisCsvPath := filepath.Join(resultsDirectoryPath, "cmsa_solution_analysis.csv")
 	cmsaSolutionThresholdsCsvPath := filepath.Join(resultsDirectoryPath, "cmsa_solution_thresholds.csv")
+	cycleCoverEdgesCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_edges.csv")
+	cycleCoverAnalysisCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_analysis.csv")
+	cycleCoverThresholdsCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_thresholds.csv")
+	cycleCoverCmsaOverlapCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_cmsa_overlap.csv")
 
 	return AtspData{
 		name,
@@ -584,6 +593,10 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 		cmsaToursOverlapHeatmapPlotPath,
 		cmsaSolutionAnalysisCsvPath,
 		cmsaSolutionThresholdsCsvPath,
+		cycleCoverEdgesCsvPath,
+		cycleCoverAnalysisCsvPath,
+		cycleCoverThresholdsCsvPath,
+		cycleCoverCmsaOverlapCsvPath,
 	}
 }
 
@@ -849,9 +862,10 @@ func ensureCmsaArtifacts(atspsData []AtspData) error {
 }
 
 func runAnalysisMode(atspsData []AtspData) error {
-	configs := make([]cmsaTours.InstanceConfig, 0, len(atspsData))
+	cmsaTourConfigs := make([]cmsaTours.InstanceConfig, 0, len(atspsData))
+	cycleCoverConfigs := make([]cycleCover.InstanceConfig, 0, len(atspsData))
 	for _, atspData := range atspsData {
-		configs = append(configs, cmsaTours.InstanceConfig{
+		cmsaTourConfigs = append(cmsaTourConfigs, cmsaTours.InstanceConfig{
 			Name:                        atspData.name,
 			Dimension:                   len(atspData.matrix),
 			CmsaDirectoryPath:           atspData.cmsaDirectoryPath,
@@ -862,15 +876,28 @@ func runAnalysisMode(atspsData []AtspData) error {
 			AnalysisCsvPath:             atspData.cmsaSolutionAnalysisCsvPath,
 			ThresholdsCsvPath:           atspData.cmsaSolutionThresholdsCsvPath,
 		})
+
+		cycleCoverConfigs = append(cycleCoverConfigs, cycleCover.InstanceConfig{
+			Name:                        atspData.name,
+			Dimension:                   len(atspData.matrix),
+			Matrix:                      atspData.matrix,
+			KnownOptimal:                atspData.knownOptimal,
+			CmsaDirectoryPath:           atspData.cmsaDirectoryPath,
+			OptimalToursCsvPath:         atspData.optimalUniqueToursCsvPath,
+			CycleCoverEdgesCsvPath:      atspData.cycleCoverEdgesCsvPath,
+			AnalysisCsvPath:             atspData.cycleCoverAnalysisCsvPath,
+			ThresholdsCsvPath:           atspData.cycleCoverThresholdsCsvPath,
+			CycleCoverOverlapMatrixPath: atspData.cycleCoverCmsaOverlapCsvPath,
+		})
 	}
 
-	summaryPath := filepath.Join(resultsDirectoryName, "cmsa_solution_analysis_summary.csv")
-	reportPath := filepath.Join(resultsDirectoryName, "cmsa_solution_analysis_report.md")
+	cmsaSolutionSummaryPath := filepath.Join(resultsDirectoryName, "cmsa_solution_analysis_summary.csv")
+	cmsaSolutionReportPath := filepath.Join(resultsDirectoryName, "cmsa_solution_analysis_report.md")
 
 	_, err := cmsaTours.AnalyzeInstances(cmsaTours.Config{
-		Instances:      configs,
-		SummaryCsvPath: summaryPath,
-		ReportPath:     reportPath,
+		Instances:      cmsaTourConfigs,
+		SummaryCsvPath: cmsaSolutionSummaryPath,
+		ReportPath:     cmsaSolutionReportPath,
 		HighThreshold:  0.8,
 		Thresholds:     cmsaTours.DefaultThresholds(),
 	})
@@ -878,8 +905,24 @@ func runAnalysisMode(atspsData []AtspData) error {
 		return err
 	}
 
-	fmt.Printf("Analysis summary saved to %s\n", summaryPath)
-	fmt.Printf("Analysis report saved to %s\n", reportPath)
+	cycleCoverSummaryPath := filepath.Join(resultsDirectoryName, "cycle_cover_analysis_summary.csv")
+	cycleCoverReportPath := filepath.Join(resultsDirectoryName, "cycle_cover_analysis_report.md")
+
+	_, err = cycleCover.AnalyzeInstances(cycleCover.Config{
+		Instances:      cycleCoverConfigs,
+		SummaryCsvPath: cycleCoverSummaryPath,
+		ReportPath:     cycleCoverReportPath,
+		HighThreshold:  1.0,
+		Thresholds:     cmsaTours.DefaultThresholds(),
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("CMSA/solution analysis summary saved to %s\n", cmsaSolutionSummaryPath)
+	fmt.Printf("CMSA/solution analysis report saved to %s\n", cmsaSolutionReportPath)
+	fmt.Printf("Cycle-cover analysis summary saved to %s\n", cycleCoverSummaryPath)
+	fmt.Printf("Cycle-cover analysis report saved to %s\n", cycleCoverReportPath)
 	return nil
 }
 
