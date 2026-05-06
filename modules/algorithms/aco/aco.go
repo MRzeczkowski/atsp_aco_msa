@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	cmsaHighSignalThreshold = 0.8
+	cmsaHighSignalThreshold = 1.0
 )
 
 type ACO struct {
