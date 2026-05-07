@@ -62,7 +62,10 @@ const (
 	runModeAll        = "all"
 )
 
-const cmsaHighSignalThreshold = 1.0
+const (
+	cmsaHighSignalThreshold     = 1.0
+	cmsaConnectorStrengthFactor = 0.5
+)
 
 const (
 	heuristicCmsa       = "cmsa"
@@ -609,7 +612,10 @@ func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover [][]float64, strengt
 				cycleCoverSignal = 1.0
 			}
 
-			combinedSignal := max(cmsaConnectorSignal, cycleCoverSignal)
+			combinedSignal := cycleCoverSignal
+			if cycleCoverSignal == 0 {
+				combinedSignal = cmsaConnectorSignal * cmsaConnectorStrengthFactor
+			}
 			modifiers[i][j] = 1.0 + combinedSignal*strength
 		}
 	}

@@ -135,7 +135,7 @@ func TestBuildCycleCoverComponentIds(t *testing.T) {
 	}
 }
 
-func TestBuildCmsaCycleCoverHeuristicModifiersBoostsCycleCoverEdgesAndHighCmsaConnectors(t *testing.T) {
+func TestBuildCmsaCycleCoverHeuristicModifiersBoostsCycleCoverEdgesMoreThanHighCmsaConnectors(t *testing.T) {
 	cmsa := [][]float64{
 		{0, 0, 4, 4, 0},
 		{0, 0, 4, 0, 0},
@@ -153,11 +153,11 @@ func TestBuildCmsaCycleCoverHeuristicModifiersBoostsCycleCoverEdgesAndHighCmsaCo
 
 	modifiers := buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, 0.5)
 	expected := [][]float64{
-		{1, 1.5, 1, 1.5, 1},
+		{1, 1.5, 1, 1.25, 1},
 		{1, 1, 1.5, 1, 1},
 		{1.5, 1, 1, 1, 1},
 		{1, 1, 1, 1, 1.5},
-		{1.5, 1, 1, 1.5, 1},
+		{1.25, 1, 1, 1.5, 1},
 	}
 
 	if !reflect.DeepEqual(modifiers, expected) {
