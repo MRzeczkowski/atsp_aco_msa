@@ -496,14 +496,14 @@ func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOpti
 	return results
 }
 
-func buildHeuristicModifiers(heuristic string, cmsa, cycleCover [][]float64, strength float64) [][]float64 {
+func buildHeuristicModifiers(heuristic string, matrix, cmsa, cycleCover [][]float64, strength float64) [][]float64 {
 	switch heuristic {
 	case heuristicCmsa:
 		return buildCmsaHeuristicModifiers(cmsa, strength)
 	case heuristicCycleCover:
 		return buildCycleCoverHeuristicModifiers(cycleCover, strength)
 	case heuristicBoth:
-		return buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, strength)
+		return buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, matrix, strength)
 	default:
 		return buildNeutralHeuristicModifiers(len(cmsa))
 	}
@@ -586,7 +586,113 @@ func cycleCoverSuccessor(cycleCover [][]float64, vertex int) int {
 	return -1
 }
 
-func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover [][]float64, strength float64) [][]float64 {
+type cmsaConnectorEdge struct {
+	from, to int
+}
+
+type cmsaConnectorCandidate struct {
+	edge       cmsaConnectorEdge
+	cmsaWeight float64
+	distance   float64
+	valid      bool
+}
+
+func selectCmsaCycleCoverConnectors(cmsa, distances [][]float64, cycleCoverComponentIds []int) map[cmsaConnectorEdge]bool {
+	connectors := make(map[cmsaConnectorEdge]bool)
+	dimension := len(cmsa)
+	componentCount := cycleCoverComponentCount(cycleCoverComponentIds)
+	if dimension <= 1 || componentCount <= 1 {
+		return connectors
+	}
+
+	bestOutgoing := make([]cmsaConnectorCandidate, componentCount)
+	bestIncoming := make([]cmsaConnectorCandidate, componentCount)
+	maxCmsaSelections := float64(dimension - 1)
+
+	for i := 0; i < dimension; i++ {
+		fromComponent := cycleCoverComponentIds[i]
+		if fromComponent < 0 || fromComponent >= componentCount {
+			continue
+		}
+
+		for j := 0; j < dimension; j++ {
+			if i == j {
+				continue
+			}
+
+			toComponent := cycleCoverComponentIds[j]
+			if toComponent < 0 || toComponent >= componentCount || fromComponent == toComponent {
+				continue
+			}
+
+			cmsaSignal := cmsa[i][j] / maxCmsaSelections
+			if cmsaSignal < cmsaHighSignalThreshold {
+				continue
+			}
+
+			candidate := cmsaConnectorCandidate{
+				edge:       cmsaConnectorEdge{from: i, to: j},
+				cmsaWeight: cmsa[i][j],
+				distance:   edgeDistance(distances, i, j),
+				valid:      true,
+			}
+			if isBetterCmsaConnectorCandidate(candidate, bestOutgoing[fromComponent]) {
+				bestOutgoing[fromComponent] = candidate
+			}
+			if isBetterCmsaConnectorCandidate(candidate, bestIncoming[toComponent]) {
+				bestIncoming[toComponent] = candidate
+			}
+		}
+	}
+
+	for _, candidate := range bestOutgoing {
+		if candidate.valid {
+			connectors[candidate.edge] = true
+		}
+	}
+	for _, candidate := range bestIncoming {
+		if candidate.valid {
+			connectors[candidate.edge] = true
+		}
+	}
+
+	return connectors
+}
+
+func cycleCoverComponentCount(componentIds []int) int {
+	componentCount := 0
+	for _, componentId := range componentIds {
+		if componentId >= componentCount {
+			componentCount = componentId + 1
+		}
+	}
+	return componentCount
+}
+
+func edgeDistance(distances [][]float64, from, to int) float64 {
+	if from < len(distances) && to < len(distances[from]) {
+		return distances[from][to]
+	}
+	return math.Inf(1)
+}
+
+func isBetterCmsaConnectorCandidate(candidate, current cmsaConnectorCandidate) bool {
+	if !current.valid {
+		return true
+	}
+	if candidate.cmsaWeight != current.cmsaWeight {
+		return candidate.cmsaWeight > current.cmsaWeight
+	}
+	if candidate.distance != current.distance {
+		return candidate.distance < current.distance
+	}
+	if candidate.edge.from != current.edge.from {
+		return candidate.edge.from < current.edge.from
+	}
+	return candidate.edge.to < current.edge.to
+}
+
+func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, distances [][]float64, strength float64) [][]float64 {
 	dimension := len(cmsa)
 	modifiers := buildNeutralHeuristicModifiers(dimension)
 	if dimension <= 1 || strength == 0 {
@@ -594,7 +700,7 @@ func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover [][]float64, strengt
 	}
 
 	cycleCoverComponentIds := buildCycleCoverComponentIds(cycleCover)
-	maxCmsaSelections := float64(dimension - 1)
+	cmsaConnectors := selectCmsaCycleCoverConnectors(cmsa, distances, cycleCoverComponentIds)
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
 			if i == j {
@@ -602,8 +708,7 @@ func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover [][]float64, strengt
 			}
 
 			cmsaConnectorSignal := 0.0
-			cmsaSignal := cmsa[i][j] / maxCmsaSelections
-			if cmsaSignal >= cmsaHighSignalThreshold && cycleCoverComponentIds[i] != cycleCoverComponentIds[j] {
+			if cmsaConnectors[cmsaConnectorEdge{from: i, to: j}] {
 				cmsaConnectorSignal = 1.0
 			}
 
@@ -1007,7 +1112,7 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 		for _, parameters := range experimentParameters {
 			setDimensionDependantParameters(dimension, &parameters)
 			parameterStart := time.Now()
-			heuristicModifiers := buildHeuristicModifiers(heuristic, cmsa, cycleCover, parameters.pCmsa)
+			heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, cmsa, cycleCover, parameters.pCmsa)
 			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers)
 			data := ExperimentsData{parameters, results}
 

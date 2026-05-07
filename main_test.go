@@ -135,6 +135,52 @@ func TestBuildCycleCoverComponentIds(t *testing.T) {
 	}
 }
 
+func TestSelectCmsaCycleCoverConnectorsKeepsOneIncomingAndOutgoingPerComponent(t *testing.T) {
+	cmsa := [][]float64{
+		{0, 0, 5, 0, 4, 0},
+		{0, 0, 0, 5, 0, 0},
+		{0, 0, 0, 0, 5, 0},
+		{0, 0, 0, 0, 0, 5},
+		{5, 0, 0, 0, 0, 0},
+		{0, 5, 0, 0, 0, 0},
+	}
+	distances := [][]float64{
+		{0, 1, 9, 0, 1, 0},
+		{1, 0, 0, 1, 0, 0},
+		{0, 0, 0, 1, 1, 0},
+		{0, 0, 1, 0, 0, 9},
+		{9, 0, 0, 0, 0, 1},
+		{0, 1, 0, 0, 1, 0},
+	}
+	componentIds := []int{0, 0, 1, 1, 2, 2}
+
+	connectors := selectCmsaCycleCoverConnectors(cmsa, distances, componentIds)
+	expected := map[cmsaConnectorEdge]bool{
+		{from: 1, to: 3}: true,
+		{from: 2, to: 4}: true,
+		{from: 5, to: 1}: true,
+	}
+
+	if !reflect.DeepEqual(connectors, expected) {
+		t.Fatalf("unexpected CMSA connectors\nwant: %v\n got: %v", expected, connectors)
+	}
+}
+
+func TestSelectCmsaCycleCoverConnectorsReturnsNoneForSingleCycle(t *testing.T) {
+	cmsa := [][]float64{
+		{0, 3, 3, 3},
+		{3, 0, 3, 3},
+		{3, 3, 0, 3},
+		{3, 3, 3, 0},
+	}
+	componentIds := []int{0, 0, 0, 0}
+
+	connectors := selectCmsaCycleCoverConnectors(cmsa, cmsa, componentIds)
+	if len(connectors) != 0 {
+		t.Fatalf("expected no connectors for a single cycle-cover component, got %v", connectors)
+	}
+}
+
 func TestBuildCmsaCycleCoverHeuristicModifiersBoostsCycleCoverEdgesMoreThanHighCmsaConnectors(t *testing.T) {
 	cmsa := [][]float64{
 		{0, 0, 4, 4, 0},
@@ -151,7 +197,7 @@ func TestBuildCmsaCycleCoverHeuristicModifiersBoostsCycleCoverEdgesMoreThanHighC
 		{0, 0, 0, 1, 0},
 	}
 
-	modifiers := buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, 0.5)
+	modifiers := buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, cmsa, 0.5)
 	expected := [][]float64{
 		{1, 1.5, 1, 1.25, 1},
 		{1, 1, 1.5, 1, 1},
@@ -162,6 +208,48 @@ func TestBuildCmsaCycleCoverHeuristicModifiersBoostsCycleCoverEdgesMoreThanHighC
 
 	if !reflect.DeepEqual(modifiers, expected) {
 		t.Fatalf("unexpected combined modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildCmsaCycleCoverHeuristicModifiersBoostsOnlySelectedConnectors(t *testing.T) {
+	cmsa := [][]float64{
+		{0, 0, 5, 0, 4, 0},
+		{0, 0, 0, 5, 0, 0},
+		{0, 0, 0, 0, 5, 0},
+		{0, 0, 0, 0, 0, 5},
+		{5, 0, 0, 0, 0, 0},
+		{0, 5, 0, 0, 0, 0},
+	}
+	distances := [][]float64{
+		{0, 1, 9, 0, 1, 0},
+		{1, 0, 0, 1, 0, 0},
+		{0, 0, 0, 1, 1, 0},
+		{0, 0, 1, 0, 0, 9},
+		{9, 0, 0, 0, 0, 1},
+		{0, 1, 0, 0, 1, 0},
+	}
+	cycleCover := [][]float64{
+		{0, 1, 0, 0, 0, 0},
+		{1, 0, 0, 0, 0, 0},
+		{0, 0, 0, 1, 0, 0},
+		{0, 0, 1, 0, 0, 0},
+		{0, 0, 0, 0, 0, 1},
+		{0, 0, 0, 0, 1, 0},
+	}
+
+	modifiers := buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, distances, 0.5)
+
+	if modifiers[0][1] != 1.5 {
+		t.Fatalf("expected cycle-cover edge to receive full boost, got %f", modifiers[0][1])
+	}
+	if modifiers[1][3] != 1.25 || modifiers[2][4] != 1.25 || modifiers[5][1] != 1.25 {
+		t.Fatalf("expected selected CMSA connectors to receive weak boost")
+	}
+	if modifiers[0][2] != 1.0 || modifiers[3][5] != 1.0 || modifiers[4][0] != 1.0 {
+		t.Fatalf("expected unselected high-CMSA crossing edges to stay neutral")
+	}
+	if modifiers[0][4] != 1.0 {
+		t.Fatalf("expected below-threshold CMSA crossing edge to stay neutral")
 	}
 }
 
