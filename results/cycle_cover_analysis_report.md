@@ -6,14 +6,14 @@ Main high-CMSA threshold: 1.0
 
 - Instances analyzed: 28
 - Instances with found optimal tours: 23
-- Average cycle-cover precision: 73.77%
+- Average cycle-cover precision: 73.88%
 - Average cycle-cover recall: 53.17%
 - Average high-CMSA precision: 67.67%
 - Average high-CMSA recall: 29.98%
 - Average cycle-cover-gated high-CMSA precision: 84.48%
 - Average cycle-cover-gated high-CMSA recall: 24.91%
 - Average precision gain from cycle-cover gate: 0.168140
-- Average recall loss from cycle-cover gate: 0.050730
+- Average recall loss from cycle-cover gate: 0.050729
 
 ## Notes
 
@@ -28,7 +28,7 @@ Main high-CMSA threshold: 1.0
 | Instance | Tours | Opt edges | CC gap % | CC cycles | CC precision % | CC recall % | High precision % | High recall % | Gated precision % | Gated recall % | Precision gain | Recall loss |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | atex5 | 156 | 353 | 97.57 | 35 | 100.00 | 20.40 | 100.00 | 9.07 | 100.00 | 9.07 | 0.000000 | 0.000000 |
-| code198 | 915 | 26994 | 0.09 | 4 | 95.45 | 0.70 | 37.97 | 0.26 | 50.00 | 0.00 | 0.120321 | 0.002593 |
+| code198 | 998 | 27018 | 0.09 | 4 | 97.98 | 0.72 | 37.97 | 0.26 | 50.00 | 0.00 | 0.120321 | 0.002591 |
 | crane100_0 | 1 | 100 | 8.55 | 22 | 53.00 | 53.00 | 53.57 | 30.00 | 64.10 | 25.00 | 0.105311 | 0.050000 |
 | crane100_1 | 1 | 100 | 5.57 | 17 | 60.00 | 60.00 | 57.89 | 33.00 | 84.38 | 27.00 | 0.264803 | 0.060000 |
 | crane100_2 | 1 | 100 | 10.30 | 29 | 58.00 | 58.00 | 63.33 | 38.00 | 82.86 | 29.00 | 0.195238 | 0.090000 |
