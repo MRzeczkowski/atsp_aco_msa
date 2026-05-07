@@ -118,10 +118,10 @@ func TestBuildCycleCoverHeuristicModifiersBoostsOnlyCycleCoverEdges(t *testing.T
 	}
 }
 
-func TestBuildCmsaCycleCoverHeuristicModifiersUsesStrictIntersection(t *testing.T) {
+func TestBuildCmsaCycleCoverHeuristicModifiersAveragesBothSignals(t *testing.T) {
 	cmsa := [][]float64{
 		{0, 3, 3, 0},
-		{0, 0, 3, 0},
+		{0, 0, 1.5, 0},
 		{0, 0, 0, 3},
 		{3, 0, 0, 0},
 	}
@@ -134,10 +134,10 @@ func TestBuildCmsaCycleCoverHeuristicModifiersUsesStrictIntersection(t *testing.
 
 	modifiers := buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, 0.5)
 	expected := [][]float64{
-		{1, 1.5, 1, 1},
-		{1, 1, 1.5, 1},
-		{1, 1, 1, 1},
-		{1, 1, 1, 1},
+		{1, 1.5, 1.25, 1},
+		{1, 1, 1.375, 1},
+		{1, 1, 1, 1.25},
+		{1.25, 1.25, 1, 1},
 	}
 
 	if !reflect.DeepEqual(modifiers, expected) {

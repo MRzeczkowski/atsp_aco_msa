@@ -1,7 +1,7 @@
 Metric,Value
 Instance,ftv110
 Dimension,111
-Unique found-optimal tours,62
+Unique found-optimal tours,63
 Unique found-optimal edges,142
 Found-optimal edge density [%],1.16
 CMSA positive edges,171
