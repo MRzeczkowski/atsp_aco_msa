@@ -68,9 +68,11 @@ const (
 )
 
 const (
-	heuristicCmsa       = "cmsa"
-	heuristicCycleCover = "cycle-cover"
-	heuristicBoth       = "both"
+	heuristicCmsa           = "cmsa"
+	heuristicCycleCover     = "cycle-cover"
+	heuristicBoth           = "both"
+	heuristicCmsaOverlap    = "cmsa-overlap"
+	heuristicCmsaDifference = "cmsa-difference"
 )
 
 var smokeInstanceFiles = []string{"ftv170.atsp"}
@@ -504,6 +506,10 @@ func buildHeuristicModifiers(heuristic string, matrix, cmsa, cycleCover [][]floa
 		return buildCycleCoverHeuristicModifiers(cycleCover, strength)
 	case heuristicBoth:
 		return buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, matrix, strength)
+	case heuristicCmsaOverlap:
+		return buildCmsaCycleCoverMembershipHeuristicModifiers(cmsa, cycleCover, strength, true)
+	case heuristicCmsaDifference:
+		return buildCmsaCycleCoverMembershipHeuristicModifiers(cmsa, cycleCover, strength, false)
 	default:
 		return buildNeutralHeuristicModifiers(len(cmsa))
 	}
@@ -531,6 +537,40 @@ func buildCmsaHeuristicModifiers(cmsa [][]float64, strength float64) [][]float64
 	}
 
 	return modifiers
+}
+
+func buildCmsaCycleCoverMembershipHeuristicModifiers(cmsa, cycleCover [][]float64, strength float64, requireCycleCoverEdge bool) [][]float64 {
+	dimension := len(cmsa)
+	modifiers := buildNeutralHeuristicModifiers(dimension)
+	if dimension <= 1 || strength == 0 {
+		return modifiers
+	}
+
+	maxCmsaSelections := float64(dimension - 1)
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < dimension; j++ {
+			if i == j {
+				continue
+			}
+
+			cmsaSignal := cmsa[i][j] / maxCmsaSelections
+			if cmsaSignal < cmsaHighSignalThreshold {
+				continue
+			}
+
+			if matrixContainsEdge(cycleCover, i, j) != requireCycleCoverEdge {
+				continue
+			}
+
+			modifiers[i][j] = 1.0 + cmsaSignal*strength
+		}
+	}
+
+	return modifiers
+}
+
+func matrixContainsEdge(matrix [][]float64, from, to int) bool {
+	return from >= 0 && from < len(matrix) && to >= 0 && to < len(matrix[from]) && matrix[from][to] != 0
 }
 
 func buildCycleCoverHeuristicModifiers(cycleCover [][]float64, strength float64) [][]float64 {
@@ -921,11 +961,18 @@ func isValidRunMode(mode string) bool {
 }
 
 func isValidHeuristic(heuristic string) bool {
-	return heuristic == heuristicCmsa || heuristic == heuristicCycleCover || heuristic == heuristicBoth
+	return heuristic == heuristicCmsa ||
+		heuristic == heuristicCycleCover ||
+		heuristic == heuristicBoth ||
+		heuristic == heuristicCmsaOverlap ||
+		heuristic == heuristicCmsaDifference
 }
 
 func heuristicUsesCycleCover(heuristic string) bool {
-	return heuristic == heuristicCycleCover || heuristic == heuristicBoth
+	return heuristic == heuristicCycleCover ||
+		heuristic == heuristicBoth ||
+		heuristic == heuristicCmsaOverlap ||
+		heuristic == heuristicCmsaDifference
 }
 
 func heuristicFileSuffix(heuristic string) string {
@@ -936,6 +983,10 @@ func heuristicFileSuffix(heuristic string) string {
 		return "_cycle_cover"
 	case heuristicBoth:
 		return "_both"
+	case heuristicCmsaOverlap:
+		return "_cmsa_overlap"
+	case heuristicCmsaDifference:
+		return "_cmsa_difference"
 	default:
 		return "_" + strings.ReplaceAll(heuristic, "-", "_")
 	}
@@ -982,7 +1033,7 @@ func shouldRunAnalysis(mode string) bool {
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, balanced, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, or all")
-	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cycle-cover, or both")
+	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cycle-cover, both, cmsa-overlap, or cmsa-difference")
 	flag.Parse()
 
 	if !isValidRunMode(*mode) {
@@ -991,7 +1042,7 @@ func main() {
 	}
 
 	if !isValidHeuristic(*heuristic) {
-		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCycleCover, heuristicBoth)
+		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCycleCover, heuristicBoth, heuristicCmsaOverlap, heuristicCmsaDifference)
 		return
 	}
 
