@@ -118,7 +118,7 @@ func TestBuildCycleCoverHeuristicModifiersBoostsOnlyCycleCoverEdges(t *testing.T
 	}
 }
 
-func TestBuildCmsaCycleCoverHeuristicModifiersAveragesBothSignals(t *testing.T) {
+func TestBuildCmsaCycleCoverHeuristicModifiersAveragesHighCmsaAndCycleCoverSignals(t *testing.T) {
 	cmsa := [][]float64{
 		{0, 3, 3, 0},
 		{0, 0, 1.5, 0},
@@ -135,7 +135,7 @@ func TestBuildCmsaCycleCoverHeuristicModifiersAveragesBothSignals(t *testing.T) 
 	modifiers := buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, 0.5)
 	expected := [][]float64{
 		{1, 1.5, 1.25, 1},
-		{1, 1, 1.375, 1},
+		{1, 1, 1.25, 1},
 		{1, 1, 1, 1.25},
 		{1.25, 1.25, 1, 1},
 	}

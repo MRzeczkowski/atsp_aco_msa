@@ -562,7 +562,11 @@ func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover [][]float64, strengt
 				continue
 			}
 
-			cmsaSignal := cmsa[i][j] / maxCmsaSelections
+			cmsaSignal := 0.0
+			if cmsa[i][j]/maxCmsaSelections >= cmsaHighSignalThreshold {
+				cmsaSignal = 1.0
+			}
+
 			cycleCoverSignal := 0.0
 			if cycleCover[i][j] != 0 {
 				cycleCoverSignal = 1.0
