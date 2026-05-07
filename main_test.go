@@ -99,6 +99,93 @@ func TestBuildCmsaHeuristicModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *te
 	}
 }
 
+func TestBuildCycleCoverHeuristicModifiersBoostsOnlyCycleCoverEdges(t *testing.T) {
+	cycleCover := [][]float64{
+		{0, 1, 0},
+		{0, 0, 1},
+		{1, 0, 0},
+	}
+
+	modifiers := buildCycleCoverHeuristicModifiers(cycleCover, 0.4)
+	expected := [][]float64{
+		{1, 1.4, 1},
+		{1, 1, 1.4},
+		{1.4, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected cycle-cover modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildCmsaCycleCoverHeuristicModifiersUsesStrictIntersection(t *testing.T) {
+	cmsa := [][]float64{
+		{0, 3, 3, 0},
+		{0, 0, 3, 0},
+		{0, 0, 0, 3},
+		{3, 0, 0, 0},
+	}
+	cycleCover := [][]float64{
+		{0, 1, 0, 0},
+		{0, 0, 1, 0},
+		{0, 0, 0, 0},
+		{0, 1, 0, 0},
+	}
+
+	modifiers := buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, 0.5)
+	expected := [][]float64{
+		{1, 1.5, 1, 1},
+		{1, 1, 1.5, 1},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected combined modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildMinimumCycleCoverMatrix(t *testing.T) {
+	matrix := [][]float64{
+		{0, 5, 1},
+		{1, 0, 5},
+		{5, 1, 0},
+	}
+
+	cycleCover, cost, err := buildMinimumCycleCoverMatrix(matrix)
+	if err != nil {
+		t.Fatalf("buildMinimumCycleCoverMatrix returned unexpected error: %v", err)
+	}
+
+	expected := [][]float64{
+		{0, 0, 1},
+		{1, 0, 0},
+		{0, 1, 0},
+	}
+	if !reflect.DeepEqual(cycleCover, expected) {
+		t.Fatalf("unexpected cycle-cover matrix\nwant: %v\n got: %v", expected, cycleCover)
+	}
+	if cost != 3 {
+		t.Fatalf("expected cycle-cover cost 3, got %f", cost)
+	}
+}
+
+func TestHeuristicSpecificPathsKeepCmsaBaselinePaths(t *testing.T) {
+	atspData := makeAtspData("test.atsp", [][]float64{{0, 1}, {1, 0}}, 2)
+
+	if resultFilePathForHeuristic(atspData, heuristicCmsa) != filepath.Join(resultsDirectoryName, "test", resultFileName) {
+		t.Fatalf("CMSA result path should keep the existing baseline location")
+	}
+
+	if resultFilePathForHeuristic(atspData, heuristicCycleCover) != filepath.Join(resultsDirectoryName, "test", "result_cycle_cover.csv") {
+		t.Fatalf("unexpected cycle-cover result path: %s", resultFilePathForHeuristic(atspData, heuristicCycleCover))
+	}
+
+	if resultFilePathForHeuristic(atspData, heuristicBoth) != filepath.Join(resultsDirectoryName, "test", "result_both.csv") {
+		t.Fatalf("unexpected combined result path: %s", resultFilePathForHeuristic(atspData, heuristicBoth))
+	}
+}
+
 func TestSelectAtspFilesSmoke(t *testing.T) {
 	paths := []string{
 		filepath.Join("tsplib_files", "ft53.atsp"),

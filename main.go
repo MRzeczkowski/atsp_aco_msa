@@ -3,6 +3,7 @@ package main
 import (
 	"atsp_aco_msa/modules/algorithms/aco"
 	"atsp_aco_msa/modules/algorithms/compositeMsa"
+	"atsp_aco_msa/modules/algorithms/hungarian"
 	"atsp_aco_msa/modules/analysis/cmsaTours"
 	"atsp_aco_msa/modules/analysis/cycleCover"
 	"atsp_aco_msa/modules/parsing"
@@ -62,6 +63,12 @@ const (
 )
 
 const cmsaHighSignalThreshold = 1.0
+
+const (
+	heuristicCmsa       = "cmsa"
+	heuristicCycleCover = "cycle-cover"
+	heuristicBoth       = "both"
+)
 
 var smokeInstanceFiles = []string{"ftv170.atsp"}
 
@@ -459,9 +466,8 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 	return statistics
 }
 
-func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOptimal float64, matrix, cmsa [][]float64) []ExperimentResult {
+func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOptimal float64, matrix, heuristicModifiers [][]float64) []ExperimentResult {
 	results := make([]ExperimentResult, numberOfRuns)
-	heuristicModifiers := buildCmsaHeuristicModifiers(cmsa, parameters.pCmsa)
 
 	aco := aco.NewACO(
 		parameters.alpha,
@@ -487,6 +493,19 @@ func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOpti
 	return results
 }
 
+func buildHeuristicModifiers(heuristic string, cmsa, cycleCover [][]float64, strength float64) [][]float64 {
+	switch heuristic {
+	case heuristicCmsa:
+		return buildCmsaHeuristicModifiers(cmsa, strength)
+	case heuristicCycleCover:
+		return buildCycleCoverHeuristicModifiers(cycleCover, strength)
+	case heuristicBoth:
+		return buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, strength)
+	default:
+		return buildNeutralHeuristicModifiers(len(cmsa))
+	}
+}
+
 func buildCmsaHeuristicModifiers(cmsa [][]float64, strength float64) [][]float64 {
 	dimension := len(cmsa)
 	modifiers := buildNeutralHeuristicModifiers(dimension)
@@ -498,6 +517,48 @@ func buildCmsaHeuristicModifiers(cmsa [][]float64, strength float64) [][]float64
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
 			if i == j {
+				continue
+			}
+
+			cmsaSignal := cmsa[i][j] / maxCmsaSelections
+			if cmsaSignal >= cmsaHighSignalThreshold {
+				modifiers[i][j] = 1.0 + cmsaSignal*strength
+			}
+		}
+	}
+
+	return modifiers
+}
+
+func buildCycleCoverHeuristicModifiers(cycleCover [][]float64, strength float64) [][]float64 {
+	dimension := len(cycleCover)
+	modifiers := buildNeutralHeuristicModifiers(dimension)
+	if dimension == 0 || strength == 0 {
+		return modifiers
+	}
+
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < dimension; j++ {
+			if i != j && cycleCover[i][j] != 0 {
+				modifiers[i][j] = 1.0 + strength
+			}
+		}
+	}
+
+	return modifiers
+}
+
+func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover [][]float64, strength float64) [][]float64 {
+	dimension := len(cmsa)
+	modifiers := buildNeutralHeuristicModifiers(dimension)
+	if dimension <= 1 || strength == 0 {
+		return modifiers
+	}
+
+	maxCmsaSelections := float64(dimension - 1)
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < dimension; j++ {
+			if i == j || cycleCover[i][j] == 0 {
 				continue
 			}
 
@@ -560,6 +621,24 @@ func generateParameters() []ExperimentParameters {
 	}
 
 	return parameters
+}
+
+func buildMinimumCycleCoverMatrix(matrix [][]float64) ([][]float64, float64, error) {
+	edges, cost, err := hungarian.MinimumCycleCover(matrix)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	cycleCover := make([][]float64, len(matrix))
+	for i := range cycleCover {
+		cycleCover[i] = make([]float64, len(matrix))
+	}
+
+	for _, edge := range edges {
+		cycleCover[edge.From][edge.To] = 1.0
+	}
+
+	return cycleCover, cost, nil
 }
 
 var resultsDirectoryName = "results"
@@ -685,6 +764,57 @@ func isValidRunMode(mode string) bool {
 	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll
 }
 
+func isValidHeuristic(heuristic string) bool {
+	return heuristic == heuristicCmsa || heuristic == heuristicCycleCover || heuristic == heuristicBoth
+}
+
+func heuristicUsesCycleCover(heuristic string) bool {
+	return heuristic == heuristicCycleCover || heuristic == heuristicBoth
+}
+
+func heuristicFileSuffix(heuristic string) string {
+	switch heuristic {
+	case heuristicCmsa:
+		return ""
+	case heuristicCycleCover:
+		return "_cycle_cover"
+	case heuristicBoth:
+		return "_both"
+	default:
+		return "_" + strings.ReplaceAll(heuristic, "-", "_")
+	}
+}
+
+func resultFilePathForHeuristic(atspData AtspData, heuristic string) string {
+	suffix := heuristicFileSuffix(heuristic)
+	if suffix == "" {
+		return atspData.resultFilePath
+	}
+
+	return strings.TrimSuffix(atspData.resultFilePath, ".csv") + suffix + ".csv"
+}
+
+func resultPlotFilePrefixForHeuristic(atspData AtspData, heuristic string) string {
+	return atspData.resultPlotFilePrefix + heuristicFileSuffix(heuristic)
+}
+
+func bestParametersReportPathForHeuristic(heuristic string) string {
+	return "best_parameters_report" + heuristicFileSuffix(heuristic) + ".md"
+}
+
+func resultFilePathsForHeuristic(atspsData []AtspData, heuristic string) []string {
+	if heuristic == heuristicCmsa {
+		paths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", resultFileName))
+		return paths
+	}
+
+	paths := make([]string, 0, len(atspsData))
+	for _, atspData := range atspsData {
+		paths = append(paths, resultFilePathForHeuristic(atspData, heuristic))
+	}
+	return paths
+}
+
 func shouldRunExperiments(mode string) bool {
 	return mode == runModeExperiment || mode == runModeAll
 }
@@ -696,10 +826,16 @@ func shouldRunAnalysis(mode string) bool {
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, balanced, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, or all")
+	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cycle-cover, or both")
 	flag.Parse()
 
 	if !isValidRunMode(*mode) {
 		fmt.Printf("Unsupported -mode value %q; use %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll)
+		return
+	}
+
+	if !isValidHeuristic(*heuristic) {
+		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCycleCover, heuristicBoth)
 		return
 	}
 
@@ -717,7 +853,7 @@ func main() {
 			return
 		}
 
-		err = runExperimentMode(atspsData)
+		err = runExperimentMode(atspsData, *heuristic)
 		stopProfiling()
 		if err != nil {
 			fmt.Println(err)
@@ -778,7 +914,7 @@ func startCPUProfile() (func(), error) {
 	}, nil
 }
 
-func runExperimentMode(atspsData []AtspData) error {
+func runExperimentMode(atspsData []AtspData, heuristic string) error {
 	if err := ensureCmsaArtifacts(atspsData); err != nil {
 		return err
 	}
@@ -796,18 +932,32 @@ func runExperimentMode(atspsData []AtspData) error {
 			return err
 		}
 
-		fmt.Printf("Starting %s (dimension=%d, parameters=%d, runs/parameter=%d)\n",
+		fmt.Printf("Starting %s (dimension=%d, heuristic=%s, parameters=%d, runs/parameter=%d)\n",
 			atspData.name,
 			dimension,
+			heuristic,
 			len(experimentParameters),
 			numberOfExperiments)
+
+		var cycleCover [][]float64
+		if heuristicUsesCycleCover(heuristic) {
+			var cycleCoverCost float64
+			cycleCover, cycleCoverCost, err = buildMinimumCycleCoverMatrix(matrix)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("\tMinimum cycle cover cost=%.2f gap=%.2f%%\n",
+				cycleCoverCost,
+				100*(knownOptimal-cycleCoverCost)/knownOptimal)
+		}
 
 		experimentData := make([]ExperimentsData, 0)
 
 		for _, parameters := range experimentParameters {
 			setDimensionDependantParameters(dimension, &parameters)
 			parameterStart := time.Now()
-			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, cmsa)
+			heuristicModifiers := buildHeuristicModifiers(heuristic, cmsa, cycleCover, parameters.pCmsa)
+			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers)
 			data := ExperimentsData{parameters, results}
 
 			experimentData = append(experimentData, data)
@@ -827,8 +977,8 @@ func runExperimentMode(atspsData []AtspData) error {
 
 		statistics := calculateStatistics(experimentData)
 		if len(statistics) != 0 {
-			saveStatistics(atspData.resultFilePath, statistics)
-			saveExperimentPlots(statistics, "MMAS deviation per iteration", atspData.resultPlotFilePrefix)
+			saveStatistics(resultFilePathForHeuristic(atspData, heuristic), statistics)
+			saveExperimentPlots(statistics, "MMAS deviation per iteration", resultPlotFilePrefixForHeuristic(atspData, heuristic))
 		}
 
 		uniqueOptimalTours, err := cmsaTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
@@ -851,9 +1001,8 @@ func runExperimentMode(atspsData []AtspData) error {
 		fmt.Printf("Finished %s in %s\n", atspData.name, time.Since(instanceStart).Round(time.Millisecond))
 	}
 
-	resultsFilePaths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", resultFileName))
-	bestStatistics := getBestStatisticsFromFiles(resultsFilePaths)
-	saveBestParametersInfo("best_parameters_report.md", bestStatistics)
+	bestStatistics := getBestStatisticsFromFiles(resultFilePathsForHeuristic(atspsData, heuristic))
+	saveBestParametersInfo(bestParametersReportPathForHeuristic(heuristic), bestStatistics)
 
 	return nil
 }
