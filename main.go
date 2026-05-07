@@ -61,6 +61,8 @@ const (
 	runModeAll        = "all"
 )
 
+const cmsaHighSignalThreshold = 1.0
+
 var smokeInstanceFiles = []string{"ftv170.atsp"}
 
 var balancedInstanceFiles = []string{
@@ -459,16 +461,16 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 
 func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOptimal float64, matrix, cmsa [][]float64) []ExperimentResult {
 	results := make([]ExperimentResult, numberOfRuns)
+	heuristicModifiers := buildCmsaHeuristicModifiers(cmsa, parameters.pCmsa)
 
 	aco := aco.NewACO(
 		parameters.alpha,
 		parameters.beta,
 		parameters.rho,
-		parameters.pCmsa,
 		parameters.iterations,
 		knownOptimal,
 		matrix,
-		cmsa)
+		heuristicModifiers)
 
 	for i := 0; i < numberOfRuns; i++ {
 
@@ -483,6 +485,41 @@ func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOpti
 	}
 
 	return results
+}
+
+func buildCmsaHeuristicModifiers(cmsa [][]float64, strength float64) [][]float64 {
+	dimension := len(cmsa)
+	modifiers := buildNeutralHeuristicModifiers(dimension)
+	if dimension <= 1 || strength == 0 {
+		return modifiers
+	}
+
+	maxCmsaSelections := float64(dimension - 1)
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < dimension; j++ {
+			if i == j {
+				continue
+			}
+
+			cmsaSignal := cmsa[i][j] / maxCmsaSelections
+			if cmsaSignal >= cmsaHighSignalThreshold {
+				modifiers[i][j] = 1.0 + cmsaSignal*strength
+			}
+		}
+	}
+
+	return modifiers
+}
+
+func buildNeutralHeuristicModifiers(dimension int) [][]float64 {
+	modifiers := make([][]float64, dimension)
+	for i := range modifiers {
+		modifiers[i] = make([]float64, dimension)
+		for j := range modifiers[i] {
+			modifiers[i][j] = 1.0
+		}
+	}
+	return modifiers
 }
 
 func setDimensionDependantParameters(dimension int, parameters *ExperimentParameters) {

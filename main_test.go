@@ -61,6 +61,44 @@ func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
 	}
 }
 
+func TestBuildCmsaHeuristicModifiersPreservesCurrentCmsaRule(t *testing.T) {
+	cmsa := [][]float64{
+		{0, 3, 2, 0},
+		{0, 0, 3, 1},
+		{1, 0, 0, 2},
+		{0, 0, 0, 0},
+	}
+
+	modifiers := buildCmsaHeuristicModifiers(cmsa, 0.5)
+	expected := [][]float64{
+		{1, 1.5, 1, 1},
+		{1, 1, 1.5, 1},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected CMSA modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildCmsaHeuristicModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testing.T) {
+	cmsa := [][]float64{
+		{0, 3},
+		{3, 0},
+	}
+
+	modifiers := buildCmsaHeuristicModifiers(cmsa, 0)
+	expected := [][]float64{
+		{1, 1},
+		{1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected neutral modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
 func TestSelectAtspFilesSmoke(t *testing.T) {
 	paths := []string{
 		filepath.Join("tsplib_files", "ft53.atsp"),

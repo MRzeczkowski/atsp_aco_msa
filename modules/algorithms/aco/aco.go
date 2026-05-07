@@ -9,15 +9,11 @@ import (
 	"math/rand/v2"
 )
 
-const (
-	cmsaHighSignalThreshold = 1.0
-)
-
 type ACO struct {
-	alpha, beta, rho, pCmsa                 float64
+	alpha, beta, rho                        float64
 	iterations, currentIteration, dimension int
 	distances                               [][]float64
-	hints                                   [][]float64
+	heuristicModifiers                      [][]float64
 	tauMin, tauMax, BestLength              float64
 	reducedThreeOpt                         *threeOpt.ReducedThreeOpt
 	targetTourLength                        float64
@@ -32,7 +28,7 @@ type ACO struct {
 	ThreeOptImprovementsCount int
 }
 
-func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength float64, distances, hints [][]float64) *ACO {
+func NewACO(alpha, beta, rho float64, iterations int, targetTourLength float64, distances, heuristicModifiers [][]float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
 	heuristics := make([][]float64, dimension)
@@ -58,20 +54,19 @@ func NewACO(alpha, beta, rho, pCmsa float64, iterations int, targetTourLength fl
 	rng := rand.New(src)
 
 	return &ACO{
-		alpha:            alpha,
-		beta:             beta,
-		rho:              rho,
-		pCmsa:            pCmsa,
-		iterations:       iterations,
-		dimension:        dimension,
-		distances:        distances,
-		hints:            hints,
-		tauMin:           -math.MaxInt,
-		tauMax:           math.MaxInt,
-		reducedThreeOpt:  reducedThreeOpt,
-		targetTourLength: targetTourLength,
-		neighborsLists:   tourConstructionNeighborsLists,
-		rng:              rng,
+		alpha:              alpha,
+		beta:               beta,
+		rho:                rho,
+		iterations:         iterations,
+		dimension:          dimension,
+		distances:          distances,
+		heuristicModifiers: heuristicModifiers,
+		tauMin:             -math.MaxInt,
+		tauMax:             math.MaxInt,
+		reducedThreeOpt:    reducedThreeOpt,
+		targetTourLength:   targetTourLength,
+		neighborsLists:     tourConstructionNeighborsLists,
+		rng:                rng,
 
 		pheromones:     pheromones,
 		heuristics:     heuristics,
@@ -102,13 +97,7 @@ func (aco *ACO) Run() {
 				heuristicBase = 1.0 / distance
 			}
 
-			if aco.hints[i][j] != 0 {
-				cmsaSignal := aco.hints[i][j] / float64(aco.dimension-1)
-				if cmsaSignal >= cmsaHighSignalThreshold {
-					heuristicBase *= 1 + (cmsaSignal * aco.pCmsa)
-				}
-			}
-
+			heuristicBase *= aco.heuristicModifiers[i][j]
 			heuristic := math.Pow(heuristicBase, aco.beta)
 			aco.heuristics[i][j] = heuristic
 

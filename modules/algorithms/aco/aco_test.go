@@ -11,13 +11,9 @@ func TestRunKeepsSelfLoopDesirabilityZero(t *testing.T) {
 		{3, 0, 4},
 		{5, 6, 0},
 	}
-	hints := [][]float64{
-		{0, 0, 0},
-		{0, 0, 0},
-		{0, 0, 0},
-	}
+	heuristicModifiers := newNeutralHeuristicModifiers(len(distances))
 
-	aco := NewACO(1.0, 2.0, 0.8, 0.0, 1, 100.0, distances, hints)
+	aco := NewACO(1.0, 2.0, 0.8, 1, 100.0, distances, heuristicModifiers)
 	aco.Run()
 
 	for i := range distances {
@@ -54,10 +50,8 @@ func TestSelectNextCityUsesDeterministicFallback(t *testing.T) {
 
 func TestNewACOKeepsTourConstructionNeighborsDistanceOnly(t *testing.T) {
 	distances := make([][]float64, 12)
-	hints := make([][]float64, 12)
 	for i := range distances {
 		distances[i] = make([]float64, 12)
-		hints[i] = make([]float64, 12)
 
 		for j := range distances[i] {
 			distances[i][j] = 1.0
@@ -67,18 +61,20 @@ func TestNewACOKeepsTourConstructionNeighborsDistanceOnly(t *testing.T) {
 	for j := 1; j < 12; j++ {
 		distances[0][j] = float64(j)
 	}
-	hints[0][11] = 11.0
+	neutralModifiers := newNeutralHeuristicModifiers(len(distances))
+	strongFarEdgeModifiers := newNeutralHeuristicModifiers(len(distances))
+	strongFarEdgeModifiers[0][11] = 2.0
 
-	withoutCmsa := NewACO(1.0, 1.0, 0.8, 0.0, 1, 100.0, distances, hints)
-	withCmsa := NewACO(1.0, 1.0, 0.8, 1.0, 1, 100.0, distances, hints)
+	withoutModifier := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, neutralModifiers)
+	withModifier := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, strongFarEdgeModifiers)
 
-	if !equalIntSlices(withoutCmsa.neighborsLists[0], withCmsa.neighborsLists[0]) {
-		t.Fatalf("expected pCmsa not to change candidate list, got without=%v with=%v", withoutCmsa.neighborsLists[0], withCmsa.neighborsLists[0])
+	if !equalIntSlices(withoutModifier.neighborsLists[0], withModifier.neighborsLists[0]) {
+		t.Fatalf("expected heuristic modifiers not to change candidate list, got without=%v with=%v", withoutModifier.neighborsLists[0], withModifier.neighborsLists[0])
 	}
 
-	for _, neighbor := range withCmsa.neighborsLists[0] {
+	for _, neighbor := range withModifier.neighborsLists[0] {
 		if neighbor == 11 {
-			t.Fatalf("expected distance-only candidate list to exclude far CMSA edge, got %v", withCmsa.neighborsLists[0])
+			t.Fatalf("expected distance-only candidate list to exclude far modified edge, got %v", withModifier.neighborsLists[0])
 		}
 	}
 }
@@ -103,13 +99,9 @@ func TestRunHandlesZeroDistanceHeuristic(t *testing.T) {
 		{1, 0, 3},
 		{4, 5, 0},
 	}
-	hints := [][]float64{
-		{0, 0, 0},
-		{0, 0, 0},
-		{0, 0, 0},
-	}
+	heuristicModifiers := newNeutralHeuristicModifiers(len(distances))
 
-	aco := NewACO(1.0, 1.0, 0.8, 0.0, 1, 100.0, distances, hints)
+	aco := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, heuristicModifiers)
 	aco.Run()
 
 	if aco.heuristics[1][0] != 1.0 {
@@ -124,4 +116,33 @@ func TestRunHandlesZeroDistanceHeuristic(t *testing.T) {
 	if aco.heuristics[0][1] <= aco.heuristics[1][0] {
 		t.Fatalf("expected zero edge heuristic to be preferred over the shortest positive edge, got zero=%f positive=%f", aco.heuristics[0][1], aco.heuristics[1][0])
 	}
+}
+
+func TestRunAppliesHeuristicModifierMatrix(t *testing.T) {
+	distances := [][]float64{
+		{0, 2, 4},
+		{3, 0, 5},
+		{6, 7, 0},
+	}
+	heuristicModifiers := newNeutralHeuristicModifiers(len(distances))
+	heuristicModifiers[0][1] = 3.0
+
+	aco := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, heuristicModifiers)
+	aco.Run()
+
+	expected := 1.5
+	if aco.heuristics[0][1] != expected {
+		t.Fatalf("expected modifier to be applied before beta, got %f", aco.heuristics[0][1])
+	}
+}
+
+func newNeutralHeuristicModifiers(dimension int) [][]float64 {
+	modifiers := make([][]float64, dimension)
+	for i := range modifiers {
+		modifiers[i] = make([]float64, dimension)
+		for j := range modifiers[i] {
+			modifiers[i][j] = 1.0
+		}
+	}
+	return modifiers
 }
