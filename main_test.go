@@ -118,26 +118,46 @@ func TestBuildCycleCoverHeuristicModifiersBoostsOnlyCycleCoverEdges(t *testing.T
 	}
 }
 
-func TestBuildCmsaCycleCoverHeuristicModifiersAveragesHighCmsaAndCycleCoverSignals(t *testing.T) {
+func TestBuildCycleCoverComponentIds(t *testing.T) {
+	cycleCover := [][]float64{
+		{0, 1, 0, 0, 0},
+		{0, 0, 1, 0, 0},
+		{1, 0, 0, 0, 0},
+		{0, 0, 0, 0, 1},
+		{0, 0, 0, 1, 0},
+	}
+
+	componentIds := buildCycleCoverComponentIds(cycleCover)
+	expected := []int{0, 0, 0, 1, 1}
+
+	if !reflect.DeepEqual(componentIds, expected) {
+		t.Fatalf("unexpected cycle-cover component ids\nwant: %v\n got: %v", expected, componentIds)
+	}
+}
+
+func TestBuildCmsaCycleCoverHeuristicModifiersBoostsCycleCoverEdgesAndHighCmsaConnectors(t *testing.T) {
 	cmsa := [][]float64{
-		{0, 3, 3, 0},
-		{0, 0, 1.5, 0},
-		{0, 0, 0, 3},
-		{3, 0, 0, 0},
+		{0, 0, 4, 4, 0},
+		{0, 0, 4, 0, 0},
+		{0, 0, 0, 2, 0},
+		{0, 0, 0, 0, 0},
+		{4, 0, 0, 0, 0},
 	}
 	cycleCover := [][]float64{
-		{0, 1, 0, 0},
-		{0, 0, 1, 0},
-		{0, 0, 0, 0},
-		{0, 1, 0, 0},
+		{0, 1, 0, 0, 0},
+		{0, 0, 1, 0, 0},
+		{1, 0, 0, 0, 0},
+		{0, 0, 0, 0, 1},
+		{0, 0, 0, 1, 0},
 	}
 
 	modifiers := buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, 0.5)
 	expected := [][]float64{
-		{1, 1.5, 1.25, 1},
-		{1, 1, 1.25, 1},
-		{1, 1, 1, 1.25},
-		{1.25, 1.25, 1, 1},
+		{1, 1.5, 1, 1.5, 1},
+		{1, 1, 1.5, 1, 1},
+		{1.5, 1, 1, 1, 1},
+		{1, 1, 1, 1, 1.5},
+		{1.5, 1, 1, 1.5, 1},
 	}
 
 	if !reflect.DeepEqual(modifiers, expected) {

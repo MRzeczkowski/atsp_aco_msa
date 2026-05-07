@@ -548,6 +548,41 @@ func buildCycleCoverHeuristicModifiers(cycleCover [][]float64, strength float64)
 	return modifiers
 }
 
+func buildCycleCoverComponentIds(cycleCover [][]float64) []int {
+	dimension := len(cycleCover)
+	componentIds := make([]int, dimension)
+	for i := range componentIds {
+		componentIds[i] = -1
+	}
+
+	componentId := 0
+	for start := 0; start < dimension; start++ {
+		if componentIds[start] != -1 {
+			continue
+		}
+
+		current := start
+		for current >= 0 && current < dimension && componentIds[current] == -1 {
+			componentIds[current] = componentId
+			current = cycleCoverSuccessor(cycleCover, current)
+		}
+
+		componentId++
+	}
+
+	return componentIds
+}
+
+func cycleCoverSuccessor(cycleCover [][]float64, vertex int) int {
+	for next, value := range cycleCover[vertex] {
+		if value != 0 {
+			return next
+		}
+	}
+
+	return -1
+}
+
 func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover [][]float64, strength float64) [][]float64 {
 	dimension := len(cmsa)
 	modifiers := buildNeutralHeuristicModifiers(dimension)
@@ -555,6 +590,7 @@ func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover [][]float64, strengt
 		return modifiers
 	}
 
+	cycleCoverComponentIds := buildCycleCoverComponentIds(cycleCover)
 	maxCmsaSelections := float64(dimension - 1)
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
@@ -562,9 +598,10 @@ func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover [][]float64, strengt
 				continue
 			}
 
-			cmsaSignal := 0.0
-			if cmsa[i][j]/maxCmsaSelections >= cmsaHighSignalThreshold {
-				cmsaSignal = 1.0
+			cmsaConnectorSignal := 0.0
+			cmsaSignal := cmsa[i][j] / maxCmsaSelections
+			if cmsaSignal >= cmsaHighSignalThreshold && cycleCoverComponentIds[i] != cycleCoverComponentIds[j] {
+				cmsaConnectorSignal = 1.0
 			}
 
 			cycleCoverSignal := 0.0
@@ -572,7 +609,7 @@ func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover [][]float64, strengt
 				cycleCoverSignal = 1.0
 			}
 
-			combinedSignal := (cmsaSignal + cycleCoverSignal) / 2.0
+			combinedSignal := max(cmsaConnectorSignal, cycleCoverSignal)
 			modifiers[i][j] = 1.0 + combinedSignal*strength
 		}
 	}
