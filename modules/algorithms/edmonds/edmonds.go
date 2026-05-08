@@ -7,6 +7,27 @@ import (
 
 type Edge = models.Edge
 
+// FindMSAA returns a minimum spanning antiarborescence rooted at root.
+// Returned edges point toward the root, so every non-root vertex can reach it.
+func FindMSAA(root int, vertices []int, edges []Edge, weights map[Edge]float64) []Edge {
+	transposedEdges := make([]Edge, 0, len(edges))
+	transposedWeights := make(map[Edge]float64, len(weights))
+
+	for _, edge := range edges {
+		transposedEdge := Edge{From: edge.To, To: edge.From}
+		transposedEdges = append(transposedEdges, transposedEdge)
+		transposedWeights[transposedEdge] = weights[edge]
+	}
+
+	transposedMsa := FindMSA(root, vertices, transposedEdges, transposedWeights)
+	antiarborescence := make([]Edge, len(transposedMsa))
+	for i, edge := range transposedMsa {
+		antiarborescence[i] = Edge{From: edge.To, To: edge.From}
+	}
+
+	return antiarborescence
+}
+
 func FindMSA(root int, vertices []int, edges []Edge, weights map[Edge]float64) []Edge {
 
 	// Step 1: Removing all edges leading back to the root and adjusting edge set
