@@ -1,6 +1,7 @@
 package main
 
 import (
+	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/parsing"
 	"os"
 	"path/filepath"
@@ -154,6 +155,45 @@ func TestBuildCycleCoverHeuristicModifiersBoostsOnlyCycleCoverEdges(t *testing.T
 
 	if !reflect.DeepEqual(modifiers, expected) {
 		t.Fatalf("unexpected cycle-cover modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildCycleCoverArborescenceHeuristicModifiersBoostsCycleCoverAndInterCycleConnectors(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 50, 50},
+		{1, 0, 2, 50},
+		{50, 2, 0, 1},
+		{50, 50, 1, 0},
+	}
+	cycleCover := [][]float64{
+		{0, 1, 0, 0},
+		{1, 0, 0, 0},
+		{0, 0, 0, 1},
+		{0, 0, 1, 0},
+	}
+
+	modifiers := buildCycleCoverArborescenceHeuristicModifiers(matrix, cycleCover, 0.5)
+	expected := [][]float64{
+		{1, 1.5, 1, 1},
+		{1.5, 1, 1.25, 1},
+		{1, 1.25, 1, 1.5},
+		{1, 1, 1.5, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected cycle-cover/arborescence modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestEdgeConnectsDifferentComponentsRejectsInternalEdges(t *testing.T) {
+	componentIds := []int{0, 0, 0, 1, 1}
+
+	if edgeConnectsDifferentComponents(models.Edge{From: 0, To: 2}, componentIds) {
+		t.Fatal("edge inside one cycle-cover component should not be used as connector")
+	}
+
+	if !edgeConnectsDifferentComponents(models.Edge{From: 2, To: 3}, componentIds) {
+		t.Fatal("edge between cycle-cover components should be used as connector")
 	}
 }
 
@@ -332,6 +372,10 @@ func TestHeuristicSpecificPathsKeepCmsaBaselinePaths(t *testing.T) {
 		t.Fatalf("unexpected combined result path: %s", resultFilePathForHeuristic(atspData, heuristicBoth))
 	}
 
+	if resultFilePathForHeuristic(atspData, heuristicArborescences) != filepath.Join(resultsDirectoryName, "test", "result_cycle_cover_arborescences.csv") {
+		t.Fatalf("unexpected arborescence result path: %s", resultFilePathForHeuristic(atspData, heuristicArborescences))
+	}
+
 	if resultFilePathForHeuristic(atspData, heuristicCmsaOverlap) != filepath.Join(resultsDirectoryName, "test", "result_cmsa_overlap.csv") {
 		t.Fatalf("unexpected CMSA-overlap result path: %s", resultFilePathForHeuristic(atspData, heuristicCmsaOverlap))
 	}
@@ -348,6 +392,16 @@ func TestCmsaOverlapAndDifferenceHeuristicsUseCycleCover(t *testing.T) {
 
 	if !heuristicUsesCycleCover(heuristicCmsaOverlap) || !heuristicUsesCycleCover(heuristicCmsaDifference) {
 		t.Fatal("CMSA-overlap and CMSA-difference should require cycle cover")
+	}
+}
+
+func TestArborescenceHeuristicUsesCycleCover(t *testing.T) {
+	if !isValidHeuristic(heuristicArborescences) {
+		t.Fatal("arborescence heuristic should be valid")
+	}
+
+	if !heuristicUsesCycleCover(heuristicArborescences) {
+		t.Fatal("arborescence heuristic should require cycle cover")
 	}
 }
 
