@@ -245,6 +245,66 @@ func TestBuildCycleCoverContractedArborescenceHeuristicModifiersUsesComponentGra
 	}
 }
 
+func TestBuildCycleCoverSpliceArborescenceHeuristicModifiersNeutralizesSplicedCycleEdges(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 8, 6, 9, 10},
+		{1, 0, 2, 7, 11, 12},
+		{6, 5, 0, 1, 10, 8},
+		{9, 6, 1, 0, 3, 9},
+		{7, 8, 5, 6, 0, 1},
+		{4, 9, 7, 5, 1, 0},
+	}
+	cycleCover := [][]float64{
+		{0, 1, 0, 0, 0, 0},
+		{1, 0, 0, 0, 0, 0},
+		{0, 0, 0, 1, 0, 0},
+		{0, 0, 1, 0, 0, 0},
+		{0, 0, 0, 0, 0, 1},
+		{0, 0, 0, 0, 1, 0},
+	}
+
+	modifiers := buildCycleCoverSpliceArborescenceHeuristicModifiers(matrix, cycleCover, 0.5)
+	expected := [][]float64{
+		{1, 1.5, 1, 1, 1, 1},
+		{1, 1, 1.25, 1, 1, 1},
+		{1, 1, 1, 1.5, 1, 1},
+		{1, 1, 1, 1, 1.25, 1},
+		{1, 1, 1, 1, 1, 1.5},
+		{1.25, 1, 1, 1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected splice-aware cycle-cover/arborescence modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestSelectCycleCoverSpliceEdgesSelectsOutgoingAndIncomingCycleEdges(t *testing.T) {
+	cycleCover := [][]float64{
+		{0, 1, 0, 0, 0, 0},
+		{1, 0, 0, 0, 0, 0},
+		{0, 0, 0, 1, 0, 0},
+		{0, 0, 1, 0, 0, 0},
+		{0, 0, 0, 0, 0, 1},
+		{0, 0, 0, 0, 1, 0},
+	}
+	connectors := map[models.Edge]bool{
+		{From: 1, To: 2}: true,
+		{From: 3, To: 4}: true,
+		{From: 5, To: 0}: true,
+	}
+
+	splicedEdges := selectCycleCoverSpliceEdges(cycleCover, connectors)
+	expected := map[models.Edge]bool{
+		{From: 1, To: 0}: true,
+		{From: 3, To: 2}: true,
+		{From: 5, To: 4}: true,
+	}
+
+	if !reflect.DeepEqual(splicedEdges, expected) {
+		t.Fatalf("unexpected spliced cycle-cover edges\nwant: %v\n got: %v", expected, splicedEdges)
+	}
+}
+
 func TestEdgeConnectsDifferentComponentsRejectsInternalEdges(t *testing.T) {
 	componentIds := []int{0, 0, 0, 1, 1}
 
@@ -440,6 +500,10 @@ func TestHeuristicSpecificPathsKeepCmsaBaselinePaths(t *testing.T) {
 		t.Fatalf("unexpected contracted arborescence result path: %s", resultFilePathForHeuristic(atspData, heuristicContractedArborescences))
 	}
 
+	if resultFilePathForHeuristic(atspData, heuristicSpliceArborescences) != filepath.Join(resultsDirectoryName, "test", "result_cycle_cover_splice_arborescences.csv") {
+		t.Fatalf("unexpected splice arborescence result path: %s", resultFilePathForHeuristic(atspData, heuristicSpliceArborescences))
+	}
+
 	if resultFilePathForHeuristic(atspData, heuristicCmsaOverlap) != filepath.Join(resultsDirectoryName, "test", "result_cmsa_overlap.csv") {
 		t.Fatalf("unexpected CMSA-overlap result path: %s", resultFilePathForHeuristic(atspData, heuristicCmsaOverlap))
 	}
@@ -466,12 +530,18 @@ func TestArborescenceHeuristicUsesCycleCover(t *testing.T) {
 	if !isValidHeuristic(heuristicContractedArborescences) {
 		t.Fatal("contracted arborescence heuristic should be valid")
 	}
+	if !isValidHeuristic(heuristicSpliceArborescences) {
+		t.Fatal("splice arborescence heuristic should be valid")
+	}
 
 	if !heuristicUsesCycleCover(heuristicArborescences) {
 		t.Fatal("arborescence heuristic should require cycle cover")
 	}
 	if !heuristicUsesCycleCover(heuristicContractedArborescences) {
 		t.Fatal("contracted arborescence heuristic should require cycle cover")
+	}
+	if !heuristicUsesCycleCover(heuristicSpliceArborescences) {
+		t.Fatal("splice arborescence heuristic should require cycle cover")
 	}
 }
 

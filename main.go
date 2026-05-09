@@ -76,6 +76,7 @@ const (
 	heuristicBoth                    = "both"
 	heuristicArborescences           = "cycle-cover-arborescences"
 	heuristicContractedArborescences = "cycle-cover-contracted-arborescences"
+	heuristicSpliceArborescences     = "cycle-cover-splice-arborescences"
 	heuristicCmsaOverlap             = "cmsa-overlap"
 	heuristicCmsaDifference          = "cmsa-difference"
 )
@@ -515,6 +516,8 @@ func buildHeuristicModifiers(heuristic string, matrix, cmsa, cycleCover [][]floa
 		return buildCycleCoverArborescenceHeuristicModifiers(matrix, cycleCover, strength)
 	case heuristicContractedArborescences:
 		return buildCycleCoverContractedArborescenceHeuristicModifiers(matrix, cycleCover, strength)
+	case heuristicSpliceArborescences:
+		return buildCycleCoverSpliceArborescenceHeuristicModifiers(matrix, cycleCover, strength)
 	case heuristicCmsaOverlap:
 		return buildCmsaCycleCoverMembershipHeuristicModifiers(cmsa, cycleCover, strength, true)
 	case heuristicCmsaDifference:
@@ -608,7 +611,7 @@ func buildCycleCoverArborescenceHeuristicModifiers(matrix, cycleCover [][]float6
 
 	componentIds := buildCycleCoverComponentIds(cycleCover)
 	connectors := selectInterCycleArborescenceConnectors(matrix, componentIds)
-	return buildCycleCoverConnectorHeuristicModifiers(dimension, cycleCover, connectors, strength)
+	return buildCycleCoverConnectorHeuristicModifiers(dimension, cycleCover, connectors, nil, strength)
 }
 
 func buildCycleCoverContractedArborescenceHeuristicModifiers(matrix, cycleCover [][]float64, strength float64) [][]float64 {
@@ -619,10 +622,28 @@ func buildCycleCoverContractedArborescenceHeuristicModifiers(matrix, cycleCover 
 
 	componentIds := buildCycleCoverComponentIds(cycleCover)
 	connectors := selectInterCycleContractedArborescenceConnectors(matrix, componentIds)
-	return buildCycleCoverConnectorHeuristicModifiers(dimension, cycleCover, connectors, strength)
+	return buildCycleCoverConnectorHeuristicModifiers(dimension, cycleCover, connectors, nil, strength)
 }
 
-func buildCycleCoverConnectorHeuristicModifiers(dimension int, cycleCover [][]float64, connectors map[models.Edge]bool, strength float64) [][]float64 {
+func buildCycleCoverSpliceArborescenceHeuristicModifiers(matrix, cycleCover [][]float64, strength float64) [][]float64 {
+	dimension := len(matrix)
+	if dimension <= 1 || strength == 0 {
+		return buildNeutralHeuristicModifiers(dimension)
+	}
+
+	componentIds := buildCycleCoverComponentIds(cycleCover)
+	connectors := selectInterCycleContractedArborescenceConnectors(matrix, componentIds)
+	splicedCycleCoverEdges := selectCycleCoverSpliceEdges(cycleCover, connectors)
+	return buildCycleCoverConnectorHeuristicModifiers(dimension, cycleCover, connectors, splicedCycleCoverEdges, strength)
+}
+
+func buildCycleCoverConnectorHeuristicModifiers(
+	dimension int,
+	cycleCover [][]float64,
+	connectors map[models.Edge]bool,
+	splicedCycleCoverEdges map[models.Edge]bool,
+	strength float64,
+) [][]float64 {
 	modifiers := buildNeutralHeuristicModifiers(dimension)
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
@@ -631,7 +652,9 @@ func buildCycleCoverConnectorHeuristicModifiers(dimension int, cycleCover [][]fl
 			}
 
 			if matrixContainsEdge(cycleCover, i, j) {
-				modifiers[i][j] = 1.0 + strength
+				if !splicedCycleCoverEdges[models.Edge{From: i, To: j}] {
+					modifiers[i][j] = 1.0 + strength
+				}
 				continue
 			}
 
@@ -642,6 +665,46 @@ func buildCycleCoverConnectorHeuristicModifiers(dimension int, cycleCover [][]fl
 	}
 
 	return modifiers
+}
+
+func selectCycleCoverSpliceEdges(cycleCover [][]float64, connectors map[models.Edge]bool) map[models.Edge]bool {
+	splicedEdges := make(map[models.Edge]bool)
+	predecessors := buildCycleCoverPredecessors(cycleCover)
+
+	for connector := range connectors {
+		if connector.From >= 0 && connector.From < len(cycleCover) {
+			successor := cycleCoverSuccessor(cycleCover, connector.From)
+			if successor >= 0 {
+				splicedEdges[models.Edge{From: connector.From, To: successor}] = true
+			}
+		}
+
+		if connector.To >= 0 && connector.To < len(predecessors) {
+			predecessor := predecessors[connector.To]
+			if predecessor >= 0 {
+				splicedEdges[models.Edge{From: predecessor, To: connector.To}] = true
+			}
+		}
+	}
+
+	return splicedEdges
+}
+
+func buildCycleCoverPredecessors(cycleCover [][]float64) []int {
+	predecessors := make([]int, len(cycleCover))
+	for i := range predecessors {
+		predecessors[i] = -1
+	}
+
+	for from := range cycleCover {
+		for to, value := range cycleCover[from] {
+			if value != 0 && to < len(predecessors) {
+				predecessors[to] = from
+			}
+		}
+	}
+
+	return predecessors
 }
 
 func selectInterCycleContractedArborescenceConnectors(matrix [][]float64, componentIds []int) map[models.Edge]bool {
@@ -1138,6 +1201,7 @@ func isValidHeuristic(heuristic string) bool {
 		heuristic == heuristicBoth ||
 		heuristic == heuristicArborescences ||
 		heuristic == heuristicContractedArborescences ||
+		heuristic == heuristicSpliceArborescences ||
 		heuristic == heuristicCmsaOverlap ||
 		heuristic == heuristicCmsaDifference
 }
@@ -1147,6 +1211,7 @@ func heuristicUsesCycleCover(heuristic string) bool {
 		heuristic == heuristicBoth ||
 		heuristic == heuristicArborescences ||
 		heuristic == heuristicContractedArborescences ||
+		heuristic == heuristicSpliceArborescences ||
 		heuristic == heuristicCmsaOverlap ||
 		heuristic == heuristicCmsaDifference
 }
@@ -1163,6 +1228,8 @@ func heuristicFileSuffix(heuristic string) string {
 		return "_cycle_cover_arborescences"
 	case heuristicContractedArborescences:
 		return "_cycle_cover_contracted_arborescences"
+	case heuristicSpliceArborescences:
+		return "_cycle_cover_splice_arborescences"
 	case heuristicCmsaOverlap:
 		return "_cmsa_overlap"
 	case heuristicCmsaDifference:
@@ -1213,7 +1280,7 @@ func shouldRunAnalysis(mode string) bool {
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, balanced, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, or all")
-	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cycle-cover, both, cycle-cover-arborescences, cycle-cover-contracted-arborescences, cmsa-overlap, or cmsa-difference")
+	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cycle-cover, both, cycle-cover-arborescences, cycle-cover-contracted-arborescences, cycle-cover-splice-arborescences, cmsa-overlap, or cmsa-difference")
 	flag.Parse()
 
 	if !isValidRunMode(*mode) {
@@ -1222,7 +1289,7 @@ func main() {
 	}
 
 	if !isValidHeuristic(*heuristic) {
-		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, %q, %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCycleCover, heuristicBoth, heuristicArborescences, heuristicContractedArborescences, heuristicCmsaOverlap, heuristicCmsaDifference)
+		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, %q, %q, %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCycleCover, heuristicBoth, heuristicArborescences, heuristicContractedArborescences, heuristicSpliceArborescences, heuristicCmsaOverlap, heuristicCmsaDifference)
 		return
 	}
 
