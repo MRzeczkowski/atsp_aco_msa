@@ -185,6 +185,66 @@ func TestBuildCycleCoverArborescenceHeuristicModifiersBoostsCycleCoverAndInterCy
 	}
 }
 
+func TestBuildCycleCoverComponentGraphKeepsCheapestOriginalInterComponentEdges(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 2, 4},
+		{1, 0, 2, 3},
+		{5, 6, 0, 1},
+		{7, 8, 1, 0},
+	}
+	componentIds := []int{0, 0, 1, 1}
+
+	componentGraph, originalEdges := buildCycleCoverComponentGraph(matrix, componentIds)
+	expectedGraph := [][]float64{
+		{0, 2},
+		{5, 0},
+	}
+	expectedEdges := map[models.Edge]models.Edge{
+		{From: 0, To: 1}: {From: 0, To: 2},
+		{From: 1, To: 0}: {From: 2, To: 0},
+	}
+
+	if !reflect.DeepEqual(componentGraph, expectedGraph) {
+		t.Fatalf("unexpected component graph\nwant: %v\n got: %v", expectedGraph, componentGraph)
+	}
+	if !reflect.DeepEqual(originalEdges, expectedEdges) {
+		t.Fatalf("unexpected component edge mapping\nwant: %v\n got: %v", expectedEdges, originalEdges)
+	}
+}
+
+func TestBuildCycleCoverContractedArborescenceHeuristicModifiersUsesComponentGraphConnectors(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 8, 6, 9, 10},
+		{1, 0, 2, 7, 11, 12},
+		{6, 5, 0, 1, 10, 8},
+		{9, 6, 1, 0, 3, 9},
+		{7, 8, 5, 6, 0, 1},
+		{4, 9, 7, 5, 1, 0},
+	}
+	cycleCover := [][]float64{
+		{0, 1, 0, 0, 0, 0},
+		{1, 0, 0, 0, 0, 0},
+		{0, 0, 0, 1, 0, 0},
+		{0, 0, 1, 0, 0, 0},
+		{0, 0, 0, 0, 0, 1},
+		{0, 0, 0, 0, 1, 0},
+	}
+
+	modifiers := buildCycleCoverContractedArborescenceHeuristicModifiers(matrix, cycleCover, 0.5)
+	expected := [][]float64{
+		{1, 1.5, 1, 1, 1, 1},
+		{1.5, 1, 1.25, 1, 1, 1},
+		{1, 1, 1, 1.5, 1, 1},
+		{1, 1, 1.5, 1, 1.25, 1},
+		{1, 1, 1, 1, 1, 1.5},
+		{1.25, 1, 1, 1, 1.5, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected contracted cycle-cover/arborescence modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
 func TestEdgeConnectsDifferentComponentsRejectsInternalEdges(t *testing.T) {
 	componentIds := []int{0, 0, 0, 1, 1}
 
@@ -376,6 +436,10 @@ func TestHeuristicSpecificPathsKeepCmsaBaselinePaths(t *testing.T) {
 		t.Fatalf("unexpected arborescence result path: %s", resultFilePathForHeuristic(atspData, heuristicArborescences))
 	}
 
+	if resultFilePathForHeuristic(atspData, heuristicContractedArborescences) != filepath.Join(resultsDirectoryName, "test", "result_cycle_cover_contracted_arborescences.csv") {
+		t.Fatalf("unexpected contracted arborescence result path: %s", resultFilePathForHeuristic(atspData, heuristicContractedArborescences))
+	}
+
 	if resultFilePathForHeuristic(atspData, heuristicCmsaOverlap) != filepath.Join(resultsDirectoryName, "test", "result_cmsa_overlap.csv") {
 		t.Fatalf("unexpected CMSA-overlap result path: %s", resultFilePathForHeuristic(atspData, heuristicCmsaOverlap))
 	}
@@ -399,9 +463,15 @@ func TestArborescenceHeuristicUsesCycleCover(t *testing.T) {
 	if !isValidHeuristic(heuristicArborescences) {
 		t.Fatal("arborescence heuristic should be valid")
 	}
+	if !isValidHeuristic(heuristicContractedArborescences) {
+		t.Fatal("contracted arborescence heuristic should be valid")
+	}
 
 	if !heuristicUsesCycleCover(heuristicArborescences) {
 		t.Fatal("arborescence heuristic should require cycle cover")
+	}
+	if !heuristicUsesCycleCover(heuristicContractedArborescences) {
+		t.Fatal("contracted arborescence heuristic should require cycle cover")
 	}
 }
 
