@@ -632,9 +632,8 @@ func buildCycleCoverSpliceArborescenceHeuristicModifiers(matrix, cycleCover [][]
 	}
 
 	componentIds := buildCycleCoverComponentIds(cycleCover)
-	connectors := selectInterCycleContractedArborescenceConnectors(matrix, componentIds)
-	splicedCycleCoverEdges := selectCycleCoverSpliceEdges(cycleCover, connectors)
-	return buildCycleCoverConnectorHeuristicModifiers(dimension, cycleCover, connectors, splicedCycleCoverEdges, strength)
+	patches := selectInterCycleArborescencePatches(matrix, cycleCover, componentIds)
+	return buildCycleCoverPatchHeuristicModifiers(dimension, cycleCover, patches, strength)
 }
 
 func buildCycleCoverConnectorHeuristicModifiers(
@@ -667,46 +666,6 @@ func buildCycleCoverConnectorHeuristicModifiers(
 	return modifiers
 }
 
-func selectCycleCoverSpliceEdges(cycleCover [][]float64, connectors map[models.Edge]bool) map[models.Edge]bool {
-	splicedEdges := make(map[models.Edge]bool)
-	predecessors := buildCycleCoverPredecessors(cycleCover)
-
-	for connector := range connectors {
-		if connector.From >= 0 && connector.From < len(cycleCover) {
-			successor := cycleCoverSuccessor(cycleCover, connector.From)
-			if successor >= 0 {
-				splicedEdges[models.Edge{From: connector.From, To: successor}] = true
-			}
-		}
-
-		if connector.To >= 0 && connector.To < len(predecessors) {
-			predecessor := predecessors[connector.To]
-			if predecessor >= 0 {
-				splicedEdges[models.Edge{From: predecessor, To: connector.To}] = true
-			}
-		}
-	}
-
-	return splicedEdges
-}
-
-func buildCycleCoverPredecessors(cycleCover [][]float64) []int {
-	predecessors := make([]int, len(cycleCover))
-	for i := range predecessors {
-		predecessors[i] = -1
-	}
-
-	for from := range cycleCover {
-		for to, value := range cycleCover[from] {
-			if value != 0 && to < len(predecessors) {
-				predecessors[to] = from
-			}
-		}
-	}
-
-	return predecessors
-}
-
 func selectInterCycleContractedArborescenceConnectors(matrix [][]float64, componentIds []int) map[models.Edge]bool {
 	connectors := make(map[models.Edge]bool)
 	dimension := len(matrix)
@@ -716,8 +675,64 @@ func selectInterCycleContractedArborescenceConnectors(matrix [][]float64, compon
 	}
 
 	componentGraph, originalEdgesByComponentEdge := buildCycleCoverComponentGraph(matrix, componentIds)
+	componentEdges := selectContractedArborescenceEdges(componentGraph, cycleCoverComponentRoot(componentIds))
+	for _, componentEdge := range sortedModelEdges(componentEdges) {
+		if originalEdge, ok := originalEdgesByComponentEdge[componentEdge]; ok {
+			connectors[originalEdge] = true
+		}
+	}
+
+	return connectors
+}
+
+type cycleCoverPatch struct {
+	componentEdge    models.Edge
+	insertedForward  models.Edge
+	insertedBackward models.Edge
+	removedFrom      models.Edge
+	removedTo        models.Edge
+	delta            float64
+	valid            bool
+}
+
+func selectInterCycleArborescencePatches(matrix, cycleCover [][]float64, componentIds []int) []cycleCoverPatch {
+	dimension := len(matrix)
+	componentCount := cycleCoverComponentCount(componentIds)
+	if dimension <= 1 || len(cycleCover) != dimension || len(componentIds) != dimension || componentCount <= 1 {
+		return nil
+	}
+
+	componentEdges := selectInterCycleContractedArborescenceComponentEdges(matrix, componentIds)
+	patches := make([]cycleCoverPatch, 0, len(componentEdges))
+	for _, componentEdge := range sortedModelEdges(componentEdges) {
+		patch, ok := findBestCycleCoverPatch(matrix, cycleCover, componentIds, componentEdge)
+		if ok {
+			patches = append(patches, patch)
+		}
+	}
+
+	return patches
+}
+
+func selectInterCycleContractedArborescenceComponentEdges(matrix [][]float64, componentIds []int) map[models.Edge]bool {
+	componentEdges := make(map[models.Edge]bool)
+	dimension := len(matrix)
+	componentCount := cycleCoverComponentCount(componentIds)
+	if dimension <= 1 || len(componentIds) != dimension || componentCount <= 1 {
+		return componentEdges
+	}
+
+	componentGraph, _ := buildCycleCoverComponentGraph(matrix, componentIds)
+	return selectContractedArborescenceEdges(componentGraph, cycleCoverComponentRoot(componentIds))
+}
+
+func selectContractedArborescenceEdges(componentGraph [][]float64, root int) map[models.Edge]bool {
+	componentEdges := make(map[models.Edge]bool)
+	if len(componentGraph) <= 1 {
+		return componentEdges
+	}
+
 	vertices, edges, weights := models.ConvertToEdges(componentGraph)
-	root := componentIds[0]
 	if root < 0 {
 		root = 0
 	}
@@ -725,18 +740,137 @@ func selectInterCycleContractedArborescenceConnectors(matrix [][]float64, compon
 	msa := edmonds.FindMSA(root, vertices, edges, weights)
 	msaa := edmonds.FindMSAA(root, vertices, edges, weights)
 
-	for _, componentEdge := range msa {
-		if originalEdge, ok := originalEdgesByComponentEdge[componentEdge]; ok {
-			connectors[originalEdge] = true
-		}
+	for _, edge := range msa {
+		componentEdges[edge] = true
 	}
-	for _, componentEdge := range msaa {
-		if originalEdge, ok := originalEdgesByComponentEdge[componentEdge]; ok {
-			connectors[originalEdge] = true
+	for _, edge := range msaa {
+		componentEdges[edge] = true
+	}
+
+	return componentEdges
+}
+
+func findBestCycleCoverPatch(matrix, cycleCover [][]float64, componentIds []int, componentEdge models.Edge) (cycleCoverPatch, bool) {
+	if componentEdge.From == componentEdge.To || len(cycleCover) != len(matrix) || len(componentIds) != len(matrix) {
+		return cycleCoverPatch{}, false
+	}
+
+	successors := buildCycleCoverSuccessors(cycleCover)
+	bestPatch := cycleCoverPatch{}
+	for from := 0; from < len(matrix); from++ {
+		if from >= len(componentIds) || componentIds[from] != componentEdge.From {
+			continue
+		}
+
+		fromSuccessor := successors[from]
+		if fromSuccessor < 0 {
+			continue
+		}
+
+		for to := 0; to < len(matrix); to++ {
+			if to >= len(componentIds) || componentIds[to] != componentEdge.To {
+				continue
+			}
+
+			toSuccessor := successors[to]
+			if toSuccessor < 0 {
+				continue
+			}
+
+			insertedForward := models.Edge{From: from, To: toSuccessor}
+			insertedBackward := models.Edge{From: to, To: fromSuccessor}
+			removedFrom := models.Edge{From: from, To: fromSuccessor}
+			removedTo := models.Edge{From: to, To: toSuccessor}
+			delta := edgeDistance(matrix, insertedForward.From, insertedForward.To) +
+				edgeDistance(matrix, insertedBackward.From, insertedBackward.To) -
+				edgeDistance(matrix, removedFrom.From, removedFrom.To) -
+				edgeDistance(matrix, removedTo.From, removedTo.To)
+			if math.IsInf(delta, 0) || math.IsNaN(delta) {
+				continue
+			}
+
+			patch := cycleCoverPatch{
+				componentEdge:    componentEdge,
+				insertedForward:  insertedForward,
+				insertedBackward: insertedBackward,
+				removedFrom:      removedFrom,
+				removedTo:        removedTo,
+				delta:            delta,
+				valid:            true,
+			}
+			if isBetterCycleCoverPatch(patch, bestPatch) {
+				bestPatch = patch
+			}
 		}
 	}
 
-	return connectors
+	return bestPatch, bestPatch.valid
+}
+
+func cycleCoverComponentRoot(componentIds []int) int {
+	if len(componentIds) == 0 || componentIds[0] < 0 {
+		return 0
+	}
+	return componentIds[0]
+}
+
+func buildCycleCoverPatchHeuristicModifiers(dimension int, cycleCover [][]float64, patches []cycleCoverPatch, strength float64) [][]float64 {
+	insertedEdges := make(map[models.Edge]bool)
+	removedCycleCoverEdges := make(map[models.Edge]bool)
+	for _, patch := range patches {
+		insertedEdges[patch.insertedForward] = true
+		insertedEdges[patch.insertedBackward] = true
+		removedCycleCoverEdges[patch.removedFrom] = true
+		removedCycleCoverEdges[patch.removedTo] = true
+	}
+
+	return buildCycleCoverConnectorHeuristicModifiers(dimension, cycleCover, insertedEdges, removedCycleCoverEdges, strength)
+}
+
+func buildCycleCoverSuccessors(cycleCover [][]float64) []int {
+	successors := make([]int, len(cycleCover))
+	for i := range successors {
+		successors[i] = -1
+	}
+
+	for from := range cycleCover {
+		successors[from] = cycleCoverSuccessor(cycleCover, from)
+	}
+
+	return successors
+}
+
+func isBetterCycleCoverPatch(candidate, current cycleCoverPatch) bool {
+	if !current.valid {
+		return true
+	}
+	if candidate.delta != current.delta {
+		return candidate.delta < current.delta
+	}
+	if candidate.componentEdge != current.componentEdge {
+		return edgeLess(candidate.componentEdge, current.componentEdge)
+	}
+	if candidate.insertedForward != current.insertedForward {
+		return edgeLess(candidate.insertedForward, current.insertedForward)
+	}
+	if candidate.insertedBackward != current.insertedBackward {
+		return edgeLess(candidate.insertedBackward, current.insertedBackward)
+	}
+	if candidate.removedFrom != current.removedFrom {
+		return edgeLess(candidate.removedFrom, current.removedFrom)
+	}
+	return edgeLess(candidate.removedTo, current.removedTo)
+}
+
+func sortedModelEdges(edgeSet map[models.Edge]bool) []models.Edge {
+	edges := make([]models.Edge, 0, len(edgeSet))
+	for edge := range edgeSet {
+		edges = append(edges, edge)
+	}
+	sort.Slice(edges, func(i, j int) bool {
+		return edgeLess(edges[i], edges[j])
+	})
+	return edges
 }
 
 func buildCycleCoverComponentGraph(matrix [][]float64, componentIds []int) ([][]float64, map[models.Edge]models.Edge) {

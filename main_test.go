@@ -245,7 +245,7 @@ func TestBuildCycleCoverContractedArborescenceHeuristicModifiersUsesComponentGra
 	}
 }
 
-func TestBuildCycleCoverSpliceArborescenceHeuristicModifiersNeutralizesSplicedCycleEdges(t *testing.T) {
+func TestBuildCycleCoverSpliceArborescenceHeuristicModifiersUsesArborescenceGuidedPatches(t *testing.T) {
 	matrix := [][]float64{
 		{0, 1, 8, 6, 9, 10},
 		{1, 0, 2, 7, 11, 12},
@@ -265,20 +265,63 @@ func TestBuildCycleCoverSpliceArborescenceHeuristicModifiersNeutralizesSplicedCy
 
 	modifiers := buildCycleCoverSpliceArborescenceHeuristicModifiers(matrix, cycleCover, 0.5)
 	expected := [][]float64{
-		{1, 1.5, 1, 1, 1, 1},
-		{1, 1, 1.25, 1, 1, 1},
-		{1, 1, 1, 1.5, 1, 1},
+		{1, 1, 1, 1.25, 1, 1},
+		{1, 1, 1, 1, 1.25, 1},
+		{1, 1.25, 1, 1, 1, 1},
 		{1, 1, 1, 1, 1.25, 1},
 		{1, 1, 1, 1, 1, 1.5},
-		{1.25, 1, 1, 1, 1, 1},
+		{1.25, 1, 1.25, 1, 1, 1},
 	}
 
 	if !reflect.DeepEqual(modifiers, expected) {
-		t.Fatalf("unexpected splice-aware cycle-cover/arborescence modifiers\nwant: %v\n got: %v", expected, modifiers)
+		t.Fatalf("unexpected patch-aware cycle-cover/arborescence modifiers\nwant: %v\n got: %v", expected, modifiers)
 	}
 }
 
-func TestSelectCycleCoverSpliceEdgesSelectsOutgoingAndIncomingCycleEdges(t *testing.T) {
+func TestFindBestCycleCoverPatchUsesDirectedTwoEdgeExchange(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 20, 50},
+		{1, 0, 2, 40},
+		{20, 50, 0, 1},
+		{2, 40, 1, 0},
+	}
+	cycleCover := [][]float64{
+		{0, 1, 0, 0},
+		{1, 0, 0, 0},
+		{0, 0, 0, 1},
+		{0, 0, 1, 0},
+	}
+	componentIds := []int{0, 0, 1, 1}
+
+	patch, ok := findBestCycleCoverPatch(matrix, cycleCover, componentIds, models.Edge{From: 0, To: 1})
+	if !ok {
+		t.Fatal("expected a patch between two cycle-cover components")
+	}
+
+	expected := cycleCoverPatch{
+		componentEdge:    models.Edge{From: 0, To: 1},
+		insertedForward:  models.Edge{From: 1, To: 2},
+		insertedBackward: models.Edge{From: 3, To: 0},
+		removedFrom:      models.Edge{From: 1, To: 0},
+		removedTo:        models.Edge{From: 3, To: 2},
+		delta:            2,
+		valid:            true,
+	}
+
+	if !reflect.DeepEqual(patch, expected) {
+		t.Fatalf("unexpected best patch\nwant: %v\n got: %v", expected, patch)
+	}
+}
+
+func TestSelectInterCycleArborescencePatchesUsesMsaAndMsaaComponentPairs(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 8, 6, 9, 10},
+		{1, 0, 2, 7, 11, 12},
+		{6, 5, 0, 1, 10, 8},
+		{9, 6, 1, 0, 3, 9},
+		{7, 8, 5, 6, 0, 1},
+		{4, 9, 7, 5, 1, 0},
+	}
 	cycleCover := [][]float64{
 		{0, 1, 0, 0, 0, 0},
 		{1, 0, 0, 0, 0, 0},
@@ -287,21 +330,41 @@ func TestSelectCycleCoverSpliceEdgesSelectsOutgoingAndIncomingCycleEdges(t *test
 		{0, 0, 0, 0, 0, 1},
 		{0, 0, 0, 0, 1, 0},
 	}
-	connectors := map[models.Edge]bool{
-		{From: 1, To: 2}: true,
-		{From: 3, To: 4}: true,
-		{From: 5, To: 0}: true,
+	componentIds := []int{0, 0, 1, 1, 2, 2}
+
+	patches := selectInterCycleArborescencePatches(matrix, cycleCover, componentIds)
+	expected := []cycleCoverPatch{
+		{
+			componentEdge:    models.Edge{From: 0, To: 1},
+			insertedForward:  models.Edge{From: 0, To: 3},
+			insertedBackward: models.Edge{From: 2, To: 1},
+			removedFrom:      models.Edge{From: 0, To: 1},
+			removedTo:        models.Edge{From: 2, To: 3},
+			delta:            9,
+			valid:            true,
+		},
+		{
+			componentEdge:    models.Edge{From: 1, To: 2},
+			insertedForward:  models.Edge{From: 3, To: 4},
+			insertedBackward: models.Edge{From: 5, To: 2},
+			removedFrom:      models.Edge{From: 3, To: 2},
+			removedTo:        models.Edge{From: 5, To: 4},
+			delta:            8,
+			valid:            true,
+		},
+		{
+			componentEdge:    models.Edge{From: 2, To: 0},
+			insertedForward:  models.Edge{From: 5, To: 0},
+			insertedBackward: models.Edge{From: 1, To: 4},
+			removedFrom:      models.Edge{From: 5, To: 4},
+			removedTo:        models.Edge{From: 1, To: 0},
+			delta:            13,
+			valid:            true,
+		},
 	}
 
-	splicedEdges := selectCycleCoverSpliceEdges(cycleCover, connectors)
-	expected := map[models.Edge]bool{
-		{From: 1, To: 0}: true,
-		{From: 3, To: 2}: true,
-		{From: 5, To: 4}: true,
-	}
-
-	if !reflect.DeepEqual(splicedEdges, expected) {
-		t.Fatalf("unexpected spliced cycle-cover edges\nwant: %v\n got: %v", expected, splicedEdges)
+	if !reflect.DeepEqual(patches, expected) {
+		t.Fatalf("unexpected arborescence-guided patches\nwant: %v\n got: %v", expected, patches)
 	}
 }
 
