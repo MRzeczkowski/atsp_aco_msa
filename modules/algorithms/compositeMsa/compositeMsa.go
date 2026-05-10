@@ -13,10 +13,16 @@ import (
 )
 
 type Edge = models.Edge
+type finder func(root int, vertices []int, edges []Edge, weights map[Edge]float64) []Edge
 
 func Read(rootCmsaPath string) ([][]float64, error) {
 	cmsaPath := path.Join(rootCmsaPath, "cmsa.csv")
 	return readFromCsv(cmsaPath)
+}
+
+func ReadAnti(rootCmsaaPath string) ([][]float64, error) {
+	cmsaaPath := path.Join(rootCmsaaPath, "cmsaa.csv")
+	return readFromCsv(cmsaaPath)
 }
 
 func ReadMsas(rootCmsaPath string) ([][][]float64, error) {
@@ -44,72 +50,80 @@ func ReadMsas(rootCmsaPath string) ([][][]float64, error) {
 }
 
 func Create(matrix [][]float64, rootCmsaPath string) ([][]float64, error) {
+	return createComposite(matrix, rootCmsaPath, "cmsa.csv", "msas", edmonds.FindMSA)
+}
+
+func CreateAnti(matrix [][]float64, rootCmsaaPath string) ([][]float64, error) {
+	return createComposite(matrix, rootCmsaaPath, "cmsaa.csv", "msaas", edmonds.FindMSAA)
+}
+
+func createComposite(matrix [][]float64, rootPath, compositeFileName, arborescencesDirectoryName string, find finder) ([][]float64, error) {
 	vertices, edges, weights := models.ConvertToEdges(matrix)
 
 	dimension := len(matrix)
 
-	cmsa := make([][]float64, dimension)
+	composite := make([][]float64, dimension)
 	for i := range dimension {
-		cmsa[i] = make([]float64, dimension)
+		composite[i] = make([]float64, dimension)
 	}
 
-	msaRootPath := path.Join(rootCmsaPath, "msas")
-	err := os.MkdirAll(msaRootPath, os.ModePerm)
+	arborescencesRootPath := path.Join(rootPath, arborescencesDirectoryName)
+	err := os.MkdirAll(arborescencesRootPath, os.ModePerm)
 	if err != nil {
 		return nil, err
 	}
 
-	msas := make([][]Edge, dimension)
+	arborescences := make([][]Edge, dimension)
 	occurrences := make(map[Edge]float64)
 
 	for i := 0; i < dimension; i++ {
 
-		msaCsvFileName := fmt.Sprintf("%d.csv", i)
-		msaPath := path.Join(msaRootPath, msaCsvFileName)
+		arborescenceCsvFileName := fmt.Sprintf("%d.csv", i)
+		arborescencePath := path.Join(arborescencesRootPath, arborescenceCsvFileName)
 
-		var msa []Edge
-		msaMatrix, _ := readFromCsv(msaPath)
+		var arborescence []Edge
+		arborescenceMatrix, _ := readFromCsv(arborescencePath)
 
-		if msaMatrix != nil {
-			_, msa, msaMatrixWeights := models.ConvertToEdges(msaMatrix)
+		if arborescenceMatrix != nil {
+			_, arborescence, arborescenceMatrixWeights := models.ConvertToEdges(arborescenceMatrix)
 
-			for _, edge := range msa {
-				if msaMatrixWeights[edge] == 0 {
+			for _, edge := range arborescence {
+				if arborescenceMatrixWeights[edge] == 0 {
 					continue
 				}
 
 				occurrences[edge]++
 			}
 		} else {
-			msa = edmonds.FindMSA(i, vertices, edges, weights)
-			msaMatrix = models.ConvertToMatrix(msa, dimension)
+			arborescence = find(i, vertices, edges, weights)
+			arborescenceMatrix = models.ConvertToMatrix(arborescence, dimension)
 
-			err := saveToCsv(msaMatrix, msaPath)
+			err := saveToCsv(arborescenceMatrix, arborescencePath)
 			if err != nil {
 				return nil, err
 			}
 
-			for _, edge := range msa {
+			for _, edge := range arborescence {
 				occurrences[edge]++
 			}
 		}
 
-		msas[i] = msa
+		arborescences[i] = arborescence
 	}
 
-	for _, msa := range msas {
-		for _, edge := range msa {
-			cmsa[edge.From][edge.To] = occurrences[edge]
+	for _, arborescence := range arborescences {
+		for _, edge := range arborescence {
+			composite[edge.From][edge.To] = occurrences[edge]
 		}
 	}
 
-	cmsaPath := path.Join(rootCmsaPath, "cmsa.csv")
-	err = saveToCsv(cmsa, cmsaPath)
+	compositePath := path.Join(rootPath, compositeFileName)
+	err = saveToCsv(composite, compositePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return cmsa, nil
+	return composite, nil
 }
 
 func readFromCsv(path string) ([][]float64, error) {
