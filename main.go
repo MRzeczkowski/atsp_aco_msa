@@ -1802,11 +1802,165 @@ func runAnalysisMode(atspsData []AtspData) error {
 		return err
 	}
 
+	heuristicBoostSummaryPath := filepath.Join(resultsDirectoryName, "heuristic_boosted_edges_summary.csv")
+	heuristicBoostRows, err := buildHeuristicBoostSummary(atspsData)
+	if err != nil {
+		return err
+	}
+	if err := saveHeuristicBoostSummary(heuristicBoostSummaryPath, heuristicBoostRows); err != nil {
+		return err
+	}
+
 	fmt.Printf("CMSA/solution analysis summary saved to %s\n", cmsaSolutionSummaryPath)
 	fmt.Printf("CMSA/solution analysis report saved to %s\n", cmsaSolutionReportPath)
 	fmt.Printf("Cycle-cover analysis summary saved to %s\n", cycleCoverSummaryPath)
 	fmt.Printf("Cycle-cover analysis report saved to %s\n", cycleCoverReportPath)
+	fmt.Printf("Heuristic boosted-edge summary saved to %s\n", heuristicBoostSummaryPath)
 	return nil
+}
+
+type heuristicBoostSummaryRow struct {
+	instance            string
+	heuristic           string
+	dimension           int
+	boostableEdges      int
+	tourEdgeTarget      int
+	boostedEdges        int
+	boostedEdgeDensity  float64
+	boostedToTourTarget float64
+}
+
+func buildHeuristicBoostSummary(atspsData []AtspData) ([]heuristicBoostSummaryRow, error) {
+	const referenceStrength = 1.0
+	heuristics := []string{
+		heuristicCmsa,
+		heuristicCmsaa,
+		heuristicCmsaAgreement,
+		heuristicCycleCover,
+		heuristicBoth,
+		heuristicArborescences,
+		heuristicContractedArborescences,
+		heuristicSpliceArborescences,
+		heuristicCmsaOverlap,
+		heuristicCmsaDifference,
+	}
+
+	instances := append([]AtspData(nil), atspsData...)
+	sort.SliceStable(instances, func(i, j int) bool {
+		return instances[i].name < instances[j].name
+	})
+
+	rows := make([]heuristicBoostSummaryRow, 0, len(instances)*len(heuristics))
+	for _, atspData := range instances {
+		var cycleCover [][]float64
+		var cycleCoverErr error
+		cycleCoverReady := false
+
+		for _, heuristic := range heuristics {
+			heuristicMatrix, err := readCompositeMatrixForHeuristic(atspData, heuristic)
+			if err != nil {
+				return nil, fmt.Errorf("%s/%s: failed to read heuristic matrix: %w", atspData.name, heuristic, err)
+			}
+
+			if heuristicUsesCycleCover(heuristic) && !cycleCoverReady {
+				cycleCover, _, cycleCoverErr = buildMinimumCycleCoverMatrix(atspData.matrix)
+				if cycleCoverErr != nil {
+					return nil, fmt.Errorf("%s: failed to build minimum cycle cover: %w", atspData.name, cycleCoverErr)
+				}
+				cycleCoverReady = true
+			}
+
+			modifiers := buildHeuristicModifiers(heuristic, atspData.matrix, heuristicMatrix, cycleCover, referenceStrength)
+			rows = append(rows, analyzeHeuristicBoosts(atspData.name, heuristic, modifiers))
+		}
+	}
+
+	return rows, nil
+}
+
+func analyzeHeuristicBoosts(instance, heuristic string, modifiers [][]float64) heuristicBoostSummaryRow {
+	dimension := len(modifiers)
+	totalDirectedEdges := dimension * (dimension - 1)
+	tourEdgeTarget := 0
+	if dimension > 1 {
+		tourEdgeTarget = dimension - 1
+	}
+	boostedEdges := 0
+
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < len(modifiers[i]); j++ {
+			if i == j || modifiers[i][j] <= 1.0 {
+				continue
+			}
+
+			boostedEdges++
+		}
+	}
+
+	boostedEdgeDensity := 0.0
+	if totalDirectedEdges > 0 {
+		boostedEdgeDensity = float64(boostedEdges) / float64(totalDirectedEdges)
+	}
+
+	boostedToTourTarget := 0.0
+	if tourEdgeTarget > 0 {
+		boostedToTourTarget = float64(boostedEdges) / float64(tourEdgeTarget)
+	}
+
+	return heuristicBoostSummaryRow{
+		instance:            instance,
+		heuristic:           heuristic,
+		dimension:           dimension,
+		boostableEdges:      totalDirectedEdges,
+		tourEdgeTarget:      tourEdgeTarget,
+		boostedEdges:        boostedEdges,
+		boostedEdgeDensity:  boostedEdgeDensity,
+		boostedToTourTarget: boostedToTourTarget,
+	}
+}
+
+func saveHeuristicBoostSummary(path string, rows []heuristicBoostSummaryRow) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	header := []string{
+		"Instance",
+		"Heuristic",
+		"Boostable edges",
+		"Tour edge target",
+		"Boosted edges",
+		"Boosted edge density [%]",
+		"Boosted edges vs tour target [%]",
+	}
+	if err := writer.Write(header); err != nil {
+		return err
+	}
+
+	for _, row := range rows {
+		record := []string{
+			row.instance,
+			row.heuristic,
+			strconv.Itoa(row.boostableEdges),
+			strconv.Itoa(row.tourEdgeTarget),
+			strconv.Itoa(row.boostedEdges),
+			fmt.Sprintf("%.2f", 100.0*row.boostedEdgeDensity),
+			fmt.Sprintf("%.2f", 100.0*row.boostedToTourTarget),
+		}
+		if err := writer.Write(record); err != nil {
+			return err
+		}
+	}
+
+	writer.Flush()
+	return writer.Error()
 }
 
 func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plotPathPrefix string) {

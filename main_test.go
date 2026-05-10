@@ -199,6 +199,48 @@ func TestBuildCycleCoverHeuristicModifiersBoostsOnlyCycleCoverEdges(t *testing.T
 	}
 }
 
+func TestAnalyzeHeuristicBoostsSummarizesModifierMatrix(t *testing.T) {
+	modifiers := [][]float64{
+		{1, 2, 1.5},
+		{1, 1, 1},
+		{1.25, 1, 1},
+	}
+
+	row := analyzeHeuristicBoosts("test", "example", modifiers)
+
+	if row.dimension != 3 {
+		t.Fatalf("expected dimension 3, got %d", row.dimension)
+	}
+	if row.boostableEdges != 6 {
+		t.Fatalf("expected 6 boostable edges, got %d", row.boostableEdges)
+	}
+	if row.tourEdgeTarget != 2 {
+		t.Fatalf("expected tour edge target 2, got %d", row.tourEdgeTarget)
+	}
+	if row.boostedEdges != 3 {
+		t.Fatalf("expected 3 boosted edges, got %d", row.boostedEdges)
+	}
+	if row.boostedEdgeDensity != 0.5 {
+		t.Fatalf("expected density 0.5, got %f", row.boostedEdgeDensity)
+	}
+	if row.boostedToTourTarget != 1.5 {
+		t.Fatalf("expected boosted-to-tour-target ratio 1.5, got %f", row.boostedToTourTarget)
+	}
+}
+
+func TestAnalyzeHeuristicBoostsHandlesNeutralMatrix(t *testing.T) {
+	modifiers := [][]float64{
+		{1, 1},
+		{1, 1},
+	}
+
+	row := analyzeHeuristicBoosts("test", "neutral", modifiers)
+
+	if row.boostedEdges != 0 {
+		t.Fatalf("expected no boosted edges, got %d", row.boostedEdges)
+	}
+}
+
 func TestBuildCycleCoverArborescenceHeuristicModifiersBoostsCycleCoverAndInterCycleConnectors(t *testing.T) {
 	matrix := [][]float64{
 		{0, 1, 50, 50},
