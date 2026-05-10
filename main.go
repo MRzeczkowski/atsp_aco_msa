@@ -74,6 +74,7 @@ const (
 	heuristicCmsa                    = "cmsa"
 	heuristicCmsaa                   = "cmsaa"
 	heuristicCmsaAgreement           = "cmsa-agreement"
+	heuristicCmsaUnion               = "cmsa-union"
 	heuristicCycleCover              = "cycle-cover"
 	heuristicBoth                    = "both"
 	heuristicArborescences           = "cycle-cover-arborescences"
@@ -513,6 +514,8 @@ func buildHeuristicModifiers(heuristic string, matrix, cmsa, cycleCover [][]floa
 	case heuristicCmsaa:
 		return buildCmsaHeuristicModifiers(cmsa, strength)
 	case heuristicCmsaAgreement:
+		return buildCmsaHeuristicModifiers(cmsa, strength)
+	case heuristicCmsaUnion:
 		return buildCmsaHeuristicModifiers(cmsa, strength)
 	case heuristicCycleCover:
 		return buildCycleCoverHeuristicModifiers(cycleCover, strength)
@@ -1346,6 +1349,7 @@ func isValidHeuristic(heuristic string) bool {
 	return heuristic == heuristicCmsa ||
 		heuristic == heuristicCmsaa ||
 		heuristic == heuristicCmsaAgreement ||
+		heuristic == heuristicCmsaUnion ||
 		heuristic == heuristicCycleCover ||
 		heuristic == heuristicBoth ||
 		heuristic == heuristicArborescences ||
@@ -1367,7 +1371,8 @@ func heuristicUsesCycleCover(heuristic string) bool {
 
 func heuristicUsesCmsaa(heuristic string) bool {
 	return heuristic == heuristicCmsaa ||
-		heuristic == heuristicCmsaAgreement
+		heuristic == heuristicCmsaAgreement ||
+		heuristic == heuristicCmsaUnion
 }
 
 func heuristicFileSuffix(heuristic string) string {
@@ -1378,6 +1383,8 @@ func heuristicFileSuffix(heuristic string) string {
 		return "_cmsaa"
 	case heuristicCmsaAgreement:
 		return "_cmsa_agreement"
+	case heuristicCmsaUnion:
+		return "_cmsa_union"
 	case heuristicCycleCover:
 		return "_cycle_cover"
 	case heuristicBoth:
@@ -1438,7 +1445,7 @@ func shouldRunAnalysis(mode string) bool {
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, balanced, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, or all")
-	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cmsaa, cmsa-agreement, cycle-cover, both, cycle-cover-arborescences, cycle-cover-contracted-arborescences, cycle-cover-splice-arborescences, cmsa-overlap, or cmsa-difference")
+	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cmsaa, cmsa-agreement, cmsa-union, cycle-cover, both, cycle-cover-arborescences, cycle-cover-contracted-arborescences, cycle-cover-splice-arborescences, cmsa-overlap, or cmsa-difference")
 	flag.Parse()
 
 	if !isValidRunMode(*mode) {
@@ -1447,7 +1454,7 @@ func main() {
 	}
 
 	if !isValidHeuristic(*heuristic) {
-		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, %q, %q, %q, %q, %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCmsaa, heuristicCmsaAgreement, heuristicCycleCover, heuristicBoth, heuristicArborescences, heuristicContractedArborescences, heuristicSpliceArborescences, heuristicCmsaOverlap, heuristicCmsaDifference)
+		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, %q, %q, %q, %q, %q, %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCmsaa, heuristicCmsaAgreement, heuristicCmsaUnion, heuristicCycleCover, heuristicBoth, heuristicArborescences, heuristicContractedArborescences, heuristicSpliceArborescences, heuristicCmsaOverlap, heuristicCmsaDifference)
 		return
 	}
 
@@ -1641,6 +1648,19 @@ func readCompositeMatrixForHeuristic(atspData AtspData, heuristic string) ([][]f
 
 		return buildCmsaAgreementMatrix(cmsa, cmsaa)
 	}
+	if heuristic == heuristicCmsaUnion {
+		cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
+		if err != nil {
+			return nil, err
+		}
+
+		cmsaa, err := compositeMsa.ReadAnti(atspData.cmsaaDirectoryPath)
+		if err != nil {
+			return nil, err
+		}
+
+		return buildCmsaUnionMatrix(cmsa, cmsaa)
+	}
 
 	return compositeMsa.Read(atspData.cmsaDirectoryPath)
 }
@@ -1667,6 +1687,30 @@ func buildCmsaAgreementMatrix(cmsa, cmsaa [][]float64) ([][]float64, error) {
 	}
 
 	return agreement, nil
+}
+
+func buildCmsaUnionMatrix(cmsa, cmsaa [][]float64) ([][]float64, error) {
+	if len(cmsa) != len(cmsaa) {
+		return nil, fmt.Errorf("CMSA and CMSAA dimensions differ: %d != %d", len(cmsa), len(cmsaa))
+	}
+
+	dimension := len(cmsa)
+	union := make([][]float64, dimension)
+	for i := 0; i < dimension; i++ {
+		if len(cmsa[i]) != dimension {
+			return nil, fmt.Errorf("CMSA row %d has length %d, expected %d", i, len(cmsa[i]), dimension)
+		}
+		if len(cmsaa[i]) != dimension {
+			return nil, fmt.Errorf("CMSAA row %d has length %d, expected %d", i, len(cmsaa[i]), dimension)
+		}
+
+		union[i] = make([]float64, dimension)
+		for j := 0; j < dimension; j++ {
+			union[i][j] = math.Max(cmsa[i][j], cmsaa[i][j])
+		}
+	}
+
+	return union, nil
 }
 
 func ensureCmsaArtifacts(atspsData []AtspData) error {
@@ -1836,6 +1880,7 @@ func buildHeuristicBoostSummary(atspsData []AtspData) ([]heuristicBoostSummaryRo
 		heuristicCmsa,
 		heuristicCmsaa,
 		heuristicCmsaAgreement,
+		heuristicCmsaUnion,
 		heuristicCycleCover,
 		heuristicBoth,
 		heuristicArborescences,

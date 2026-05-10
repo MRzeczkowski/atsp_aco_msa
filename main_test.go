@@ -127,6 +127,33 @@ func TestBuildCmsaAgreementMatrixUsesMinimumSupport(t *testing.T) {
 	}
 }
 
+func TestBuildCmsaUnionMatrixUsesMaximumSupport(t *testing.T) {
+	cmsa := [][]float64{
+		{0, 3, 1},
+		{2, 0, 4},
+		{5, 1, 0},
+	}
+	cmsaa := [][]float64{
+		{0, 1, 2},
+		{3, 0, 1},
+		{4, 2, 0},
+	}
+
+	union, err := buildCmsaUnionMatrix(cmsa, cmsaa)
+	if err != nil {
+		t.Fatalf("buildCmsaUnionMatrix returned unexpected error: %v", err)
+	}
+
+	expected := [][]float64{
+		{0, 3, 2},
+		{3, 0, 4},
+		{5, 2, 0},
+	}
+	if !reflect.DeepEqual(union, expected) {
+		t.Fatalf("unexpected CMSA union matrix\nwant: %v\n got: %v", expected, union)
+	}
+}
+
 func TestBuildCmsaAgreementMatrixRejectsMismatchedDimensions(t *testing.T) {
 	cmsa := [][]float64{
 		{0, 1},
@@ -638,6 +665,10 @@ func TestHeuristicSpecificPathsKeepCmsaBaselinePaths(t *testing.T) {
 		t.Fatalf("unexpected CMSA agreement result path: %s", resultFilePathForHeuristic(atspData, heuristicCmsaAgreement))
 	}
 
+	if resultFilePathForHeuristic(atspData, heuristicCmsaUnion) != filepath.Join(resultsDirectoryName, "test", "result_cmsa_union.csv") {
+		t.Fatalf("unexpected CMSA union result path: %s", resultFilePathForHeuristic(atspData, heuristicCmsaUnion))
+	}
+
 	if resultFilePathForHeuristic(atspData, heuristicCycleCover) != filepath.Join(resultsDirectoryName, "test", "result_cycle_cover.csv") {
 		t.Fatalf("unexpected cycle-cover result path: %s", resultFilePathForHeuristic(atspData, heuristicCycleCover))
 	}
@@ -698,6 +729,20 @@ func TestCmsaAgreementHeuristicIsValidAndUsesCmsaa(t *testing.T) {
 
 	if !heuristicUsesCmsaa(heuristicCmsaAgreement) {
 		t.Fatal("CMSA agreement heuristic should require CMSAA artifacts")
+	}
+}
+
+func TestCmsaUnionHeuristicIsValidAndUsesCmsaa(t *testing.T) {
+	if !isValidHeuristic(heuristicCmsaUnion) {
+		t.Fatal("CMSA union heuristic should be valid")
+	}
+
+	if heuristicUsesCycleCover(heuristicCmsaUnion) {
+		t.Fatal("CMSA union heuristic should not require cycle cover")
+	}
+
+	if !heuristicUsesCmsaa(heuristicCmsaUnion) {
+		t.Fatal("CMSA union heuristic should require CMSAA artifacts")
 	}
 }
 
