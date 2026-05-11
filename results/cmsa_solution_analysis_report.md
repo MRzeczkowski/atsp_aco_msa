@@ -10,7 +10,7 @@ Main high-CMSA threshold: 0.8
 - Average optimal-edge CMSA coverage: 60.54%
 - Average high-CMSA precision: 58.40%
 - Average high-CMSA recall: 40.65%
-- Average high-CMSA lift: 43.505327
+- Average high-CMSA lift: 43.505320
 
 ## Notes
 
@@ -27,7 +27,7 @@ Main high-CMSA threshold: 0.8
 | Instance | Unique tours | Opt edges | Opt edge density % | CMSA density % | Coverage % | High precision % | High recall % | Lift | Missing | High not seen |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | atex5 | 159 | 353 | 6.91 | 2.72 | 34.84 | 88.06 | 16.71 | 12.752442 | 230 | 8 |
-| code198 | 1969 | 27126 | 69.54 | 1.01 | 0.30 | 36.55 | 0.27 | 0.525547 | 27044 | 125 |
+| code198 | 2053 | 27134 | 69.56 | 1.01 | 0.30 | 36.55 | 0.27 | 0.525392 | 27052 | 125 |
 | crane100_0 | 1 | 100 | 1.01 | 1.77 | 66.00 | 44.21 | 42.00 | 43.768421 | 34 | 53 |
 | crane100_1 | 1 | 100 | 1.01 | 1.77 | 68.00 | 53.33 | 48.00 | 52.800000 | 32 | 42 |
 | crane100_2 | 1 | 100 | 1.01 | 1.68 | 68.00 | 54.65 | 47.00 | 54.104651 | 32 | 39 |

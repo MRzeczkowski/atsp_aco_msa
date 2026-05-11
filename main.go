@@ -3,11 +3,9 @@ package main
 import (
 	"atsp_aco_msa/modules/algorithms/aco"
 	"atsp_aco_msa/modules/algorithms/compositeMsa"
-	"atsp_aco_msa/modules/algorithms/edmonds"
 	"atsp_aco_msa/modules/algorithms/hungarian"
 	"atsp_aco_msa/modules/analysis/cmsaTours"
 	"atsp_aco_msa/modules/analysis/cycleCover"
-	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/parsing"
 	"atsp_aco_msa/modules/utilities"
 	"encoding/csv"
@@ -65,23 +63,17 @@ const (
 )
 
 const (
-	cmsaHighSignalThreshold             = 1.0
-	cmsaConnectorStrengthFactor         = 0.5
-	arborescenceConnectorStrengthFactor = 0.5
+	cmsaHighSignalThreshold = 1.0
 )
 
 const (
-	heuristicCmsa                    = "cmsa"
-	heuristicCmsaa                   = "cmsaa"
-	heuristicCmsaAgreement           = "cmsa-agreement"
-	heuristicCmsaUnion               = "cmsa-union"
-	heuristicCycleCover              = "cycle-cover"
-	heuristicBoth                    = "both"
-	heuristicArborescences           = "cycle-cover-arborescences"
-	heuristicContractedArborescences = "cycle-cover-contracted-arborescences"
-	heuristicSpliceArborescences     = "cycle-cover-splice-arborescences"
-	heuristicCmsaOverlap             = "cmsa-overlap"
-	heuristicCmsaDifference          = "cmsa-difference"
+	heuristicCmsa           = "cmsa"
+	heuristicCmsaa          = "cmsaa"
+	heuristicCmsaAgreement  = "cmsa-agreement"
+	heuristicCmsaUnion      = "cmsa-union"
+	heuristicCycleCover     = "cycle-cover"
+	heuristicCmsaOverlap    = "cmsa-overlap"
+	heuristicCmsaDifference = "cmsa-difference"
 )
 
 var smokeInstanceFiles = []string{"ftv170.atsp"}
@@ -519,14 +511,6 @@ func buildHeuristicModifiers(heuristic string, matrix, cmsa, cycleCover [][]floa
 		return buildCmsaHeuristicModifiers(cmsa, strength)
 	case heuristicCycleCover:
 		return buildCycleCoverHeuristicModifiers(cycleCover, strength)
-	case heuristicBoth:
-		return buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, matrix, strength)
-	case heuristicArborescences:
-		return buildCycleCoverArborescenceHeuristicModifiers(matrix, cycleCover, strength)
-	case heuristicContractedArborescences:
-		return buildCycleCoverContractedArborescenceHeuristicModifiers(matrix, cycleCover, strength)
-	case heuristicSpliceArborescences:
-		return buildCycleCoverSpliceArborescenceHeuristicModifiers(matrix, cycleCover, strength)
 	case heuristicCmsaOverlap:
 		return buildCmsaCycleCoverMembershipHeuristicModifiers(cmsa, cycleCover, strength, true)
 	case heuristicCmsaDifference:
@@ -606,540 +590,6 @@ func buildCycleCoverHeuristicModifiers(cycleCover [][]float64, strength float64)
 			if i != j && cycleCover[i][j] != 0 {
 				modifiers[i][j] = 1.0 + strength
 			}
-		}
-	}
-
-	return modifiers
-}
-
-func buildCycleCoverArborescenceHeuristicModifiers(matrix, cycleCover [][]float64, strength float64) [][]float64 {
-	dimension := len(matrix)
-	if dimension <= 1 || strength == 0 {
-		return buildNeutralHeuristicModifiers(dimension)
-	}
-
-	componentIds := buildCycleCoverComponentIds(cycleCover)
-	connectors := selectInterCycleArborescenceConnectors(matrix, componentIds)
-	return buildCycleCoverConnectorHeuristicModifiers(dimension, cycleCover, connectors, nil, strength)
-}
-
-func buildCycleCoverContractedArborescenceHeuristicModifiers(matrix, cycleCover [][]float64, strength float64) [][]float64 {
-	dimension := len(matrix)
-	if dimension <= 1 || strength == 0 {
-		return buildNeutralHeuristicModifiers(dimension)
-	}
-
-	componentIds := buildCycleCoverComponentIds(cycleCover)
-	connectors := selectInterCycleContractedArborescenceConnectors(matrix, componentIds)
-	return buildCycleCoverConnectorHeuristicModifiers(dimension, cycleCover, connectors, nil, strength)
-}
-
-func buildCycleCoverSpliceArborescenceHeuristicModifiers(matrix, cycleCover [][]float64, strength float64) [][]float64 {
-	dimension := len(matrix)
-	if dimension <= 1 || strength == 0 {
-		return buildNeutralHeuristicModifiers(dimension)
-	}
-
-	componentIds := buildCycleCoverComponentIds(cycleCover)
-	patches := selectInterCycleArborescencePatches(matrix, cycleCover, componentIds)
-	return buildCycleCoverPatchHeuristicModifiers(dimension, cycleCover, patches, strength)
-}
-
-func buildCycleCoverConnectorHeuristicModifiers(
-	dimension int,
-	cycleCover [][]float64,
-	connectors map[models.Edge]bool,
-	splicedCycleCoverEdges map[models.Edge]bool,
-	strength float64,
-) [][]float64 {
-	modifiers := buildNeutralHeuristicModifiers(dimension)
-	for i := 0; i < dimension; i++ {
-		for j := 0; j < dimension; j++ {
-			if i == j {
-				continue
-			}
-
-			if matrixContainsEdge(cycleCover, i, j) {
-				if !splicedCycleCoverEdges[models.Edge{From: i, To: j}] {
-					modifiers[i][j] = 1.0 + strength
-				}
-				continue
-			}
-
-			if connectors[models.Edge{From: i, To: j}] {
-				modifiers[i][j] = 1.0 + strength*arborescenceConnectorStrengthFactor
-			}
-		}
-	}
-
-	return modifiers
-}
-
-func selectInterCycleContractedArborescenceConnectors(matrix [][]float64, componentIds []int) map[models.Edge]bool {
-	connectors := make(map[models.Edge]bool)
-	dimension := len(matrix)
-	componentCount := cycleCoverComponentCount(componentIds)
-	if dimension <= 1 || len(componentIds) != dimension || componentCount <= 1 {
-		return connectors
-	}
-
-	componentGraph, originalEdgesByComponentEdge := buildCycleCoverComponentGraph(matrix, componentIds)
-	componentEdges := selectContractedArborescenceEdges(componentGraph, cycleCoverComponentRoot(componentIds))
-	for _, componentEdge := range sortedModelEdges(componentEdges) {
-		if originalEdge, ok := originalEdgesByComponentEdge[componentEdge]; ok {
-			connectors[originalEdge] = true
-		}
-	}
-
-	return connectors
-}
-
-type cycleCoverPatch struct {
-	componentEdge    models.Edge
-	insertedForward  models.Edge
-	insertedBackward models.Edge
-	removedFrom      models.Edge
-	removedTo        models.Edge
-	delta            float64
-	valid            bool
-}
-
-func selectInterCycleArborescencePatches(matrix, cycleCover [][]float64, componentIds []int) []cycleCoverPatch {
-	dimension := len(matrix)
-	componentCount := cycleCoverComponentCount(componentIds)
-	if dimension <= 1 || len(cycleCover) != dimension || len(componentIds) != dimension || componentCount <= 1 {
-		return nil
-	}
-
-	componentEdges := selectInterCycleContractedArborescenceComponentEdges(matrix, componentIds)
-	patches := make([]cycleCoverPatch, 0, len(componentEdges))
-	for _, componentEdge := range sortedModelEdges(componentEdges) {
-		patch, ok := findBestCycleCoverPatch(matrix, cycleCover, componentIds, componentEdge)
-		if ok {
-			patches = append(patches, patch)
-		}
-	}
-
-	return patches
-}
-
-func selectInterCycleContractedArborescenceComponentEdges(matrix [][]float64, componentIds []int) map[models.Edge]bool {
-	componentEdges := make(map[models.Edge]bool)
-	dimension := len(matrix)
-	componentCount := cycleCoverComponentCount(componentIds)
-	if dimension <= 1 || len(componentIds) != dimension || componentCount <= 1 {
-		return componentEdges
-	}
-
-	componentGraph, _ := buildCycleCoverComponentGraph(matrix, componentIds)
-	return selectContractedArborescenceEdges(componentGraph, cycleCoverComponentRoot(componentIds))
-}
-
-func selectContractedArborescenceEdges(componentGraph [][]float64, root int) map[models.Edge]bool {
-	componentEdges := make(map[models.Edge]bool)
-	if len(componentGraph) <= 1 {
-		return componentEdges
-	}
-
-	vertices, edges, weights := models.ConvertToEdges(componentGraph)
-	if root < 0 {
-		root = 0
-	}
-
-	msa := edmonds.FindMSA(root, vertices, edges, weights)
-	msaa := edmonds.FindMSAA(root, vertices, edges, weights)
-
-	for _, edge := range msa {
-		componentEdges[edge] = true
-	}
-	for _, edge := range msaa {
-		componentEdges[edge] = true
-	}
-
-	return componentEdges
-}
-
-func findBestCycleCoverPatch(matrix, cycleCover [][]float64, componentIds []int, componentEdge models.Edge) (cycleCoverPatch, bool) {
-	if componentEdge.From == componentEdge.To || len(cycleCover) != len(matrix) || len(componentIds) != len(matrix) {
-		return cycleCoverPatch{}, false
-	}
-
-	successors := buildCycleCoverSuccessors(cycleCover)
-	bestPatch := cycleCoverPatch{}
-	for from := 0; from < len(matrix); from++ {
-		if from >= len(componentIds) || componentIds[from] != componentEdge.From {
-			continue
-		}
-
-		fromSuccessor := successors[from]
-		if fromSuccessor < 0 {
-			continue
-		}
-
-		for to := 0; to < len(matrix); to++ {
-			if to >= len(componentIds) || componentIds[to] != componentEdge.To {
-				continue
-			}
-
-			toSuccessor := successors[to]
-			if toSuccessor < 0 {
-				continue
-			}
-
-			insertedForward := models.Edge{From: from, To: toSuccessor}
-			insertedBackward := models.Edge{From: to, To: fromSuccessor}
-			removedFrom := models.Edge{From: from, To: fromSuccessor}
-			removedTo := models.Edge{From: to, To: toSuccessor}
-			delta := edgeDistance(matrix, insertedForward.From, insertedForward.To) +
-				edgeDistance(matrix, insertedBackward.From, insertedBackward.To) -
-				edgeDistance(matrix, removedFrom.From, removedFrom.To) -
-				edgeDistance(matrix, removedTo.From, removedTo.To)
-			if math.IsInf(delta, 0) || math.IsNaN(delta) {
-				continue
-			}
-
-			patch := cycleCoverPatch{
-				componentEdge:    componentEdge,
-				insertedForward:  insertedForward,
-				insertedBackward: insertedBackward,
-				removedFrom:      removedFrom,
-				removedTo:        removedTo,
-				delta:            delta,
-				valid:            true,
-			}
-			if isBetterCycleCoverPatch(patch, bestPatch) {
-				bestPatch = patch
-			}
-		}
-	}
-
-	return bestPatch, bestPatch.valid
-}
-
-func cycleCoverComponentRoot(componentIds []int) int {
-	if len(componentIds) == 0 || componentIds[0] < 0 {
-		return 0
-	}
-	return componentIds[0]
-}
-
-func buildCycleCoverPatchHeuristicModifiers(dimension int, cycleCover [][]float64, patches []cycleCoverPatch, strength float64) [][]float64 {
-	insertedEdges := make(map[models.Edge]bool)
-	removedCycleCoverEdges := make(map[models.Edge]bool)
-	for _, patch := range patches {
-		insertedEdges[patch.insertedForward] = true
-		insertedEdges[patch.insertedBackward] = true
-		removedCycleCoverEdges[patch.removedFrom] = true
-		removedCycleCoverEdges[patch.removedTo] = true
-	}
-
-	return buildCycleCoverConnectorHeuristicModifiers(dimension, cycleCover, insertedEdges, removedCycleCoverEdges, strength)
-}
-
-func buildCycleCoverSuccessors(cycleCover [][]float64) []int {
-	successors := make([]int, len(cycleCover))
-	for i := range successors {
-		successors[i] = -1
-	}
-
-	for from := range cycleCover {
-		successors[from] = cycleCoverSuccessor(cycleCover, from)
-	}
-
-	return successors
-}
-
-func isBetterCycleCoverPatch(candidate, current cycleCoverPatch) bool {
-	if !current.valid {
-		return true
-	}
-	if candidate.delta != current.delta {
-		return candidate.delta < current.delta
-	}
-	if candidate.componentEdge != current.componentEdge {
-		return edgeLess(candidate.componentEdge, current.componentEdge)
-	}
-	if candidate.insertedForward != current.insertedForward {
-		return edgeLess(candidate.insertedForward, current.insertedForward)
-	}
-	if candidate.insertedBackward != current.insertedBackward {
-		return edgeLess(candidate.insertedBackward, current.insertedBackward)
-	}
-	if candidate.removedFrom != current.removedFrom {
-		return edgeLess(candidate.removedFrom, current.removedFrom)
-	}
-	return edgeLess(candidate.removedTo, current.removedTo)
-}
-
-func sortedModelEdges(edgeSet map[models.Edge]bool) []models.Edge {
-	edges := make([]models.Edge, 0, len(edgeSet))
-	for edge := range edgeSet {
-		edges = append(edges, edge)
-	}
-	sort.Slice(edges, func(i, j int) bool {
-		return edgeLess(edges[i], edges[j])
-	})
-	return edges
-}
-
-func buildCycleCoverComponentGraph(matrix [][]float64, componentIds []int) ([][]float64, map[models.Edge]models.Edge) {
-	componentCount := cycleCoverComponentCount(componentIds)
-	componentGraph := make([][]float64, componentCount)
-	for i := range componentGraph {
-		componentGraph[i] = make([]float64, componentCount)
-		for j := range componentGraph[i] {
-			if i != j {
-				componentGraph[i][j] = math.Inf(1)
-			}
-		}
-	}
-
-	originalEdgesByComponentEdge := make(map[models.Edge]models.Edge)
-	for from := 0; from < len(matrix); from++ {
-		if from >= len(componentIds) || componentIds[from] < 0 {
-			continue
-		}
-
-		fromComponent := componentIds[from]
-		for to := 0; to < len(matrix[from]); to++ {
-			if to >= len(componentIds) || componentIds[to] < 0 {
-				continue
-			}
-
-			toComponent := componentIds[to]
-			if fromComponent == toComponent {
-				continue
-			}
-
-			componentEdge := models.Edge{From: fromComponent, To: toComponent}
-			originalEdge := models.Edge{From: from, To: to}
-			currentEdge, exists := originalEdgesByComponentEdge[componentEdge]
-			currentDistance := componentGraph[fromComponent][toComponent]
-			distance := matrix[from][to]
-			if !exists || distance < currentDistance || (distance == currentDistance && edgeLess(originalEdge, currentEdge)) {
-				componentGraph[fromComponent][toComponent] = distance
-				originalEdgesByComponentEdge[componentEdge] = originalEdge
-			}
-		}
-	}
-
-	return componentGraph, originalEdgesByComponentEdge
-}
-
-func edgeLess(left, right models.Edge) bool {
-	if left.From != right.From {
-		return left.From < right.From
-	}
-	return left.To < right.To
-}
-
-func selectInterCycleArborescenceConnectors(matrix [][]float64, componentIds []int) map[models.Edge]bool {
-	connectors := make(map[models.Edge]bool)
-	dimension := len(matrix)
-	if dimension <= 1 || len(componentIds) != dimension || cycleCoverComponentCount(componentIds) <= 1 {
-		return connectors
-	}
-
-	vertices, edges, weights := models.ConvertToEdges(matrix)
-	root := 0
-	msa := edmonds.FindMSA(root, vertices, edges, weights)
-	msaa := edmonds.FindMSAA(root, vertices, edges, weights)
-
-	for _, edge := range msa {
-		if edgeConnectsDifferentComponents(edge, componentIds) {
-			connectors[edge] = true
-		}
-	}
-	for _, edge := range msaa {
-		if edgeConnectsDifferentComponents(edge, componentIds) {
-			connectors[edge] = true
-		}
-	}
-
-	return connectors
-}
-
-func edgeConnectsDifferentComponents(edge models.Edge, componentIds []int) bool {
-	if edge.From < 0 || edge.From >= len(componentIds) || edge.To < 0 || edge.To >= len(componentIds) {
-		return false
-	}
-
-	fromComponent := componentIds[edge.From]
-	toComponent := componentIds[edge.To]
-	return fromComponent >= 0 && toComponent >= 0 && fromComponent != toComponent
-}
-
-func buildCycleCoverComponentIds(cycleCover [][]float64) []int {
-	dimension := len(cycleCover)
-	componentIds := make([]int, dimension)
-	for i := range componentIds {
-		componentIds[i] = -1
-	}
-
-	componentId := 0
-	for start := 0; start < dimension; start++ {
-		if componentIds[start] != -1 {
-			continue
-		}
-
-		current := start
-		for current >= 0 && current < dimension && componentIds[current] == -1 {
-			componentIds[current] = componentId
-			current = cycleCoverSuccessor(cycleCover, current)
-		}
-
-		componentId++
-	}
-
-	return componentIds
-}
-
-func cycleCoverSuccessor(cycleCover [][]float64, vertex int) int {
-	for next, value := range cycleCover[vertex] {
-		if value != 0 {
-			return next
-		}
-	}
-
-	return -1
-}
-
-type cmsaConnectorEdge struct {
-	from, to int
-}
-
-type cmsaConnectorCandidate struct {
-	edge       cmsaConnectorEdge
-	cmsaWeight float64
-	distance   float64
-	valid      bool
-}
-
-func selectCmsaCycleCoverConnectors(cmsa, distances [][]float64, cycleCoverComponentIds []int) map[cmsaConnectorEdge]bool {
-	connectors := make(map[cmsaConnectorEdge]bool)
-	dimension := len(cmsa)
-	componentCount := cycleCoverComponentCount(cycleCoverComponentIds)
-	if dimension <= 1 || componentCount <= 1 {
-		return connectors
-	}
-
-	bestOutgoing := make([]cmsaConnectorCandidate, componentCount)
-	bestIncoming := make([]cmsaConnectorCandidate, componentCount)
-	maxCmsaSelections := float64(dimension - 1)
-
-	for i := 0; i < dimension; i++ {
-		fromComponent := cycleCoverComponentIds[i]
-		if fromComponent < 0 || fromComponent >= componentCount {
-			continue
-		}
-
-		for j := 0; j < dimension; j++ {
-			if i == j {
-				continue
-			}
-
-			toComponent := cycleCoverComponentIds[j]
-			if toComponent < 0 || toComponent >= componentCount || fromComponent == toComponent {
-				continue
-			}
-
-			cmsaSignal := cmsa[i][j] / maxCmsaSelections
-			if cmsaSignal < cmsaHighSignalThreshold {
-				continue
-			}
-
-			candidate := cmsaConnectorCandidate{
-				edge:       cmsaConnectorEdge{from: i, to: j},
-				cmsaWeight: cmsa[i][j],
-				distance:   edgeDistance(distances, i, j),
-				valid:      true,
-			}
-			if isBetterCmsaConnectorCandidate(candidate, bestOutgoing[fromComponent]) {
-				bestOutgoing[fromComponent] = candidate
-			}
-			if isBetterCmsaConnectorCandidate(candidate, bestIncoming[toComponent]) {
-				bestIncoming[toComponent] = candidate
-			}
-		}
-	}
-
-	for _, candidate := range bestOutgoing {
-		if candidate.valid {
-			connectors[candidate.edge] = true
-		}
-	}
-	for _, candidate := range bestIncoming {
-		if candidate.valid {
-			connectors[candidate.edge] = true
-		}
-	}
-
-	return connectors
-}
-
-func cycleCoverComponentCount(componentIds []int) int {
-	componentCount := 0
-	for _, componentId := range componentIds {
-		if componentId >= componentCount {
-			componentCount = componentId + 1
-		}
-	}
-	return componentCount
-}
-
-func edgeDistance(distances [][]float64, from, to int) float64 {
-	if from < len(distances) && to < len(distances[from]) {
-		return distances[from][to]
-	}
-	return math.Inf(1)
-}
-
-func isBetterCmsaConnectorCandidate(candidate, current cmsaConnectorCandidate) bool {
-	if !current.valid {
-		return true
-	}
-	if candidate.cmsaWeight != current.cmsaWeight {
-		return candidate.cmsaWeight > current.cmsaWeight
-	}
-	if candidate.distance != current.distance {
-		return candidate.distance < current.distance
-	}
-	if candidate.edge.from != current.edge.from {
-		return candidate.edge.from < current.edge.from
-	}
-	return candidate.edge.to < current.edge.to
-}
-
-func buildCmsaCycleCoverHeuristicModifiers(cmsa, cycleCover, distances [][]float64, strength float64) [][]float64 {
-	dimension := len(cmsa)
-	modifiers := buildNeutralHeuristicModifiers(dimension)
-	if dimension <= 1 || strength == 0 {
-		return modifiers
-	}
-
-	cycleCoverComponentIds := buildCycleCoverComponentIds(cycleCover)
-	cmsaConnectors := selectCmsaCycleCoverConnectors(cmsa, distances, cycleCoverComponentIds)
-	for i := 0; i < dimension; i++ {
-		for j := 0; j < dimension; j++ {
-			if i == j {
-				continue
-			}
-
-			cmsaConnectorSignal := 0.0
-			if cmsaConnectors[cmsaConnectorEdge{from: i, to: j}] {
-				cmsaConnectorSignal = 1.0
-			}
-
-			cycleCoverSignal := 0.0
-			if cycleCover[i][j] != 0 {
-				cycleCoverSignal = 1.0
-			}
-
-			combinedSignal := cycleCoverSignal
-			if cycleCoverSignal == 0 {
-				combinedSignal = cmsaConnectorSignal * cmsaConnectorStrengthFactor
-			}
-			modifiers[i][j] = 1.0 + combinedSignal*strength
 		}
 	}
 
@@ -1351,20 +801,12 @@ func isValidHeuristic(heuristic string) bool {
 		heuristic == heuristicCmsaAgreement ||
 		heuristic == heuristicCmsaUnion ||
 		heuristic == heuristicCycleCover ||
-		heuristic == heuristicBoth ||
-		heuristic == heuristicArborescences ||
-		heuristic == heuristicContractedArborescences ||
-		heuristic == heuristicSpliceArborescences ||
 		heuristic == heuristicCmsaOverlap ||
 		heuristic == heuristicCmsaDifference
 }
 
 func heuristicUsesCycleCover(heuristic string) bool {
 	return heuristic == heuristicCycleCover ||
-		heuristic == heuristicBoth ||
-		heuristic == heuristicArborescences ||
-		heuristic == heuristicContractedArborescences ||
-		heuristic == heuristicSpliceArborescences ||
 		heuristic == heuristicCmsaOverlap ||
 		heuristic == heuristicCmsaDifference
 }
@@ -1387,14 +829,6 @@ func heuristicFileSuffix(heuristic string) string {
 		return "_cmsa_union"
 	case heuristicCycleCover:
 		return "_cycle_cover"
-	case heuristicBoth:
-		return "_both"
-	case heuristicArborescences:
-		return "_cycle_cover_arborescences"
-	case heuristicContractedArborescences:
-		return "_cycle_cover_contracted_arborescences"
-	case heuristicSpliceArborescences:
-		return "_cycle_cover_splice_arborescences"
 	case heuristicCmsaOverlap:
 		return "_cmsa_overlap"
 	case heuristicCmsaDifference:
@@ -1445,7 +879,7 @@ func shouldRunAnalysis(mode string) bool {
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, balanced, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, or all")
-	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cmsaa, cmsa-agreement, cmsa-union, cycle-cover, both, cycle-cover-arborescences, cycle-cover-contracted-arborescences, cycle-cover-splice-arborescences, cmsa-overlap, or cmsa-difference")
+	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cmsaa, cmsa-agreement, cmsa-union, cycle-cover, cmsa-overlap, or cmsa-difference")
 	flag.Parse()
 
 	if !isValidRunMode(*mode) {
@@ -1454,7 +888,7 @@ func main() {
 	}
 
 	if !isValidHeuristic(*heuristic) {
-		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, %q, %q, %q, %q, %q, %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCmsaa, heuristicCmsaAgreement, heuristicCmsaUnion, heuristicCycleCover, heuristicBoth, heuristicArborescences, heuristicContractedArborescences, heuristicSpliceArborescences, heuristicCmsaOverlap, heuristicCmsaDifference)
+		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, %q, %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCmsaa, heuristicCmsaAgreement, heuristicCmsaUnion, heuristicCycleCover, heuristicCmsaOverlap, heuristicCmsaDifference)
 		return
 	}
 
@@ -1882,10 +1316,6 @@ func buildHeuristicBoostSummary(atspsData []AtspData) ([]heuristicBoostSummaryRo
 		heuristicCmsaAgreement,
 		heuristicCmsaUnion,
 		heuristicCycleCover,
-		heuristicBoth,
-		heuristicArborescences,
-		heuristicContractedArborescences,
-		heuristicSpliceArborescences,
 		heuristicCmsaOverlap,
 		heuristicCmsaDifference,
 	}
