@@ -527,18 +527,46 @@ func buildCmsaHeuristicModifiers(cmsa [][]float64, strength float64) [][]float64
 		return modifiers
 	}
 
+	type cmsaEdgeCandidate struct {
+		from, to int
+		signal   float64
+	}
+
 	maxCmsaSelections := float64(dimension - 1)
+	candidates := make([]cmsaEdgeCandidate, 0, dimension*(dimension-1))
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
-			if i == j {
+			if i == j || cmsa[i][j] <= 0 {
 				continue
 			}
 
-			cmsaSignal := cmsa[i][j] / maxCmsaSelections
-			if cmsaSignal >= cmsaHighSignalThreshold {
-				modifiers[i][j] = 1.0 + cmsaSignal*strength
-			}
+			candidates = append(candidates, cmsaEdgeCandidate{
+				from:   i,
+				to:     j,
+				signal: cmsa[i][j] / maxCmsaSelections,
+			})
 		}
+	}
+
+	sort.SliceStable(candidates, func(i, j int) bool {
+		left := candidates[i]
+		right := candidates[j]
+		if left.signal != right.signal {
+			return left.signal > right.signal
+		}
+		if left.from != right.from {
+			return left.from < right.from
+		}
+		return left.to < right.to
+	})
+
+	limit := dimension - 1
+	if len(candidates) < limit {
+		limit = len(candidates)
+	}
+	for i := 0; i < limit; i++ {
+		candidate := candidates[i]
+		modifiers[candidate.from][candidate.to] = 1.0 + candidate.signal*strength
 	}
 
 	return modifiers

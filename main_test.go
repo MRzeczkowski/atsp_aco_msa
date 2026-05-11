@@ -61,7 +61,7 @@ func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
 	}
 }
 
-func TestBuildCmsaHeuristicModifiersPreservesCurrentCmsaRule(t *testing.T) {
+func TestBuildCmsaHeuristicModifiersBoostsTopNMinusOneEdges(t *testing.T) {
 	cmsa := [][]float64{
 		{0, 3, 2, 0},
 		{0, 0, 3, 1},
@@ -71,7 +71,7 @@ func TestBuildCmsaHeuristicModifiersPreservesCurrentCmsaRule(t *testing.T) {
 
 	modifiers := buildCmsaHeuristicModifiers(cmsa, 0.5)
 	expected := [][]float64{
-		{1, 1.5, 1, 1},
+		{1, 1.5, 1 + (2.0/3.0)*0.5, 1},
 		{1, 1, 1.5, 1},
 		{1, 1, 1, 1},
 		{1, 1, 1, 1},
