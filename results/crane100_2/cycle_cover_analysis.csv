@@ -40,7 +40,9 @@ Cycle cover high-CMSA precision vs found-optimal edges [%],82.86
 Cycle cover high-CMSA recall vs found-optimal edges [%],29.00
 Cycle cover high-CMSA lift vs found-optimal edge density,82.028571
 Cycle cover edges with positive CMSA,73
+Cycle cover positive-CMSA share [%],73.00
 Cycle cover edges with high CMSA,35
+Cycle cover high-CMSA share [%],35.00
 High-CMSA edges removed by cycle-cover gate,25
 High-CMSA found-optimal edges removed by cycle-cover gate,9
 High-CMSA precision gain from cycle-cover gate,0.195238

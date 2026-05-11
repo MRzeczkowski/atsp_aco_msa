@@ -31,9 +31,14 @@ func TestCalculateAnalysisCycleCoverGateFiltersFalsePositive(t *testing.T) {
 	assertFloat(t, "high-CMSA recall", metrics.HighCmsaMetrics.Recall, 0.25)
 	assertFloat(t, "gated high-CMSA precision", metrics.CycleCoverHighCmsaMetrics.Precision, 1)
 	assertFloat(t, "gated high-CMSA recall", metrics.CycleCoverHighCmsaMetrics.Recall, 0.25)
+	assertFloat(t, "cycle-cover positive-CMSA share", metrics.CycleCoverPositiveCmsaShare, 0.25)
+	assertFloat(t, "cycle-cover high-CMSA share", metrics.CycleCoverHighCmsaShare, 0.25)
 	assertFloat(t, "precision gain", metrics.HighCmsaPrecisionGainFromCycleCover, 0.5)
 	assertFloat(t, "recall loss", metrics.HighCmsaRecallLossFromCycleCover, 0)
 
+	if metrics.CycleCoverEdgesWithPositiveCmsa != 1 {
+		t.Fatalf("expected one cycle-cover edge with positive CMSA support, got %d", metrics.CycleCoverEdgesWithPositiveCmsa)
+	}
 	if metrics.HighCmsaEdgesRemovedByCycleCover != 1 {
 		t.Fatalf("expected one high-CMSA edge to be removed, got %d", metrics.HighCmsaEdgesRemovedByCycleCover)
 	}
@@ -146,7 +151,7 @@ func TestAnalyzeInstanceWritesExpectedFiles(t *testing.T) {
 	}
 
 	assertCsvRowCount(t, config.CycleCoverEdgesCsvPath, 4)
-	assertCsvRowCount(t, config.AnalysisCsvPath, 51)
+	assertCsvRowCount(t, config.AnalysisCsvPath, 53)
 	assertCsvRowCount(t, config.ThresholdsCsvPath, 3)
 	assertCsvRowCount(t, config.CycleCoverOverlapMatrixPath, 3)
 }

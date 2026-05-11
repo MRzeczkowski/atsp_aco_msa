@@ -63,7 +63,9 @@ type InstanceMetrics struct {
 	CycleCoverHighCmsaMetrics     EdgeSetMetrics
 
 	CycleCoverEdgesWithPositiveCmsa int
+	CycleCoverPositiveCmsaShare     float64
 	CycleCoverEdgesWithHighCmsa     int
+	CycleCoverHighCmsaShare         float64
 
 	HighCmsaEdgesRemovedByCycleCover        int
 	HighCmsaOptimalEdgesRemovedByCycleCover int
@@ -238,6 +240,10 @@ func calculateAnalysis(instance string, dimension int, knownOptimal float64, cms
 	}
 	if knownOptimal > 0 {
 		metrics.CycleCoverGapToKnownOptimal = (knownOptimal - cycleCoverCost) / knownOptimal
+	}
+	if metrics.CycleCoverMetrics.EdgeCount > 0 {
+		metrics.CycleCoverPositiveCmsaShare = float64(metrics.CycleCoverEdgesWithPositiveCmsa) / float64(metrics.CycleCoverMetrics.EdgeCount)
+		metrics.CycleCoverHighCmsaShare = float64(metrics.CycleCoverEdgesWithHighCmsa) / float64(metrics.CycleCoverMetrics.EdgeCount)
 	}
 
 	metrics.HighCmsaEdgesRemovedByCycleCover = metrics.HighCmsaMetrics.EdgeCount - metrics.CycleCoverHighCmsaMetrics.EdgeCount
@@ -663,7 +669,9 @@ func saveInstanceAnalysis(path string, analysis InstanceAnalysis) error {
 	rows = append(rows, edgeSetRows("Cycle cover high-CMSA", metrics.CycleCoverHighCmsaMetrics)...)
 	rows = append(rows,
 		[]string{"Cycle cover edges with positive CMSA", strconv.Itoa(metrics.CycleCoverEdgesWithPositiveCmsa)},
+		[]string{"Cycle cover positive-CMSA share [%]", formatPercent(metrics.CycleCoverPositiveCmsaShare)},
 		[]string{"Cycle cover edges with high CMSA", strconv.Itoa(metrics.CycleCoverEdgesWithHighCmsa)},
+		[]string{"Cycle cover high-CMSA share [%]", formatPercent(metrics.CycleCoverHighCmsaShare)},
 		[]string{"High-CMSA edges removed by cycle-cover gate", strconv.Itoa(metrics.HighCmsaEdgesRemovedByCycleCover)},
 		[]string{"High-CMSA found-optimal edges removed by cycle-cover gate", strconv.Itoa(metrics.HighCmsaOptimalEdgesRemovedByCycleCover)},
 		[]string{"High-CMSA precision gain from cycle-cover gate", formatFloat(metrics.HighCmsaPrecisionGainFromCycleCover)},
@@ -788,7 +796,10 @@ func saveSummary(path string, analyses []InstanceAnalysis) error {
 		"High CMSA precision [%]",
 		"High CMSA recall [%]",
 		"High CMSA lift",
+		"Cycle-cover positive-CMSA edges",
+		"Cycle-cover positive-CMSA share [%]",
 		"Cycle-cover high-CMSA edges",
+		"Cycle-cover high-CMSA share [%]",
 		"Cycle-cover high-CMSA precision [%]",
 		"Cycle-cover high-CMSA recall [%]",
 		"Cycle-cover high-CMSA lift",
@@ -824,7 +835,10 @@ func saveSummary(path string, analyses []InstanceAnalysis) error {
 			formatPercent(metrics.HighCmsaMetrics.Precision),
 			formatPercent(metrics.HighCmsaMetrics.Recall),
 			formatFloat(metrics.HighCmsaMetrics.Lift),
+			strconv.Itoa(metrics.CycleCoverEdgesWithPositiveCmsa),
+			formatPercent(metrics.CycleCoverPositiveCmsaShare),
 			strconv.Itoa(metrics.CycleCoverHighCmsaMetrics.EdgeCount),
+			formatPercent(metrics.CycleCoverHighCmsaShare),
 			formatPercent(metrics.CycleCoverHighCmsaMetrics.Precision),
 			formatPercent(metrics.CycleCoverHighCmsaMetrics.Recall),
 			formatFloat(metrics.CycleCoverHighCmsaMetrics.Lift),
@@ -854,6 +868,13 @@ func saveReport(path string, analyses []InstanceAnalysis, highThreshold float64)
 	var instancesWithTours int
 	var cycleCoverPrecisionSum, cycleCoverRecallSum, highCmsaPrecisionSum, highCmsaRecallSum float64
 	var gatedPrecisionSum, gatedRecallSum, precisionGainSum, recallLossSum float64
+	var positiveCmsaShareSum, highCmsaShareSum float64
+
+	for _, analysis := range analyses {
+		metrics := analysis.Metrics
+		positiveCmsaShareSum += metrics.CycleCoverPositiveCmsaShare
+		highCmsaShareSum += metrics.CycleCoverHighCmsaShare
+	}
 
 	for _, analysis := range analyses {
 		if analysis.Metrics.FoundOptimalTourCount == 0 {
@@ -877,6 +898,11 @@ func saveReport(path string, analyses []InstanceAnalysis, highThreshold float64)
 	builder.WriteString("## Summary\n\n")
 	builder.WriteString(fmt.Sprintf("- Instances analyzed: %d\n", len(analyses)))
 	builder.WriteString(fmt.Sprintf("- Instances with found optimal tours: %d\n", instancesWithTours))
+	if len(analyses) > 0 {
+		count := float64(len(analyses))
+		builder.WriteString(fmt.Sprintf("- Average cycle-cover edge share with positive CMSA: %s%%\n", formatPercent(positiveCmsaShareSum/count)))
+		builder.WriteString(fmt.Sprintf("- Average cycle-cover edge share with high CMSA: %s%%\n", formatPercent(highCmsaShareSum/count)))
+	}
 	if instancesWithTours > 0 {
 		count := float64(instancesWithTours)
 		builder.WriteString(fmt.Sprintf("- Average cycle-cover precision: %s%%\n", formatPercent(cycleCoverPrecisionSum/count)))
@@ -893,21 +919,24 @@ func saveReport(path string, analyses []InstanceAnalysis, highThreshold float64)
 	builder.WriteString("## Notes\n\n")
 	builder.WriteString("- `Cycle cover` is the minimum assignment/cycle-cover solution computed from the original ATSP matrix with self-loops forbidden.\n")
 	builder.WriteString("- `High CMSA` uses normalized `CMSA / (dimension - 1)` and the threshold shown above.\n")
+	builder.WriteString("- `Cycle-cover positive-CMSA` is the set of cycle-cover edges with any positive CMSA support.\n")
 	builder.WriteString("- `Cycle-cover high-CMSA` is the strict intersection of high-CMSA edges and minimum-cycle-cover edges.\n")
 	builder.WriteString("- Precision/recall use the union of tours recorded in `solutions.csv`; absent edges are not proven non-optimal.\n")
 	builder.WriteString("- Precision gain and recall loss compare `cycle-cover high-CMSA` against high-CMSA alone.\n\n")
 
 	builder.WriteString("## Instances\n\n")
-	builder.WriteString("| Instance | Tours | Opt edges | CC gap % | CC cycles | CC precision % | CC recall % | High precision % | High recall % | Gated precision % | Gated recall % | Precision gain | Recall loss |\n")
-	builder.WriteString("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+	builder.WriteString("| Instance | Tours | Opt edges | CC gap % | CC cycles | CC in CMSA % | CC in high CMSA % | CC precision % | CC recall % | High precision % | High recall % | Gated precision % | Gated recall % | Precision gain | Recall loss |\n")
+	builder.WriteString("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
 	for _, analysis := range analyses {
 		metrics := analysis.Metrics
-		builder.WriteString(fmt.Sprintf("| %s | %d | %d | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s |\n",
+		builder.WriteString(fmt.Sprintf("| %s | %d | %d | %s | %d | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n",
 			analysis.Instance,
 			metrics.FoundOptimalTourCount,
 			metrics.UniqueFoundOptimalEdgeCount,
 			formatPercent(metrics.CycleCoverGapToKnownOptimal),
 			metrics.CycleCoverCycleCount,
+			formatPercent(metrics.CycleCoverPositiveCmsaShare),
+			formatPercent(metrics.CycleCoverHighCmsaShare),
 			formatPercent(metrics.CycleCoverMetrics.Precision),
 			formatPercent(metrics.CycleCoverMetrics.Recall),
 			formatPercent(metrics.HighCmsaMetrics.Precision),
