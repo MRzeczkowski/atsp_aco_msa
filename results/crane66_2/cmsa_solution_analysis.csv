@@ -3,19 +3,15 @@ Instance,crane66_2
 Dimension,66
 Unique found-optimal tours,1
 Unique found-optimal edges,66
-Found-optimal edge density [%],1.54
-CMSA positive edges,114
-CMSA positive density [%],2.66
-High CMSA threshold,0.800000
-High CMSA edges,60
-High CMSA density [%],1.40
-Found-optimal edge CMSA coverage [%],74.24
-High-CMSA precision vs found-optimal edges [%],61.67
-High-CMSA recall vs found-optimal edges [%],56.06
-High-CMSA lift vs found-optimal edge density,40.083333
-Avg normalized CMSA on found-optimal edges,0.569464
-Median normalized CMSA on found-optimal edges,0.846154
-Avg normalized CMSA on positive edges not seen in found-optimal tours,0.431243
-Median normalized CMSA on positive edges not seen in found-optimal tours,0.153846
-Missing found-optimal edges,17
-High-CMSA edges not seen in found-optimal tours,23
+Raw CMSA found-optimal edge coverage [%],74.24
+Threshold CMSA threshold,0.800000
+Threshold CMSA edges,60
+Threshold CMSA precision [%],61.67
+Threshold CMSA recall [%],56.06
+Threshold CMSA lift,40.083333
+Top CMSA edges,65
+Top CMSA precision [%],56.92
+Top CMSA recall [%],56.06
+Top CMSA lift,37.000000
+Top CMSA avg tour coverage [%],56.06
+Top CMSA best tour coverage [%],56.06

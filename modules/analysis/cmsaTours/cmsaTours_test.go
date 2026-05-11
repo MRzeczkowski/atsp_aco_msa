@@ -25,10 +25,17 @@ func TestCalculateMetricsPerfectOverlap(t *testing.T) {
 	assertFloat(t, "precision", metrics.HighCmsaPrecision, 1.0)
 	assertFloat(t, "recall", metrics.HighCmsaRecall, 1.0)
 	assertFloat(t, "lift", metrics.HighCmsaLift, 3.0)
+	assertInt(t, "top CMSA edges", metrics.TopCmsaEdgeCount, 3)
+	assertFloat(t, "top CMSA precision", metrics.TopCmsaPrecision, 1.0)
+	assertFloat(t, "top CMSA recall", metrics.TopCmsaRecall, 3.0/4.0)
+	assertFloat(t, "top CMSA lift", metrics.TopCmsaLift, 3.0)
+	assertFloat(t, "top CMSA average tour coverage", metrics.TopCmsaAverageTourCoverage, 3.0/4.0)
+	assertFloat(t, "top CMSA max tour coverage", metrics.TopCmsaMaxTourCoverage, 3.0/4.0)
 	assertFloat(t, "avg optimal CMSA", metrics.AverageNormalizedCmsaOnOptimalEdges, 1.0)
 	assertFloat(t, "median optimal CMSA", metrics.MedianNormalizedCmsaOnOptimalEdges, 1.0)
 	assertInt(t, "missing optimal edges", metrics.MissingFoundOptimalEdges, 0)
 	assertInt(t, "false-positive high edges", metrics.FalsePositiveHighCmsaEdges, 0)
+	assertInt(t, "false-positive top edges", metrics.TopCmsaFalsePositiveEdges, 0)
 }
 
 func TestCalculateMetricsNoOverlap(t *testing.T) {
@@ -43,6 +50,9 @@ func TestCalculateMetricsNoOverlap(t *testing.T) {
 	assertFloat(t, "precision", metrics.HighCmsaPrecision, 0.0)
 	assertFloat(t, "recall", metrics.HighCmsaRecall, 0.0)
 	assertFloat(t, "lift", metrics.HighCmsaLift, 0.0)
+	assertFloat(t, "top CMSA precision", metrics.TopCmsaPrecision, 0.0)
+	assertFloat(t, "top CMSA recall", metrics.TopCmsaRecall, 0.0)
+	assertFloat(t, "top CMSA average tour coverage", metrics.TopCmsaAverageTourCoverage, 0.0)
 	assertFloat(t, "avg optimal CMSA", metrics.AverageNormalizedCmsaOnOptimalEdges, 0.0)
 	assertFloat(t, "median optimal CMSA", metrics.MedianNormalizedCmsaOnOptimalEdges, 0.0)
 	assertFloat(t, "avg not-found positive CMSA", metrics.AverageNormalizedCmsaOnNotFoundPositive, 1.0)
@@ -67,6 +77,11 @@ func TestCalculateMetricsPartialOverlap(t *testing.T) {
 	assertFloat(t, "precision", metrics.HighCmsaPrecision, 1.0/3.0)
 	assertFloat(t, "recall", metrics.HighCmsaRecall, 0.25)
 	assertFloat(t, "lift", metrics.HighCmsaLift, 1.0)
+	assertInt(t, "top CMSA edges", metrics.TopCmsaEdgeCount, 3)
+	assertFloat(t, "top CMSA precision", metrics.TopCmsaPrecision, 1.0/3.0)
+	assertFloat(t, "top CMSA recall", metrics.TopCmsaRecall, 0.25)
+	assertFloat(t, "top CMSA lift", metrics.TopCmsaLift, 1.0)
+	assertFloat(t, "top CMSA average tour coverage", metrics.TopCmsaAverageTourCoverage, 0.25)
 	assertFloat(t, "avg optimal CMSA", metrics.AverageNormalizedCmsaOnOptimalEdges, 1.0/3.0)
 	assertFloat(t, "median optimal CMSA", metrics.MedianNormalizedCmsaOnOptimalEdges, 1.0/6.0)
 	assertFloat(t, "avg not-found positive CMSA", metrics.AverageNormalizedCmsaOnNotFoundPositive, 7.0/9.0)
@@ -90,6 +105,9 @@ func TestCalculateMetricsNoFoundOptimalTours(t *testing.T) {
 	assertFloat(t, "precision", metrics.HighCmsaPrecision, 0.0)
 	assertFloat(t, "recall", metrics.HighCmsaRecall, 0.0)
 	assertFloat(t, "lift", metrics.HighCmsaLift, 0.0)
+	assertInt(t, "top CMSA edges", metrics.TopCmsaEdgeCount, 2)
+	assertFloat(t, "top CMSA precision", metrics.TopCmsaPrecision, 0.0)
+	assertFloat(t, "top CMSA recall", metrics.TopCmsaRecall, 0.0)
 	assertFloat(t, "avg not-found positive CMSA", metrics.AverageNormalizedCmsaOnNotFoundPositive, 0.0)
 	assertInt(t, "missing optimal edges", metrics.MissingFoundOptimalEdges, 0)
 	assertInt(t, "false-positive high edges", metrics.FalsePositiveHighCmsaEdges, 0)
@@ -166,7 +184,7 @@ func TestAnalyzeInstancesNoFoundToursSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read summary: %v", err)
 	}
-	if !strings.Contains(string(summary), "synthetic,3,0,0,0.00,3,50.00") {
+	if !strings.Contains(string(summary), "synthetic,0,0,0.00,0.800000,0") {
 		t.Fatalf("summary does not contain expected no-tour row:\n%s", string(summary))
 	}
 

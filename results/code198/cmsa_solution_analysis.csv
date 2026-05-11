@@ -3,19 +3,15 @@ Instance,code198
 Dimension,198
 Unique found-optimal tours,2053
 Unique found-optimal edges,27134
-Found-optimal edge density [%],69.56
-CMSA positive edges,393
-CMSA positive density [%],1.01
-High CMSA threshold,0.800000
-High CMSA edges,197
-High CMSA density [%],0.51
-Found-optimal edge CMSA coverage [%],0.30
-High-CMSA precision vs found-optimal edges [%],36.55
-High-CMSA recall vs found-optimal edges [%],0.27
-High-CMSA lift vs found-optimal edge density,0.525392
-Avg normalized CMSA on found-optimal edges,0.002656
-Median normalized CMSA on found-optimal edges,0.000000
-Avg normalized CMSA on positive edges not seen in found-optimal tours,0.404900
-Median normalized CMSA on positive edges not seen in found-optimal tours,0.005076
-Missing found-optimal edges,27052
-High-CMSA edges not seen in found-optimal tours,125
+Raw CMSA found-optimal edge coverage [%],0.30
+Threshold CMSA threshold,0.800000
+Threshold CMSA edges,197
+Threshold CMSA precision [%],36.55
+Threshold CMSA recall [%],0.27
+Threshold CMSA lift,0.525392
+Top CMSA edges,197
+Top CMSA precision [%],36.55
+Top CMSA recall [%],0.27
+Top CMSA lift,0.525392
+Top CMSA avg tour coverage [%],1.01
+Top CMSA best tour coverage [%],1.01

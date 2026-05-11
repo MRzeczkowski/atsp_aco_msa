@@ -3,19 +3,15 @@ Instance,ftv64
 Dimension,65
 Unique found-optimal tours,119
 Unique found-optimal edges,92
-Found-optimal edge density [%],2.21
-CMSA positive edges,99
-CMSA positive density [%],2.38
-High CMSA threshold,0.800000
-High CMSA edges,58
-High CMSA density [%],1.39
-Found-optimal edge CMSA coverage [%],64.13
-High-CMSA precision vs found-optimal edges [%],62.07
-High-CMSA recall vs found-optimal edges [%],39.13
-High-CMSA lift vs found-optimal edge density,28.065967
-Avg normalized CMSA on found-optimal edges,0.425781
-Median normalized CMSA on found-optimal edges,0.054688
-Avg normalized CMSA on positive edges not seen in found-optimal tours,0.645703
-Median normalized CMSA on positive edges not seen in found-optimal tours,0.914062
-Missing found-optimal edges,33
-High-CMSA edges not seen in found-optimal tours,22
+Raw CMSA found-optimal edge coverage [%],64.13
+Threshold CMSA threshold,0.800000
+Threshold CMSA edges,58
+Threshold CMSA precision [%],62.07
+Threshold CMSA recall [%],39.13
+Threshold CMSA lift,28.065967
+Top CMSA edges,64
+Top CMSA precision [%],59.38
+Top CMSA recall [%],41.30
+Top CMSA lift,26.847826
+Top CMSA avg tour coverage [%],49.54
+Top CMSA best tour coverage [%],53.85

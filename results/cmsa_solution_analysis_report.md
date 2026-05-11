@@ -1,56 +1,124 @@
 # CMSA-Solution Analysis
 
-Main high-CMSA threshold: 0.8
-
-## Summary
-
 - Instances analyzed: 28
 - Instances with found optimal tours: 23
 - Instances without found optimal tours: 5
-- Average optimal-edge CMSA coverage: 60.54%
-- Average high-CMSA precision: 58.40%
-- Average high-CMSA recall: 40.65%
-- Average high-CMSA lift: 43.505320
 
-## Notes
+## How To Read This
 
-- `solutions.csv` is treated as the set of found optimal tours; `Opt edges` is the directed edge union across those tours.
-- `Opt edge density` is the random edge-hit baseline used by lift.
-- Normalized CMSA values use `CMSA / (dimension - 1)`, matching the scale used by the heuristic.
-- Average and median normalized CMSA on found-optimal edges include missing edges as zero.
-- Rows with no found optimal tours keep CMSA density metrics, but overlap metrics are set to zero because there is no found-tour edge set.
-- Edges marked as not seen in found optimal tours are not proven non-optimal; they are absent from the tours currently recorded in `solutions.csv`.
-- `Lift` is high-CMSA precision divided by `Opt edge density`, so it can be large when the found-optimal edge union is sparse.
+- `Precision` is the share of selected CMSA edges that were seen in found optimal tours.
+- `Recall` is the share of the found-optimal edge union selected by the CMSA variant.
+- `Lift` is precision divided by random edge-hit probability for that instance; higher means the selected edges are less random.
+- `Tour coverage` is per-tour, not union-based: it measures how much of one complete found optimal tour is covered by the selected edges.
 
-## Instances
+## Raw CMSA Coverage
 
-| Instance | Unique tours | Opt edges | Opt edge density % | CMSA density % | Coverage % | High precision % | High recall % | Lift | Missing | High not seen |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| atex5 | 159 | 353 | 6.91 | 2.72 | 34.84 | 88.06 | 16.71 | 12.752442 | 230 | 8 |
-| code198 | 2053 | 27134 | 69.56 | 1.01 | 0.30 | 36.55 | 0.27 | 0.525392 | 27052 | 125 |
-| crane100_0 | 1 | 100 | 1.01 | 1.77 | 66.00 | 44.21 | 42.00 | 43.768421 | 34 | 53 |
-| crane100_1 | 1 | 100 | 1.01 | 1.77 | 68.00 | 53.33 | 48.00 | 52.800000 | 32 | 42 |
-| crane100_2 | 1 | 100 | 1.01 | 1.68 | 68.00 | 54.65 | 47.00 | 54.104651 | 32 | 39 |
-| crane66_0 | 1 | 66 | 1.54 | 2.66 | 69.70 | 51.72 | 45.45 | 33.620690 | 20 | 28 |
-| crane66_1 | 1 | 66 | 1.54 | 2.75 | 62.12 | 40.98 | 37.88 | 26.639344 | 25 | 36 |
-| crane66_2 | 1 | 66 | 1.54 | 2.66 | 74.24 | 61.67 | 56.06 | 40.083333 | 17 | 23 |
-| dc112 | 0 | 0 | 0.00 | 1.78 | 0.00 | 0.00 | 0.00 | 0.000000 | 0 | 0 |
-| dc126 | 0 | 0 | 0.00 | 1.61 | 0.00 | 0.00 | 0.00 | 0.000000 | 0 | 0 |
-| dc134 | 0 | 0 | 0.00 | 1.78 | 0.00 | 0.00 | 0.00 | 0.000000 | 0 | 0 |
-| dc176 | 0 | 0 | 0.00 | 1.28 | 0.00 | 0.00 | 0.00 | 0.000000 | 0 | 0 |
-| dc188 | 0 | 0 | 0.00 | 1.06 | 0.00 | 0.00 | 0.00 | 0.000000 | 0 | 0 |
-| ft53 | 1 | 53 | 1.92 | 3.23 | 69.81 | 45.10 | 43.40 | 23.450980 | 16 | 28 |
-| ft70 | 1 | 70 | 1.45 | 2.42 | 58.57 | 48.48 | 45.71 | 33.454545 | 29 | 34 |
-| ftv100 | 83 | 135 | 1.34 | 1.54 | 65.19 | 60.82 | 43.70 | 45.505918 | 47 | 38 |
-| ftv110 | 63 | 142 | 1.16 | 1.40 | 66.20 | 61.90 | 45.77 | 53.229376 | 48 | 40 |
-| ftv120 | 64 | 158 | 1.09 | 1.27 | 63.92 | 61.74 | 44.94 | 56.737479 | 57 | 44 |
-| ftv130 | 134 | 173 | 1.02 | 1.15 | 65.90 | 65.60 | 47.40 | 64.576185 | 59 | 43 |
-| ftv140 | 109 | 183 | 0.93 | 1.09 | 67.21 | 65.19 | 48.09 | 70.314511 | 60 | 47 |
-| ftv150 | 149 | 201 | 0.89 | 1.01 | 66.17 | 69.44 | 49.75 | 78.254561 | 68 | 44 |
-| ftv160 | 149 | 218 | 0.85 | 0.95 | 67.43 | 68.92 | 46.79 | 81.438135 | 71 | 46 |
-| ftv170 | 531 | 232 | 0.80 | 0.88 | 65.95 | 65.61 | 44.40 | 82.204316 | 79 | 54 |
-| ftv55 | 111 | 80 | 2.60 | 2.82 | 65.00 | 61.70 | 36.25 | 23.755319 | 28 | 18 |
-| ftv64 | 119 | 92 | 2.21 | 2.38 | 64.13 | 62.07 | 39.13 | 28.065967 | 33 | 22 |
-| ftv70 | 109 | 93 | 1.87 | 2.15 | 67.74 | 59.38 | 40.86 | 31.730511 | 30 | 26 |
-| ftv90 | 40 | 113 | 1.38 | 1.72 | 68.14 | 59.77 | 46.02 | 43.320110 | 36 | 35 |
-| td100_1 | 100 | 280 | 2.77 | 1.74 | 27.86 | 56.25 | 19.29 | 20.290179 | 202 | 42 |
+This checks whether CMSA contains found-optimal edges at all before selecting or filtering them.
+
+| Metric | Average |
+|---|---:|
+| Found-optimal edges present in CMSA | 60.54% |
+
+| Instance | Coverage % |
+|---|---:|
+| atex5 | 34.84 |
+| code198 | 0.30 |
+| crane100_0 | 66.00 |
+| crane100_1 | 68.00 |
+| crane100_2 | 68.00 |
+| crane66_0 | 69.70 |
+| crane66_1 | 62.12 |
+| crane66_2 | 74.24 |
+| ft53 | 69.81 |
+| ft70 | 58.57 |
+| ftv100 | 65.19 |
+| ftv110 | 66.20 |
+| ftv120 | 63.92 |
+| ftv130 | 65.90 |
+| ftv140 | 67.21 |
+| ftv150 | 66.17 |
+| ftv160 | 67.43 |
+| ftv170 | 65.95 |
+| ftv55 | 65.00 |
+| ftv64 | 64.13 |
+| ftv70 | 67.74 |
+| ftv90 | 68.14 |
+| td100_1 | 27.86 |
+
+## Threshold CMSA
+
+This variant selects every edge with normalized CMSA support at least 0.8.
+
+| Metric | Average |
+|---|---:|
+| Selected edges | 96.0 |
+| Precision | 58.40% |
+| Recall | 40.65% |
+| Lift | 43.505320 |
+
+| Instance | Edges | Precision % | Recall % | Lift |
+|---|---:|---:|---:|---:|
+| atex5 | 67 | 88.06 | 16.71 | 12.752442 |
+| code198 | 197 | 36.55 | 0.27 | 0.525392 |
+| crane100_0 | 95 | 44.21 | 42.00 | 43.768421 |
+| crane100_1 | 90 | 53.33 | 48.00 | 52.800000 |
+| crane100_2 | 86 | 54.65 | 47.00 | 54.104651 |
+| crane66_0 | 58 | 51.72 | 45.45 | 33.620690 |
+| crane66_1 | 61 | 40.98 | 37.88 | 26.639344 |
+| crane66_2 | 60 | 61.67 | 56.06 | 40.083333 |
+| ft53 | 51 | 45.10 | 43.40 | 23.450980 |
+| ft70 | 66 | 48.48 | 45.71 | 33.454545 |
+| ftv100 | 97 | 60.82 | 43.70 | 45.505918 |
+| ftv110 | 105 | 61.90 | 45.77 | 53.229376 |
+| ftv120 | 115 | 61.74 | 44.94 | 56.737479 |
+| ftv130 | 125 | 65.60 | 47.40 | 64.576185 |
+| ftv140 | 135 | 65.19 | 48.09 | 70.314511 |
+| ftv150 | 144 | 69.44 | 49.75 | 78.254561 |
+| ftv160 | 148 | 68.92 | 46.79 | 81.438135 |
+| ftv170 | 157 | 65.61 | 44.40 | 82.204316 |
+| ftv55 | 47 | 61.70 | 36.25 | 23.755319 |
+| ftv64 | 58 | 62.07 | 39.13 | 28.065967 |
+| ftv70 | 64 | 59.38 | 40.86 | 31.730511 |
+| ftv90 | 87 | 59.77 | 46.02 | 43.320110 |
+| td100_1 | 96 | 56.25 | 19.29 | 20.290179 |
+
+## Top N-1 CMSA
+
+This variant selects a fixed number of edges: the top `dimension - 1` positive CMSA edges, with deterministic tie-breaking by edge id.
+
+| Metric | Average |
+|---|---:|
+| Selected edges | 101.7 |
+| Precision | 56.51% |
+| Recall | 41.95% |
+| Lift | 42.195332 |
+| Average tour coverage | 46.82% |
+| Best-tour coverage | 48.62% |
+
+| Instance | Edges | Precision % | Recall % | Avg tour coverage % | Best-tour coverage % |
+|---|---:|---:|---:|---:|---:|
+| atex5 | 71 | 85.92 | 17.28 | 37.24 | 44.44 |
+| code198 | 197 | 36.55 | 0.27 | 1.01 | 1.01 |
+| crane100_0 | 99 | 43.43 | 43.00 | 43.00 | 43.00 |
+| crane100_1 | 99 | 50.51 | 50.00 | 50.00 | 50.00 |
+| crane100_2 | 99 | 53.54 | 53.00 | 53.00 | 53.00 |
+| crane66_0 | 65 | 46.15 | 45.45 | 45.45 | 45.45 |
+| crane66_1 | 65 | 38.46 | 37.88 | 37.88 | 37.88 |
+| crane66_2 | 65 | 56.92 | 56.06 | 56.06 | 56.06 |
+| ft53 | 52 | 44.23 | 43.40 | 43.40 | 43.40 |
+| ft70 | 69 | 46.38 | 45.71 | 45.71 | 45.71 |
+| ftv100 | 100 | 60.00 | 44.44 | 50.40 | 53.47 |
+| ftv110 | 110 | 61.82 | 47.89 | 52.84 | 54.95 |
+| ftv120 | 120 | 61.67 | 46.84 | 53.76 | 55.37 |
+| ftv130 | 130 | 64.62 | 48.55 | 56.08 | 58.02 |
+| ftv140 | 140 | 64.29 | 49.18 | 56.77 | 58.16 |
+| ftv150 | 150 | 68.00 | 50.75 | 59.94 | 62.25 |
+| ftv160 | 160 | 66.88 | 49.08 | 58.37 | 60.25 |
+| ftv170 | 170 | 63.53 | 46.55 | 54.51 | 57.31 |
+| ftv55 | 55 | 56.36 | 38.75 | 45.46 | 50.00 |
+| ftv64 | 64 | 59.38 | 41.30 | 49.54 | 53.85 |
+| ftv70 | 70 | 57.14 | 43.01 | 48.46 | 52.11 |
+| ftv90 | 90 | 58.89 | 46.90 | 50.93 | 53.85 |
+| td100_1 | 100 | 55.00 | 19.64 | 27.07 | 28.71 |
+
+Instances without found optimal tours are omitted from the overlap tables because precision, recall, and tour coverage cannot be interpreted without a found-tour edge set.
