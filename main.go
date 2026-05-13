@@ -76,7 +76,13 @@ const (
 	heuristicCmsaDifference = "cmsa-difference"
 )
 
-var smokeInstanceFiles = []string{"ftv170.atsp"}
+var smokeInstanceFiles = []string{
+	"ftv64.atsp",
+	"crane66_1.atsp",
+	"crane66_2.atsp",
+	"atex5.atsp",
+	"ftv90.atsp",
+}
 
 var balancedInstanceFiles = []string{
 	"ft53.atsp",
