@@ -61,7 +61,7 @@ func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
 	}
 }
 
-func TestBuildCmsaHeuristicModifiersBoostsTopNMinusOneEdges(t *testing.T) {
+func TestBuildCmsaHeuristicModifiersBoostsOnlyEdgesUsedByEveryMsa(t *testing.T) {
 	cmsa := [][]float64{
 		{0, 3, 2, 0},
 		{0, 0, 3, 1},
@@ -71,7 +71,7 @@ func TestBuildCmsaHeuristicModifiersBoostsTopNMinusOneEdges(t *testing.T) {
 
 	modifiers := buildCmsaHeuristicModifiers(cmsa, 0.5)
 	expected := [][]float64{
-		{1, 1.5, 1 + (2.0/3.0)*0.5, 1},
+		{1, 1.5, 1, 1},
 		{1, 1, 1.5, 1},
 		{1, 1, 1, 1},
 		{1, 1, 1, 1},
@@ -375,7 +375,9 @@ func TestCmsaUnionHeuristicIsValidAndUsesCmsaa(t *testing.T) {
 func TestSelectAtspFilesSmoke(t *testing.T) {
 	paths := []string{
 		filepath.Join("tsplib_files", "ft53.atsp"),
-		filepath.Join("tsplib_files", "ftv170.atsp"),
+	}
+	for _, smokeInstanceFile := range smokeInstanceFiles {
+		paths = append(paths, filepath.Join("tsplib_files", smokeInstanceFile))
 	}
 
 	selected, err := selectAtspFiles(paths, instanceSetSmoke)
@@ -383,8 +385,13 @@ func TestSelectAtspFilesSmoke(t *testing.T) {
 		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
 	}
 
-	if len(selected) != 1 || filepath.Base(selected[0]) != "ftv170.atsp" {
-		t.Fatalf("expected smoke to select only ftv170.atsp, got %v", selected)
+	selectedFiles := make([]string, len(selected))
+	for i, selectedPath := range selected {
+		selectedFiles[i] = filepath.Base(selectedPath)
+	}
+
+	if !reflect.DeepEqual(selectedFiles, smokeInstanceFiles) {
+		t.Fatalf("smoke selection mismatch\nwant: %v\n got: %v", smokeInstanceFiles, selectedFiles)
 	}
 }
 
