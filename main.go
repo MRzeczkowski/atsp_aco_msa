@@ -68,9 +68,6 @@ const (
 
 const (
 	heuristicCmsa           = "cmsa"
-	heuristicCmsaa          = "cmsaa"
-	heuristicCmsaAgreement  = "cmsa-agreement"
-	heuristicCmsaUnion      = "cmsa-union"
 	heuristicCycleCover     = "cycle-cover"
 	heuristicCmsaOverlap    = "cmsa-overlap"
 	heuristicCmsaDifference = "cmsa-difference"
@@ -509,12 +506,6 @@ func buildHeuristicModifiers(heuristic string, matrix, cmsa, cycleCover [][]floa
 	switch heuristic {
 	case heuristicCmsa:
 		return buildCmsaHeuristicModifiers(cmsa, strength)
-	case heuristicCmsaa:
-		return buildCmsaHeuristicModifiers(cmsa, strength)
-	case heuristicCmsaAgreement:
-		return buildCmsaHeuristicModifiers(cmsa, strength)
-	case heuristicCmsaUnion:
-		return buildCmsaHeuristicModifiers(cmsa, strength)
 	case heuristicCycleCover:
 		return buildCycleCoverHeuristicModifiers(cycleCover, strength)
 	case heuristicCmsaOverlap:
@@ -680,10 +671,8 @@ type AtspData struct {
 	knownOptimal float64
 
 	cmsaDirectoryPath,
-	cmsaaDirectoryPath,
 
 	cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
-	cmsaaHeatmapPlotPath, cmsaaHistogramPlotPath,
 
 	resultFilePath,
 	resultPlotFilePrefix,
@@ -704,13 +693,10 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 	name = strings.TrimSuffix(name, ".atsp")
 	resultsDirectoryPath := filepath.Join(resultsDirectoryName, name)
 	cmsaDirectoryPath := filepath.Join(resultsDirectoryPath, "cmsa")
-	cmsaaDirectoryPath := filepath.Join(resultsDirectoryPath, "cmsaa")
 	plotsDirectoryPath := filepath.Join(resultsDirectoryPath, "plots")
 
 	cmsaHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "cmsa_heatmap.png")
 	cmsaHistogramPlotPath := filepath.Join(plotsDirectoryPath, "cmsa_histogram.png")
-	cmsaaHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "cmsaa_heatmap.png")
-	cmsaaHistogramPlotPath := filepath.Join(plotsDirectoryPath, "cmsaa_histogram.png")
 
 	resultFilePath := filepath.Join(resultsDirectoryPath, resultFileName)
 	resultPlotFilePrefix := filepath.Join(plotsDirectoryPath, "best_result")
@@ -732,10 +718,8 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 		knownOptimal,
 
 		cmsaDirectoryPath,
-		cmsaaDirectoryPath,
 
 		cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
-		cmsaaHeatmapPlotPath, cmsaaHistogramPlotPath,
 
 		resultFilePath,
 		resultPlotFilePrefix,
@@ -803,9 +787,6 @@ func isValidRunMode(mode string) bool {
 
 func isValidHeuristic(heuristic string) bool {
 	return heuristic == heuristicCmsa ||
-		heuristic == heuristicCmsaa ||
-		heuristic == heuristicCmsaAgreement ||
-		heuristic == heuristicCmsaUnion ||
 		heuristic == heuristicCycleCover ||
 		heuristic == heuristicCmsaOverlap ||
 		heuristic == heuristicCmsaDifference
@@ -817,22 +798,10 @@ func heuristicUsesCycleCover(heuristic string) bool {
 		heuristic == heuristicCmsaDifference
 }
 
-func heuristicUsesCmsaa(heuristic string) bool {
-	return heuristic == heuristicCmsaa ||
-		heuristic == heuristicCmsaAgreement ||
-		heuristic == heuristicCmsaUnion
-}
-
 func heuristicFileSuffix(heuristic string) string {
 	switch heuristic {
 	case heuristicCmsa:
 		return ""
-	case heuristicCmsaa:
-		return "_cmsaa"
-	case heuristicCmsaAgreement:
-		return "_cmsa_agreement"
-	case heuristicCmsaUnion:
-		return "_cmsa_union"
 	case heuristicCycleCover:
 		return "_cycle_cover"
 	case heuristicCmsaOverlap:
@@ -885,7 +854,7 @@ func shouldRunAnalysis(mode string) bool {
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, balanced, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, or all")
-	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cmsaa, cmsa-agreement, cmsa-union, cycle-cover, cmsa-overlap, or cmsa-difference")
+	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cycle-cover, cmsa-overlap, or cmsa-difference")
 	flag.Parse()
 
 	if !isValidRunMode(*mode) {
@@ -894,7 +863,7 @@ func main() {
 	}
 
 	if !isValidHeuristic(*heuristic) {
-		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, %q, %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCmsaa, heuristicCmsaAgreement, heuristicCmsaUnion, heuristicCycleCover, heuristicCmsaOverlap, heuristicCmsaDifference)
+		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCycleCover, heuristicCmsaOverlap, heuristicCmsaDifference)
 		return
 	}
 
@@ -976,11 +945,6 @@ func startCPUProfile() (func(), error) {
 func runExperimentMode(atspsData []AtspData, heuristic string) error {
 	if err := ensureCmsaArtifacts(atspsData); err != nil {
 		return err
-	}
-	if heuristicUsesCmsaa(heuristic) {
-		if err := ensureCmsaaArtifacts(atspsData); err != nil {
-			return err
-		}
 	}
 
 	experimentParameters := generateParameters()
@@ -1072,85 +1036,7 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 }
 
 func readCompositeMatrixForHeuristic(atspData AtspData, heuristic string) ([][]float64, error) {
-	if heuristic == heuristicCmsaa {
-		return compositeMsa.ReadAnti(atspData.cmsaaDirectoryPath)
-	}
-	if heuristic == heuristicCmsaAgreement {
-		cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
-		if err != nil {
-			return nil, err
-		}
-
-		cmsaa, err := compositeMsa.ReadAnti(atspData.cmsaaDirectoryPath)
-		if err != nil {
-			return nil, err
-		}
-
-		return buildCmsaAgreementMatrix(cmsa, cmsaa)
-	}
-	if heuristic == heuristicCmsaUnion {
-		cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
-		if err != nil {
-			return nil, err
-		}
-
-		cmsaa, err := compositeMsa.ReadAnti(atspData.cmsaaDirectoryPath)
-		if err != nil {
-			return nil, err
-		}
-
-		return buildCmsaUnionMatrix(cmsa, cmsaa)
-	}
-
 	return compositeMsa.Read(atspData.cmsaDirectoryPath)
-}
-
-func buildCmsaAgreementMatrix(cmsa, cmsaa [][]float64) ([][]float64, error) {
-	if len(cmsa) != len(cmsaa) {
-		return nil, fmt.Errorf("CMSA and CMSAA dimensions differ: %d != %d", len(cmsa), len(cmsaa))
-	}
-
-	dimension := len(cmsa)
-	agreement := make([][]float64, dimension)
-	for i := 0; i < dimension; i++ {
-		if len(cmsa[i]) != dimension {
-			return nil, fmt.Errorf("CMSA row %d has length %d, expected %d", i, len(cmsa[i]), dimension)
-		}
-		if len(cmsaa[i]) != dimension {
-			return nil, fmt.Errorf("CMSAA row %d has length %d, expected %d", i, len(cmsaa[i]), dimension)
-		}
-
-		agreement[i] = make([]float64, dimension)
-		for j := 0; j < dimension; j++ {
-			agreement[i][j] = math.Min(cmsa[i][j], cmsaa[i][j])
-		}
-	}
-
-	return agreement, nil
-}
-
-func buildCmsaUnionMatrix(cmsa, cmsaa [][]float64) ([][]float64, error) {
-	if len(cmsa) != len(cmsaa) {
-		return nil, fmt.Errorf("CMSA and CMSAA dimensions differ: %d != %d", len(cmsa), len(cmsaa))
-	}
-
-	dimension := len(cmsa)
-	union := make([][]float64, dimension)
-	for i := 0; i < dimension; i++ {
-		if len(cmsa[i]) != dimension {
-			return nil, fmt.Errorf("CMSA row %d has length %d, expected %d", i, len(cmsa[i]), dimension)
-		}
-		if len(cmsaa[i]) != dimension {
-			return nil, fmt.Errorf("CMSAA row %d has length %d, expected %d", i, len(cmsaa[i]), dimension)
-		}
-
-		union[i] = make([]float64, dimension)
-		for j := 0; j < dimension; j++ {
-			union[i][j] = math.Max(cmsa[i][j], cmsaa[i][j])
-		}
-	}
-
-	return union, nil
 }
 
 func ensureCmsaArtifacts(atspsData []AtspData) error {
@@ -1186,41 +1072,6 @@ func ensureCmsaArtifacts(atspsData []AtspData) error {
 		dimension := len(matrix)
 		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, cmsaHistogramPlotTitle, atspData.cmsaHistogramPlotPath)
 		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func ensureCmsaaArtifacts(atspsData []AtspData) error {
-	for _, atspData := range atspsData {
-		name := atspData.name
-		matrix := atspData.matrix
-		cmsaaDirectoryPath := atspData.cmsaaDirectoryPath
-
-		cmsaa, err := compositeMsa.ReadAnti(cmsaaDirectoryPath)
-		if err != nil {
-			start := time.Now()
-			cmsaa, err = compositeMsa.CreateAnti(matrix, cmsaaDirectoryPath)
-			elapsed := time.Since(start)
-
-			fmt.Printf("\tCreating %s took: %d ms\n", cmsaaDirectoryPath, elapsed.Milliseconds())
-
-			if err != nil {
-				return fmt.Errorf("error saving CMSAA: %w", err)
-			}
-		}
-
-		cmsaaHeatmapPlotTitle := name + " CMSAA heatmap"
-		if err := utilities.SaveHeatmapFromMatrix(cmsaa, cmsaaHeatmapPlotTitle, atspData.cmsaaHeatmapPlotPath); err != nil {
-			return err
-		}
-
-		dataForHistogram := filterZeroes(flattenMatrix(cmsaa))
-		cmsaaHistogramPlotTitle := name + " CMSAA histogram"
-		dimension := len(matrix)
-		if err := utilities.SaveHistogramFromData(dataForHistogram, dimension-1, cmsaaHistogramPlotTitle, atspData.cmsaaHistogramPlotPath); err != nil {
 			return err
 		}
 	}
@@ -1318,9 +1169,6 @@ func buildHeuristicBoostSummary(atspsData []AtspData) ([]heuristicBoostSummaryRo
 	const referenceStrength = 1.0
 	heuristics := []string{
 		heuristicCmsa,
-		heuristicCmsaa,
-		heuristicCmsaAgreement,
-		heuristicCmsaUnion,
 		heuristicCycleCover,
 		heuristicCmsaOverlap,
 		heuristicCmsaDifference,

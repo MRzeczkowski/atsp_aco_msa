@@ -99,74 +99,6 @@ func TestBuildCmsaHeuristicModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *te
 	}
 }
 
-func TestBuildCmsaAgreementMatrixUsesMinimumSupport(t *testing.T) {
-	cmsa := [][]float64{
-		{0, 3, 1},
-		{2, 0, 4},
-		{5, 1, 0},
-	}
-	cmsaa := [][]float64{
-		{0, 1, 2},
-		{3, 0, 1},
-		{4, 2, 0},
-	}
-
-	agreement, err := buildCmsaAgreementMatrix(cmsa, cmsaa)
-	if err != nil {
-		t.Fatalf("buildCmsaAgreementMatrix returned unexpected error: %v", err)
-	}
-
-	expected := [][]float64{
-		{0, 1, 1},
-		{2, 0, 1},
-		{4, 1, 0},
-	}
-	if !reflect.DeepEqual(agreement, expected) {
-		t.Fatalf("unexpected CMSA agreement matrix\nwant: %v\n got: %v", expected, agreement)
-	}
-}
-
-func TestBuildCmsaUnionMatrixUsesMaximumSupport(t *testing.T) {
-	cmsa := [][]float64{
-		{0, 3, 1},
-		{2, 0, 4},
-		{5, 1, 0},
-	}
-	cmsaa := [][]float64{
-		{0, 1, 2},
-		{3, 0, 1},
-		{4, 2, 0},
-	}
-
-	union, err := buildCmsaUnionMatrix(cmsa, cmsaa)
-	if err != nil {
-		t.Fatalf("buildCmsaUnionMatrix returned unexpected error: %v", err)
-	}
-
-	expected := [][]float64{
-		{0, 3, 2},
-		{3, 0, 4},
-		{5, 2, 0},
-	}
-	if !reflect.DeepEqual(union, expected) {
-		t.Fatalf("unexpected CMSA union matrix\nwant: %v\n got: %v", expected, union)
-	}
-}
-
-func TestBuildCmsaAgreementMatrixRejectsMismatchedDimensions(t *testing.T) {
-	cmsa := [][]float64{
-		{0, 1},
-		{1, 0},
-	}
-	cmsaa := [][]float64{
-		{0, 1},
-	}
-
-	if _, err := buildCmsaAgreementMatrix(cmsa, cmsaa); err == nil {
-		t.Fatal("expected mismatched CMSA/CMSAA dimensions to be rejected")
-	}
-}
-
 func TestBuildCmsaCycleCoverMembershipHeuristicModifiersSplitsOverlapAndDifference(t *testing.T) {
 	cmsa := [][]float64{
 		{0, 3, 3, 0},
@@ -299,18 +231,6 @@ func TestHeuristicSpecificPathsKeepCmsaBaselinePaths(t *testing.T) {
 		t.Fatalf("CMSA result path should keep the existing baseline location")
 	}
 
-	if resultFilePathForHeuristic(atspData, heuristicCmsaa) != filepath.Join(resultsDirectoryName, "test", "result_cmsaa.csv") {
-		t.Fatalf("unexpected CMSAA result path: %s", resultFilePathForHeuristic(atspData, heuristicCmsaa))
-	}
-
-	if resultFilePathForHeuristic(atspData, heuristicCmsaAgreement) != filepath.Join(resultsDirectoryName, "test", "result_cmsa_agreement.csv") {
-		t.Fatalf("unexpected CMSA agreement result path: %s", resultFilePathForHeuristic(atspData, heuristicCmsaAgreement))
-	}
-
-	if resultFilePathForHeuristic(atspData, heuristicCmsaUnion) != filepath.Join(resultsDirectoryName, "test", "result_cmsa_union.csv") {
-		t.Fatalf("unexpected CMSA union result path: %s", resultFilePathForHeuristic(atspData, heuristicCmsaUnion))
-	}
-
 	if resultFilePathForHeuristic(atspData, heuristicCycleCover) != filepath.Join(resultsDirectoryName, "test", "result_cycle_cover.csv") {
 		t.Fatalf("unexpected cycle-cover result path: %s", resultFilePathForHeuristic(atspData, heuristicCycleCover))
 	}
@@ -331,44 +251,6 @@ func TestCmsaOverlapAndDifferenceHeuristicsUseCycleCover(t *testing.T) {
 
 	if !heuristicUsesCycleCover(heuristicCmsaOverlap) || !heuristicUsesCycleCover(heuristicCmsaDifference) {
 		t.Fatal("CMSA-overlap and CMSA-difference should require cycle cover")
-	}
-}
-
-func TestCmsaaHeuristicIsValidAndDoesNotUseCycleCover(t *testing.T) {
-	if !isValidHeuristic(heuristicCmsaa) {
-		t.Fatal("CMSAA heuristic should be valid")
-	}
-
-	if heuristicUsesCycleCover(heuristicCmsaa) {
-		t.Fatal("CMSAA heuristic should not require cycle cover")
-	}
-}
-
-func TestCmsaAgreementHeuristicIsValidAndUsesCmsaa(t *testing.T) {
-	if !isValidHeuristic(heuristicCmsaAgreement) {
-		t.Fatal("CMSA agreement heuristic should be valid")
-	}
-
-	if heuristicUsesCycleCover(heuristicCmsaAgreement) {
-		t.Fatal("CMSA agreement heuristic should not require cycle cover")
-	}
-
-	if !heuristicUsesCmsaa(heuristicCmsaAgreement) {
-		t.Fatal("CMSA agreement heuristic should require CMSAA artifacts")
-	}
-}
-
-func TestCmsaUnionHeuristicIsValidAndUsesCmsaa(t *testing.T) {
-	if !isValidHeuristic(heuristicCmsaUnion) {
-		t.Fatal("CMSA union heuristic should be valid")
-	}
-
-	if heuristicUsesCycleCover(heuristicCmsaUnion) {
-		t.Fatal("CMSA union heuristic should not require cycle cover")
-	}
-
-	if !heuristicUsesCmsaa(heuristicCmsaUnion) {
-		t.Fatal("CMSA union heuristic should require CMSAA artifacts")
 	}
 }
 
