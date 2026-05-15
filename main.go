@@ -948,7 +948,7 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 	}
 
 	experimentParameters := generateParameters()
-	numberOfExperiments := 10
+	numberOfExperiments := 30
 	for _, atspData := range atspsData {
 		matrix := atspData.matrix
 		knownOptimal := atspData.knownOptimal
