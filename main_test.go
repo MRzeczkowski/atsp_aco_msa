@@ -1,6 +1,7 @@
 package main
 
 import (
+	"atsp_aco_msa/modules/analysis/cycleCover"
 	"atsp_aco_msa/modules/parsing"
 	"os"
 	"path/filepath"
@@ -261,6 +262,45 @@ func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 	if _, err := os.Stat(summaryPath); err != nil {
 		t.Fatalf("expected final results summary file to exist: %v", err)
 	}
+}
+
+func TestSaveStructuralSimilarityReport(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "structural_similarity.md")
+	if err := saveStructuralSimilarityReport(path, sampleCycleCoverAnalyses()); err != nil {
+		t.Fatalf("saveStructuralSimilarityReport returned unexpected error: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read structural similarity report: %v", err)
+	}
+
+	content := string(contentBytes)
+	assertContains(t, content, "- **Precision vs found-optimal tours: MSA support 71.43%, cycle cover 66.67%.**")
+	assertContains(t, content, "- **Recall vs found-optimal tours: MSA support 35.71%, cycle cover 42.86%.**")
+	assertContains(t, content, "<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">MSA support</th><th colspan=\"2\">Cycle cover</th></tr>")
+	assertContains(t, content, "<tr><td>a</td><td align=\"right\">50.00</td><td align=\"right\">25.00</td><td align=\"right\"><strong>75.00</strong></td><td align=\"right\"><strong>75.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td><strong>Total</strong></td><td align=\"right\"><strong>71.43</strong></td><td align=\"right\">35.71</td><td align=\"right\">66.67</td><td align=\"right\"><strong>42.86</strong></td></tr>")
+}
+
+func TestSaveMsaSupportCycleCoverOverlapReport(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "msa_cycle_cover_overlap.md")
+	if err := saveMsaSupportCycleCoverOverlapReport(path, sampleCycleCoverAnalyses()); err != nil {
+		t.Fatalf("saveMsaSupportCycleCoverOverlapReport returned unexpected error: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read MSA support/cycle-cover overlap report: %v", err)
+	}
+
+	content := string(contentBytes)
+	assertContains(t, content, "- **42.86% of MSA support edges are also cycle-cover edges.**")
+	assertContains(t, content, "- **33.33% of cycle-cover edges are also MSA support edges.**")
+	assertContains(t, content, "- **Found-optimal edge partition: both 3, only MSA support 2, only cycle cover 3, neither 6.**")
+	assertContains(t, content, "<tr><th>Instance</th><th>MSA in CC [%]</th><th>CC in MSA [%]</th><th>Optimal both</th><th>Optimal only MSA</th><th>Optimal only CC</th></tr>")
+	assertContains(t, content, "<tr><td>a</td><td align=\"right\">50.00</td><td align=\"right\">25.00</td><td align=\"right\">1</td><td align=\"right\">0</td><td align=\"right\">2</td></tr>")
+	assertContains(t, content, "<tr><td><strong>Total</strong></td><td align=\"right\">42.86</td><td align=\"right\">33.33</td><td align=\"right\">3</td><td align=\"right\">2</td><td align=\"right\">3</td></tr>")
 }
 
 func TestBuildMsaSupportHeuristicModifiersBoostsOnlyEdgesUsedByEveryMsa(t *testing.T) {
@@ -647,5 +687,67 @@ func TestSelectedAtspFilesHaveKnownOptima(t *testing.T) {
 				t.Fatalf("%s selected %s without a known optimum", instanceSet, name)
 			}
 		}
+	}
+}
+
+func sampleCycleCoverAnalyses() []cycleCover.InstanceAnalysis {
+	return []cycleCover.InstanceAnalysis{
+		{
+			Instance:  "b",
+			Dimension: 5,
+			Metrics: cycleCover.InstanceMetrics{
+				FoundOptimalTourCount:       2,
+				UniqueFoundOptimalEdgeCount: 10,
+				HighMsaSupportMetrics: cycleCover.EdgeSetMetrics{
+					EdgeCount:        5,
+					OptimalEdgeCount: 4,
+					Precision:        0.8,
+					Recall:           0.4,
+				},
+				CycleCoverMetrics: cycleCover.EdgeSetMetrics{
+					EdgeCount:        5,
+					OptimalEdgeCount: 3,
+					Precision:        0.6,
+					Recall:           0.3,
+				},
+				CycleCoverEdgesWithHighMsaSupport:         2,
+				OptimalEdgesInCycleCoverAndHighMsaSupport: 2,
+				OptimalEdgesInHighMsaSupportNotCycleCover: 2,
+				OptimalEdgesInCycleCoverNotHighMsaSupport: 1,
+				OptimalEdgesInNeitherCycleCoverNorHigh:    5,
+			},
+		},
+		{
+			Instance:  "a",
+			Dimension: 4,
+			Metrics: cycleCover.InstanceMetrics{
+				FoundOptimalTourCount:       1,
+				UniqueFoundOptimalEdgeCount: 4,
+				HighMsaSupportMetrics: cycleCover.EdgeSetMetrics{
+					EdgeCount:        2,
+					OptimalEdgeCount: 1,
+					Precision:        0.5,
+					Recall:           0.25,
+				},
+				CycleCoverMetrics: cycleCover.EdgeSetMetrics{
+					EdgeCount:        4,
+					OptimalEdgeCount: 3,
+					Precision:        0.75,
+					Recall:           0.75,
+				},
+				CycleCoverEdgesWithHighMsaSupport:         1,
+				OptimalEdgesInCycleCoverAndHighMsaSupport: 1,
+				OptimalEdgesInHighMsaSupportNotCycleCover: 0,
+				OptimalEdgesInCycleCoverNotHighMsaSupport: 2,
+				OptimalEdgesInNeitherCycleCoverNorHigh:    1,
+			},
+		},
+	}
+}
+
+func assertContains(t *testing.T, content, expected string) {
+	t.Helper()
+	if !strings.Contains(content, expected) {
+		t.Fatalf("expected content to contain:\n%s\n\ncontent:\n%s", expected, content)
 	}
 }

@@ -672,6 +672,302 @@ func finalResultsSummaryMetricCell(value float64, bold bool) string {
 	return valueText
 }
 
+func saveStructuralSimilarityReport(path string, analyses []cycleCover.InstanceAnalysis) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+
+	rows := filterAnalysesWithFoundOptimalEdges(sortedCycleCoverAnalyses(analyses))
+	totals := structuralSimilarityTotals(rows)
+
+	var builder strings.Builder
+	builder.WriteString("# Structural Similarity To Found Optimal Tours\n\n")
+	builder.WriteString("This table compares the current MSA support edge set and the minimum cycle-cover edge set against the found optimal tours saved in `solutions.csv`.\n\n")
+	builder.WriteString("Instances without found optimal tours are omitted because precision and recall cannot be interpreted without a reference edge set.\n\n")
+	writeStructuralSimilarityFindings(&builder, totals)
+	builder.WriteString("\n")
+	writeStructuralSimilarityTable(&builder, rows, totals)
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+func writeStructuralSimilarityFindings(builder *strings.Builder, totals structuralSimilaritySummary) {
+	msaPrecision := ratio(totals.msaOptimalEdges, totals.msaEdges)
+	cycleCoverPrecision := ratio(totals.cycleCoverOptimalEdges, totals.cycleCoverEdges)
+	msaRecall := ratio(totals.msaOptimalEdges, totals.foundOptimalEdges)
+	cycleCoverRecall := ratio(totals.cycleCoverOptimalEdges, totals.foundOptimalEdges)
+
+	builder.WriteString("## Findings\n\n")
+	fmt.Fprintf(builder, "- **Precision vs found-optimal tours: MSA support %.2f%%, cycle cover %.2f%%.**\n", 100*msaPrecision, 100*cycleCoverPrecision)
+	fmt.Fprintf(builder, "- **Recall vs found-optimal tours: MSA support %.2f%%, cycle cover %.2f%%.**\n", 100*msaRecall, 100*cycleCoverRecall)
+	fmt.Fprintf(builder, "- **Best-or-tied precision counts: MSA support %d/%d, cycle cover %d/%d.**\n",
+		totals.msaPrecisionWins,
+		totals.instanceCount,
+		totals.cycleCoverPrecisionWins,
+		totals.instanceCount)
+	fmt.Fprintf(builder, "- **Best-or-tied recall counts: MSA support %d/%d, cycle cover %d/%d.**\n",
+		totals.msaRecallWins,
+		totals.instanceCount,
+		totals.cycleCoverRecallWins,
+		totals.instanceCount)
+}
+
+func writeStructuralSimilarityTable(builder *strings.Builder, rows []cycleCover.InstanceAnalysis, totals structuralSimilaritySummary) {
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">MSA support</th><th colspan=\"2\">Cycle cover</th></tr>\n")
+	builder.WriteString("<tr><th>Precision [%]</th><th>Recall [%]</th><th>Precision [%]</th><th>Recall [%]</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+
+	for _, analysis := range rows {
+		writeStructuralSimilarityRow(builder, analysis)
+	}
+	writeStructuralSimilarityTotalRow(builder, totals)
+
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+}
+
+func writeStructuralSimilarityRow(builder *strings.Builder, analysis cycleCover.InstanceAnalysis) {
+	metrics := analysis.Metrics
+	msaMetrics := metrics.HighMsaSupportMetrics
+	cycleCoverMetrics := metrics.CycleCoverMetrics
+	msaPrecisionBold, cycleCoverPrecisionBold := bestPositivePair(msaMetrics.Precision, cycleCoverMetrics.Precision)
+	msaRecallBold, cycleCoverRecallBold := bestPositivePair(msaMetrics.Recall, cycleCoverMetrics.Recall)
+
+	writeStructuralSimilarityTableRow(
+		builder,
+		html.EscapeString(analysis.Instance),
+		msaMetrics.Precision,
+		msaMetrics.Recall,
+		cycleCoverMetrics.Precision,
+		cycleCoverMetrics.Recall,
+		msaPrecisionBold,
+		msaRecallBold,
+		cycleCoverPrecisionBold,
+		cycleCoverRecallBold)
+}
+
+func writeStructuralSimilarityTotalRow(builder *strings.Builder, totals structuralSimilaritySummary) {
+	msaPrecision := ratio(totals.msaOptimalEdges, totals.msaEdges)
+	cycleCoverPrecision := ratio(totals.cycleCoverOptimalEdges, totals.cycleCoverEdges)
+	msaRecall := ratio(totals.msaOptimalEdges, totals.foundOptimalEdges)
+	cycleCoverRecall := ratio(totals.cycleCoverOptimalEdges, totals.foundOptimalEdges)
+	msaPrecisionBold, cycleCoverPrecisionBold := bestPositivePair(msaPrecision, cycleCoverPrecision)
+	msaRecallBold, cycleCoverRecallBold := bestPositivePair(msaRecall, cycleCoverRecall)
+
+	writeStructuralSimilarityTableRow(
+		builder,
+		"<strong>Total</strong>",
+		msaPrecision,
+		msaRecall,
+		cycleCoverPrecision,
+		cycleCoverRecall,
+		msaPrecisionBold,
+		msaRecallBold,
+		cycleCoverPrecisionBold,
+		cycleCoverRecallBold)
+}
+
+func writeStructuralSimilarityTableRow(builder *strings.Builder, instanceCell string, msaPrecision, msaRecall, cycleCoverPrecision, cycleCoverRecall float64, msaPrecisionBold, msaRecallBold, cycleCoverPrecisionBold, cycleCoverRecallBold bool) {
+	fmt.Fprintf(builder,
+		"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td></tr>\n",
+		instanceCell,
+		finalResultsSummaryMetricCell(100*msaPrecision, msaPrecisionBold),
+		finalResultsSummaryMetricCell(100*msaRecall, msaRecallBold),
+		finalResultsSummaryMetricCell(100*cycleCoverPrecision, cycleCoverPrecisionBold),
+		finalResultsSummaryMetricCell(100*cycleCoverRecall, cycleCoverRecallBold))
+}
+
+type structuralSimilaritySummary struct {
+	instanceCount           int
+	foundOptimalTours       int
+	foundOptimalEdges       int
+	tourEdges               int
+	msaEdges                int
+	msaOptimalEdges         int
+	cycleCoverEdges         int
+	cycleCoverOptimalEdges  int
+	msaPrecisionWins        int
+	cycleCoverPrecisionWins int
+	msaRecallWins           int
+	cycleCoverRecallWins    int
+}
+
+func structuralSimilarityTotals(rows []cycleCover.InstanceAnalysis) structuralSimilaritySummary {
+	var totals structuralSimilaritySummary
+	totals.instanceCount = len(rows)
+
+	for _, analysis := range rows {
+		metrics := analysis.Metrics
+		msaMetrics := metrics.HighMsaSupportMetrics
+		cycleCoverMetrics := metrics.CycleCoverMetrics
+		msaPrecisionWins, cycleCoverPrecisionWins := bestPositivePair(msaMetrics.Precision, cycleCoverMetrics.Precision)
+		msaRecallWins, cycleCoverRecallWins := bestPositivePair(msaMetrics.Recall, cycleCoverMetrics.Recall)
+
+		totals.foundOptimalTours += metrics.FoundOptimalTourCount
+		totals.foundOptimalEdges += metrics.UniqueFoundOptimalEdgeCount
+		totals.tourEdges += analysis.Dimension
+		totals.msaEdges += msaMetrics.EdgeCount
+		totals.msaOptimalEdges += msaMetrics.OptimalEdgeCount
+		totals.cycleCoverEdges += cycleCoverMetrics.EdgeCount
+		totals.cycleCoverOptimalEdges += cycleCoverMetrics.OptimalEdgeCount
+		if msaPrecisionWins {
+			totals.msaPrecisionWins++
+		}
+		if cycleCoverPrecisionWins {
+			totals.cycleCoverPrecisionWins++
+		}
+		if msaRecallWins {
+			totals.msaRecallWins++
+		}
+		if cycleCoverRecallWins {
+			totals.cycleCoverRecallWins++
+		}
+	}
+
+	return totals
+}
+
+func saveMsaSupportCycleCoverOverlapReport(path string, analyses []cycleCover.InstanceAnalysis) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+
+	rows := sortedCycleCoverAnalyses(analyses)
+	totals := msaSupportCycleCoverOverlapTotals(rows)
+
+	var builder strings.Builder
+	builder.WriteString("# MSA Support And Cycle-Cover Overlap\n\n")
+	builder.WriteString("This table compares the current MSA support edge set directly with the minimum cycle-cover edge set.\n\n")
+	writeMsaSupportCycleCoverOverlapFindings(&builder, totals)
+	builder.WriteString("\n")
+	writeMsaSupportCycleCoverOverlapTable(&builder, rows, totals)
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+func writeMsaSupportCycleCoverOverlapFindings(builder *strings.Builder, totals msaSupportCycleCoverOverlapSummary) {
+	builder.WriteString("## Findings\n\n")
+	fmt.Fprintf(builder, "- **%.2f%% of MSA support edges are also cycle-cover edges.**\n", 100*ratio(totals.sharedEdges, totals.msaEdges))
+	fmt.Fprintf(builder, "- **%.2f%% of cycle-cover edges are also MSA support edges.**\n", 100*ratio(totals.sharedEdges, totals.cycleCoverEdges))
+	fmt.Fprintf(builder,
+		"- **Found-optimal edge partition: both %d, only MSA support %d, only cycle cover %d, neither %d.**\n",
+		totals.optimalBoth,
+		totals.optimalOnlyMsa,
+		totals.optimalOnlyCycleCover,
+		totals.optimalNeither)
+}
+
+func writeMsaSupportCycleCoverOverlapTable(builder *strings.Builder, rows []cycleCover.InstanceAnalysis, totals msaSupportCycleCoverOverlapSummary) {
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Instance</th><th>MSA in CC [%]</th><th>CC in MSA [%]</th><th>Optimal both</th><th>Optimal only MSA</th><th>Optimal only CC</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+
+	for _, analysis := range rows {
+		writeMsaSupportCycleCoverOverlapRow(builder, analysis)
+	}
+	writeMsaSupportCycleCoverOverlapTotalRow(builder, totals)
+
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+}
+
+func writeMsaSupportCycleCoverOverlapRow(builder *strings.Builder, analysis cycleCover.InstanceAnalysis) {
+	metrics := analysis.Metrics
+	msaEdges := metrics.HighMsaSupportMetrics.EdgeCount
+	cycleCoverEdges := metrics.CycleCoverMetrics.EdgeCount
+	sharedEdges := metrics.CycleCoverEdgesWithHighMsaSupport
+
+	fmt.Fprintf(builder,
+		"<tr><td>%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td></tr>\n",
+		html.EscapeString(analysis.Instance),
+		100*ratio(sharedEdges, msaEdges),
+		100*ratio(sharedEdges, cycleCoverEdges),
+		metrics.OptimalEdgesInCycleCoverAndHighMsaSupport,
+		metrics.OptimalEdgesInHighMsaSupportNotCycleCover,
+		metrics.OptimalEdgesInCycleCoverNotHighMsaSupport)
+}
+
+func writeMsaSupportCycleCoverOverlapTotalRow(builder *strings.Builder, totals msaSupportCycleCoverOverlapSummary) {
+	fmt.Fprintf(builder,
+		"<tr><td><strong>Total</strong></td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td></tr>\n",
+		100*ratio(totals.sharedEdges, totals.msaEdges),
+		100*ratio(totals.sharedEdges, totals.cycleCoverEdges),
+		totals.optimalBoth,
+		totals.optimalOnlyMsa,
+		totals.optimalOnlyCycleCover)
+}
+
+type msaSupportCycleCoverOverlapSummary struct {
+	msaEdges              int
+	cycleCoverEdges       int
+	sharedEdges           int
+	optimalBoth           int
+	optimalOnlyMsa        int
+	optimalOnlyCycleCover int
+	optimalNeither        int
+}
+
+func msaSupportCycleCoverOverlapTotals(rows []cycleCover.InstanceAnalysis) msaSupportCycleCoverOverlapSummary {
+	var totals msaSupportCycleCoverOverlapSummary
+	for _, analysis := range rows {
+		metrics := analysis.Metrics
+		totals.msaEdges += metrics.HighMsaSupportMetrics.EdgeCount
+		totals.cycleCoverEdges += metrics.CycleCoverMetrics.EdgeCount
+		totals.sharedEdges += metrics.CycleCoverEdgesWithHighMsaSupport
+		totals.optimalBoth += metrics.OptimalEdgesInCycleCoverAndHighMsaSupport
+		totals.optimalOnlyMsa += metrics.OptimalEdgesInHighMsaSupportNotCycleCover
+		totals.optimalOnlyCycleCover += metrics.OptimalEdgesInCycleCoverNotHighMsaSupport
+		totals.optimalNeither += metrics.OptimalEdgesInNeitherCycleCoverNorHigh
+	}
+
+	return totals
+}
+
+func sortedCycleCoverAnalyses(analyses []cycleCover.InstanceAnalysis) []cycleCover.InstanceAnalysis {
+	rows := append([]cycleCover.InstanceAnalysis(nil), analyses...)
+	sort.SliceStable(rows, func(i, j int) bool {
+		return rows[i].Instance < rows[j].Instance
+	})
+
+	return rows
+}
+
+func filterAnalysesWithFoundOptimalEdges(analyses []cycleCover.InstanceAnalysis) []cycleCover.InstanceAnalysis {
+	rows := make([]cycleCover.InstanceAnalysis, 0, len(analyses))
+	for _, analysis := range analyses {
+		if analysis.Metrics.UniqueFoundOptimalEdgeCount == 0 {
+			continue
+		}
+
+		rows = append(rows, analysis)
+	}
+
+	return rows
+}
+
+func bestPositivePair(left, right float64) (bool, bool) {
+	const epsilon = 1e-9
+	best := math.Max(left, right)
+	if best <= 0 {
+		return false, false
+	}
+
+	return math.Abs(left-best) < epsilon, math.Abs(right-best) < epsilon
+}
+
+func ratio(numerator, denominator int) float64 {
+	if denominator == 0 {
+		return 0
+	}
+
+	return float64(numerator) / float64(denominator)
+}
+
 func readFinalResultSummaryMetrics(resultCsvPath string) (map[string]finalResultsSummaryMetric, error) {
 	file, err := os.Open(resultCsvPath)
 	if err != nil {
@@ -1767,7 +2063,7 @@ func runAnalysisMode(atspsData []AtspData) error {
 	cycleCoverSummaryPath := filepath.Join(resultsDirectoryName, "cycle_cover_analysis_summary.csv")
 	cycleCoverReportPath := filepath.Join(resultsDirectoryName, "cycle_cover_analysis_report.md")
 
-	_, err = cycleCover.AnalyzeInstances(cycleCover.Config{
+	cycleCoverAnalyses, err := cycleCover.AnalyzeInstances(cycleCover.Config{
 		Instances:      cycleCoverConfigs,
 		SummaryCsvPath: cycleCoverSummaryPath,
 		ReportPath:     cycleCoverReportPath,
@@ -1775,6 +2071,16 @@ func runAnalysisMode(atspsData []AtspData) error {
 		Thresholds:     msaSupportTours.DefaultThresholds(),
 	})
 	if err != nil {
+		return err
+	}
+
+	structuralSimilarityReportPath := filepath.Join(finalResultsDirectoryName, "structural_similarity.md")
+	if err := saveStructuralSimilarityReport(structuralSimilarityReportPath, cycleCoverAnalyses); err != nil {
+		return err
+	}
+
+	heuristicOverlapReportPath := filepath.Join(finalResultsDirectoryName, "msa_cycle_cover_overlap.md")
+	if err := saveMsaSupportCycleCoverOverlapReport(heuristicOverlapReportPath, cycleCoverAnalyses); err != nil {
 		return err
 	}
 
@@ -1796,6 +2102,8 @@ func runAnalysisMode(atspsData []AtspData) error {
 	fmt.Printf("MSA support/solution analysis report saved to %s\n", msaSupportSolutionReportPath)
 	fmt.Printf("Cycle-cover analysis summary saved to %s\n", cycleCoverSummaryPath)
 	fmt.Printf("Cycle-cover analysis report saved to %s\n", cycleCoverReportPath)
+	fmt.Printf("Structural similarity report saved to %s\n", structuralSimilarityReportPath)
+	fmt.Printf("MSA support/cycle-cover overlap report saved to %s\n", heuristicOverlapReportPath)
 	fmt.Printf("Heuristic boosted-edge summary saved to %s\n", heuristicBoostSummaryPath)
 	if finalSummarySaved {
 		fmt.Printf("Final results summary saved to %s\n", finalResultsSummaryPath)
