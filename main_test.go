@@ -2,6 +2,7 @@ package main
 
 import (
 	"atsp_aco_msa/modules/analysis/cycleCover"
+	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/parsing"
 	"os"
 	"path/filepath"
@@ -350,6 +351,58 @@ func TestSaveStructuralPerformanceLinkReport(t *testing.T) {
 	content := string(contentBytes)
 	assertContains(t, content, "<tr><td>MSA support</td><td align=\"right\"><strong>71.43</strong></td><td align=\"right\">35.71</td><td align=\"right\">3.00</td><td align=\"right\">20.00</td></tr>")
 	assertContains(t, content, "<tr><td>Cycle cover</td><td align=\"right\">66.67</td><td align=\"right\"><strong>42.86</strong></td><td align=\"right\"><strong>2.75</strong></td><td align=\"right\"><strong>25.00</strong></td></tr>")
+}
+
+func TestSelectEvenlySpacedRootIndexes(t *testing.T) {
+	actual := selectEvenlySpacedRootIndexes(10, 4)
+	expected := []int{0, 3, 6, 9}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("unexpected root selection\nwant: %v\n got: %v", expected, actual)
+	}
+
+	actual = selectEvenlySpacedRootIndexes(3, 64)
+	expected = []int{0, 1, 2}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("unexpected capped root selection\nwant: %v\n got: %v", expected, actual)
+	}
+}
+
+func TestBuildPartialMsaSupportEdgeSetUsesEligibilityByRoot(t *testing.T) {
+	msas := [][][]float64{
+		{
+			{0, 1, 0, 0},
+			{0, 0, 1, 0},
+			{0, 0, 0, 1},
+			{0, 0, 0, 0},
+		},
+		emptyMatrix(4),
+		{
+			{0, 1, 0, 0},
+			{0, 0, 0, 1},
+			{0, 0, 0, 0},
+			{1, 0, 0, 0},
+		},
+		emptyMatrix(4),
+	}
+
+	actual := buildPartialMsaSupportEdgeSet(msas, []int{0, 2})
+	expected := map[models.Edge]struct{}{
+		models.Edge{From: 0, To: 1}: {},
+		models.Edge{From: 1, To: 2}: {},
+		models.Edge{From: 3, To: 0}: {},
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("unexpected partial MSA support edge set\nwant: %v\n got: %v", expected, actual)
+	}
+}
+
+func emptyMatrix(size int) [][]float64 {
+	matrix := make([][]float64, size)
+	for i := range matrix {
+		matrix[i] = make([]float64, size)
+	}
+
+	return matrix
 }
 
 func TestBuildMsaSupportHeuristicModifiersBoostsOnlyEdgesUsedByEveryMsa(t *testing.T) {

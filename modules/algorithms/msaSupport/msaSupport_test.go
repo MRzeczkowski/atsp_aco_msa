@@ -76,6 +76,39 @@ func TestCreateAntiBuildsCompositeFromAllRootAntiArborescences(t *testing.T) {
 	}
 }
 
+func TestReadMsasSortsCacheByNumericRoot(t *testing.T) {
+	rootDir := t.TempDir()
+	msaDir := filepath.Join(rootDir, "msas")
+	if err := os.MkdirAll(msaDir, os.ModePerm); err != nil {
+		t.Fatalf("create MSA cache directory: %v", err)
+	}
+
+	if err := saveToCsv([][]float64{{10}}, filepath.Join(msaDir, "10.csv")); err != nil {
+		t.Fatalf("write root 10 MSA: %v", err)
+	}
+	if err := saveToCsv([][]float64{{2}}, filepath.Join(msaDir, "2.csv")); err != nil {
+		t.Fatalf("write root 2 MSA: %v", err)
+	}
+	if err := saveToCsv([][]float64{{0}}, filepath.Join(msaDir, "0.csv")); err != nil {
+		t.Fatalf("write root 0 MSA: %v", err)
+	}
+
+	msas, err := ReadMsas(rootDir)
+	if err != nil {
+		t.Fatalf("read MSAs: %v", err)
+	}
+
+	expected := []float64{0, 2, 10}
+	if len(msas) != len(expected) {
+		t.Fatalf("expected %d MSAs, got %d", len(expected), len(msas))
+	}
+	for i, expectedValue := range expected {
+		if len(msas[i]) != 1 || len(msas[i][0]) != 1 || msas[i][0][0] != expectedValue {
+			t.Fatalf("unexpected MSA order at index %d: %v", i, msas)
+		}
+	}
+}
+
 func expectedComposite(matrix [][]float64, find finder) [][]float64 {
 	vertices, edges, weights := models.ConvertToEdges(matrix)
 	dimension := len(matrix)

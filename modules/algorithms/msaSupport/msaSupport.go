@@ -8,8 +8,9 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"slices"
+	"sort"
 	"strconv"
+	"strings"
 )
 
 type Edge = models.Edge
@@ -33,12 +34,28 @@ func ReadMsas(rootMsaSupportPath string) ([][][]float64, error) {
 		return nil, err
 	}
 
-	slices.Sort(msasPaths)
+	type rootedMsaPath struct {
+		root int
+		path string
+	}
 
-	msas := make([][][]float64, len(msasPaths))
-
+	rootedPaths := make([]rootedMsaPath, len(msasPaths))
 	for i, msaPath := range msasPaths {
-		msa, err := readFromCsv(msaPath)
+		root, err := strconv.Atoi(strings.TrimSuffix(filepath.Base(msaPath), filepath.Ext(msaPath)))
+		if err != nil {
+			return nil, fmt.Errorf("parse MSA root from %s: %w", msaPath, err)
+		}
+		rootedPaths[i] = rootedMsaPath{root: root, path: msaPath}
+	}
+
+	sort.SliceStable(rootedPaths, func(i, j int) bool {
+		return rootedPaths[i].root < rootedPaths[j].root
+	})
+
+	msas := make([][][]float64, len(rootedPaths))
+
+	for i, rootedPath := range rootedPaths {
+		msa, err := readFromCsv(rootedPath.path)
 		if err != nil {
 			return nil, err
 		}
