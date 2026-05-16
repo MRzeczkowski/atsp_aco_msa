@@ -1,4 +1,4 @@
-package compositeMsa
+package msaSupport
 
 import (
 	"atsp_aco_msa/modules/algorithms/edmonds"
@@ -15,19 +15,19 @@ import (
 type Edge = models.Edge
 type finder func(root int, vertices []int, edges []Edge, weights map[Edge]float64) []Edge
 
-func Read(rootCmsaPath string) ([][]float64, error) {
-	cmsaPath := path.Join(rootCmsaPath, "cmsa.csv")
-	return readFromCsv(cmsaPath)
+func Read(rootMsaSupportPath string) ([][]float64, error) {
+	msaSupportPath := path.Join(rootMsaSupportPath, "msa_support.csv")
+	return readFromCsv(msaSupportPath)
 }
 
-func ReadAnti(rootCmsaaPath string) ([][]float64, error) {
-	cmsaaPath := path.Join(rootCmsaaPath, "cmsaa.csv")
-	return readFromCsv(cmsaaPath)
+func ReadAnti(rootAntiSupportPath string) ([][]float64, error) {
+	antiSupportPath := path.Join(rootAntiSupportPath, "msaa_support.csv")
+	return readFromCsv(antiSupportPath)
 }
 
-func ReadMsas(rootCmsaPath string) ([][][]float64, error) {
+func ReadMsas(rootMsaSupportPath string) ([][][]float64, error) {
 
-	msaRootPath := path.Join(rootCmsaPath, "msas")
+	msaRootPath := path.Join(rootMsaSupportPath, "msas")
 	msasPaths, err := filepath.Glob(filepath.Join(msaRootPath, "*.csv"))
 	if err != nil {
 		return nil, err
@@ -49,12 +49,12 @@ func ReadMsas(rootCmsaPath string) ([][][]float64, error) {
 	return msas, nil
 }
 
-func Create(matrix [][]float64, rootCmsaPath string) ([][]float64, error) {
-	return createComposite(matrix, rootCmsaPath, "cmsa.csv", "msas", edmonds.FindMSA)
+func Create(matrix [][]float64, rootMsaSupportPath string) ([][]float64, error) {
+	return createComposite(matrix, rootMsaSupportPath, "msa_support.csv", "msas", edmonds.FindMSA)
 }
 
-func CreateAnti(matrix [][]float64, rootCmsaaPath string) ([][]float64, error) {
-	return createComposite(matrix, rootCmsaaPath, "cmsaa.csv", "msaas", edmonds.FindMSAA)
+func CreateAnti(matrix [][]float64, rootAntiSupportPath string) ([][]float64, error) {
+	return createComposite(matrix, rootAntiSupportPath, "msaa_support.csv", "msaas", edmonds.FindMSAA)
 }
 
 func createComposite(matrix [][]float64, rootPath, compositeFileName, arborescencesDirectoryName string, find finder) ([][]float64, error) {

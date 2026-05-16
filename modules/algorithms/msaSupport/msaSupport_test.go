@@ -1,4 +1,4 @@
-package compositeMsa
+package msaSupport
 
 import (
 	"atsp_aco_msa/modules/algorithms/edmonds"
@@ -18,7 +18,7 @@ func TestCreateKeepsOriginalWeightsWhenOnlySomeMsasCached(t *testing.T) {
 	cleanDir := filepath.Join(t.TempDir(), "clean")
 	expected, err := Create(matrix, cleanDir)
 	if err != nil {
-		t.Fatalf("create clean CMSA: %v", err)
+		t.Fatalf("create clean MSA support: %v", err)
 	}
 
 	cachedRootDir := filepath.Join(t.TempDir(), "cached")
@@ -36,11 +36,11 @@ func TestCreateKeepsOriginalWeightsWhenOnlySomeMsasCached(t *testing.T) {
 
 	actual, err := Create(matrix, cachedRootDir)
 	if err != nil {
-		t.Fatalf("create partially cached CMSA: %v", err)
+		t.Fatalf("create partially cached MSA support: %v", err)
 	}
 
 	if !compareMatrices(actual, expected) {
-		t.Fatalf("expected partially cached CMSA %v to equal clean CMSA %v", actual, expected)
+		t.Fatalf("expected partially cached MSA support %v to equal clean MSA support %v", actual, expected)
 	}
 }
 
@@ -55,20 +55,20 @@ func TestCreateAntiBuildsCompositeFromAllRootAntiArborescences(t *testing.T) {
 
 	actual, err := CreateAnti(matrix, rootDir)
 	if err != nil {
-		t.Fatalf("create CMSAA: %v", err)
+		t.Fatalf("create anti-arborescence support: %v", err)
 	}
 
 	expected := expectedComposite(matrix, edmonds.FindMSAA)
 	if !compareMatrices(actual, expected) {
-		t.Fatalf("unexpected CMSAA\nwant: %v\n got: %v", expected, actual)
+		t.Fatalf("unexpected anti-arborescence support\nwant: %v\n got: %v", expected, actual)
 	}
 
 	readBack, err := ReadAnti(rootDir)
 	if err != nil {
-		t.Fatalf("read CMSAA: %v", err)
+		t.Fatalf("read anti-arborescence support: %v", err)
 	}
 	if !compareMatrices(readBack, expected) {
-		t.Fatalf("unexpected read CMSAA\nwant: %v\n got: %v", expected, readBack)
+		t.Fatalf("unexpected read anti-arborescence support\nwant: %v\n got: %v", expected, readBack)
 	}
 
 	if _, err := os.Stat(filepath.Join(rootDir, "msaas", "0.csv")); err != nil {

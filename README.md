@@ -92,7 +92,7 @@ Co dalej?
 Wskaźnik pokazujący czy heurystykę warto zastosować!
 
 Ile iteracji robi 3-opt?
- - dodać to wyników, zdaje się że CMSA skłania do globalnego optimum, ale po drodze do niego ścieżki są suboptymalne
+ - dodać to wyników, zdaje się że MSA support skłania do globalnego optimum, ale po drodze do niego ścieżki są suboptymalne
  - może w postaci wykresu? czy może to przesada? Na później jeśli będzie czas/miejsce w pracy!
 
 Sprawdzić zachłanny zamiast drugiej ruletki i 3-opt dla najlepszej trasy znalezionej przez mrówki.
@@ -102,7 +102,7 @@ FDC:
 
 0. Ile iteracji robi 3-opt? - póki co w postaci tabeli bez wykresu
 1. Porównanie map termicznych - zrobić automatycznie
-2. Wykres tego jak zmienia się podobieństwo do CMSA? - zobaczymy jak z czasem, jeśli w weekend się nie uda to nie
+2. Wykres tego jak zmienia się podobieństwo do MSA support? - zobaczymy jak z czasem, jeśli w weekend się nie uda to nie
 3. Zapisywać to jakie jest odchylenie w każdej iteracji - żeby tworzenie wykresów zbieżności tyle czasu nie zajmowało!
 
 Rozdziały:
@@ -124,8 +124,8 @@ Rozdziały:
     3. W połączeniu z innymi algorytmami (MSA + 3-opt)
 
 4. Algorytm hybrydowy - mój
-    1. CMSA
-    2. Wykorzystanie CMSA - feromony zależne od CMSA: niewiele dało, usunąłem, opisać po krótce
+    1. MSA support
+    2. Wykorzystanie MSA support - feromony zależne od MSA support: niewiele dało, usunąłem, opisać po krótce
     3. "reduced 3-opt"
 
 5. Metodyka
@@ -137,63 +137,3 @@ Rozdziały:
 
 7. Podsumowanie
 
-
-Normal:
-Creating results/br17_cmsa.csv took: 10 ms
-Creating results/ft53_cmsa.csv took: 384 ms
-Creating results/ft70_cmsa.csv took: 1011 ms
-Creating results/ftv170_cmsa.csv took: 51177 ms
-Creating results/ftv33_cmsa.csv took: 100 ms
-Creating results/ftv35_cmsa.csv took: 116 ms
-Creating results/ftv38_cmsa.csv took: 145 ms
-Creating results/ftv44_cmsa.csv took: 211 ms
-Creating results/ftv47_cmsa.csv took: 313 ms
-Creating results/ftv55_cmsa.csv took: 608 ms
-Creating results/ftv64_cmsa.csv took: 1078 ms
-Creating results/ftv70_cmsa.csv took: 1507 ms
-Creating results/p43_cmsa.csv took: 623 ms
-Creating results/rbg323_cmsa.csv took: 1764136 ms
-Creating results/rbg358_cmsa.csv took: 2406854 ms
-Creating results/rbg403_cmsa.csv took: 3645321 ms
-Creating results/rbg443_cmsa.csv took: 5475710 ms
-Creating results/ry48p_cmsa.csv took: 483 ms
-
-Preallocation:
-Creating results/br17_cmsa.csv took: 12 ms
-Creating results/ft53_cmsa.csv took: 310 ms
-Creating results/ft70_cmsa.csv took: 797 ms
-Creating results/ftv170_cmsa.csv took: 40985 ms
-Creating results/ftv33_cmsa.csv took: 79 ms
-Creating results/ftv35_cmsa.csv took: 90 ms
-Creating results/ftv38_cmsa.csv took: 112 ms
-Creating results/ftv44_cmsa.csv took: 156 ms
-Creating results/ftv47_cmsa.csv took: 227 ms
-Creating results/ftv55_cmsa.csv took: 469 ms
-Creating results/ftv64_cmsa.csv took: 815 ms
-Creating results/ftv70_cmsa.csv took: 1115 ms
-Creating results/p43_cmsa.csv took: 445 ms
-Creating results/rbg323_cmsa.csv took: 1498863 ms
-Creating results/rbg358_cmsa.csv took: 2061367 ms
-Creating results/rbg403_cmsa.csv took: 3091203 ms
-Creating results/rbg443_cmsa.csv took: 4772496 ms
-Creating results/ry48p_cmsa.csv took: 369 ms
-
-Grouping:
-Creating results/br17_cmsa.csv took: 8 ms
-Creating results/ft53_cmsa.csv took: 232 ms
-Creating results/ft70_cmsa.csv took: 573 ms
-Creating results/ftv170_cmsa.csv took: 26199 ms
-Creating results/ftv33_cmsa.csv took: 62 ms
-Creating results/ftv35_cmsa.csv took: 71 ms
-Creating results/ftv38_cmsa.csv took: 95 ms
-Creating results/ftv44_cmsa.csv took: 128 ms
-Creating results/ftv47_cmsa.csv took: 184 ms
-Creating results/ftv55_cmsa.csv took: 359 ms
-Creating results/ftv64_cmsa.csv took: 645 ms
-Creating results/ftv70_cmsa.csv took: 837 ms
-Creating results/p43_cmsa.csv took: 353 ms
-Creating results/rbg323_cmsa.csv took: 824796 ms
-Creating results/rbg358_cmsa.csv took: 1085652 ms
-Creating results/rbg403_cmsa.csv took: 1624324 ms
-Creating results/rbg443_cmsa.csv took: 2496786 ms
-Creating results/ry48p_cmsa.csv took: 305 ms

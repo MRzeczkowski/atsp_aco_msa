@@ -2,10 +2,10 @@ package main
 
 import (
 	"atsp_aco_msa/modules/algorithms/aco"
-	"atsp_aco_msa/modules/algorithms/compositeMsa"
 	"atsp_aco_msa/modules/algorithms/hungarian"
-	"atsp_aco_msa/modules/analysis/cmsaTours"
+	"atsp_aco_msa/modules/algorithms/msaSupport"
 	"atsp_aco_msa/modules/analysis/cycleCover"
+	"atsp_aco_msa/modules/analysis/msaSupportTours"
 	"atsp_aco_msa/modules/parsing"
 	"atsp_aco_msa/modules/utilities"
 	"encoding/csv"
@@ -28,8 +28,8 @@ type ExperimentsData struct {
 }
 
 type ExperimentParameters struct {
-	alpha, beta, rho, pCmsa float64
-	iterations              int
+	alpha, beta, rho, heuristicWeight float64
+	iterations                        int
 }
 
 type ExperimentResult struct {
@@ -63,14 +63,14 @@ const (
 )
 
 const (
-	cmsaHighSignalThreshold = 1.0
+	msaSupportHighSignalThreshold = 1.0
 )
 
 const (
-	heuristicCmsa           = "cmsa"
-	heuristicCycleCover     = "cycle-cover"
-	heuristicCmsaOverlap    = "cmsa-overlap"
-	heuristicCmsaDifference = "cmsa-difference"
+	heuristicMsaSupport           = "msa-support"
+	heuristicCycleCover           = "cycle-cover"
+	heuristicMsaSupportOverlap    = "msa-support-overlap"
+	heuristicMsaSupportDifference = "msa-support-difference"
 )
 
 var smokeInstanceFiles = []string{
@@ -116,7 +116,7 @@ var statisticsCsvHeader = []string{
 	"Alpha",
 	"Beta",
 	"Rho",
-	"pCmsa",
+	"Heuristic weight",
 	"Iterations",
 	"Min best at iteration",
 	"Avg best at iteration",
@@ -175,14 +175,14 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 	alphaCounts := make(map[float64]int)
 	betaCounts := make(map[float64]int)
 	rhoCounts := make(map[float64]int)
-	pCmsaCounts := make(map[float64]int)
+	heuristicWeightCounts := make(map[float64]int)
 
 	// Count the occurrences
 	for params := range uniqueParameters {
 		alphaCounts[params.alpha]++
 		betaCounts[params.beta]++
 		rhoCounts[params.rho]++
-		pCmsaCounts[params.pCmsa]++
+		heuristicWeightCounts[params.heuristicWeight]++
 	}
 
 	// Markdown content
@@ -193,7 +193,7 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 
 	// Best parameters
 	markdown += "## Best Parameters\n\n"
-	markdown += "| Alpha | Beta | Rho | pCmsa | Times used |\n"
+	markdown += "| Alpha | Beta | Rho | Heuristic weight | Times used |\n"
 	markdown += "|-------|------|-----|-------|------------|\n"
 
 	sortedParameters := make([]ExperimentParameters, 0, len(uniqueParameters))
@@ -211,13 +211,13 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 		if left.rho != right.rho {
 			return left.rho < right.rho
 		}
-		return left.pCmsa < right.pCmsa
+		return left.heuristicWeight < right.heuristicWeight
 	})
 
 	for _, parameters := range sortedParameters {
 		timesUsed := uniqueParameters[parameters]
 		markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %d |\n",
-			parameters.alpha, parameters.beta, parameters.rho, parameters.pCmsa, timesUsed)
+			parameters.alpha, parameters.beta, parameters.rho, parameters.heuristicWeight, timesUsed)
 	}
 	markdown += "\n"
 
@@ -226,19 +226,19 @@ func saveBestParametersInfo(fileName string, bestStatistics []ExperimentsDataSta
 	markdown += generateMarkdownCounts("Alpha", alphaCounts)
 	markdown += generateMarkdownCounts("Beta", betaCounts)
 	markdown += generateMarkdownCounts("Rho", rhoCounts)
-	markdown += generateMarkdownCounts("pCmsa", pCmsaCounts)
+	markdown += generateMarkdownCounts("Heuristic weight", heuristicWeightCounts)
 
 	// Parameter ranges
 	markdown += "## Parameter Ranges\n\n"
 	minAlpha, maxAlpha := findMinMax(alphaCounts)
 	minBeta, maxBeta := findMinMax(betaCounts)
 	minRho, maxRho := findMinMax(rhoCounts)
-	minPCmsa, maxPCmsa := findMinMax(pCmsaCounts)
+	minHeuristicWeight, maxHeuristicWeight := findMinMax(heuristicWeightCounts)
 
 	markdown += fmt.Sprintf("- **Alpha**: %.2f - %.2f\n", minAlpha, maxAlpha)
 	markdown += fmt.Sprintf("- **Beta**: %.2f - %.2f\n", minBeta, maxBeta)
 	markdown += fmt.Sprintf("- **Rho**: %.2f - %.2f\n", minRho, maxRho)
-	markdown += fmt.Sprintf("- **pCmsa**: %.2f - %.2f\n", minPCmsa, maxPCmsa)
+	markdown += fmt.Sprintf("- **Heuristic weight**: %.2f - %.2f\n", minHeuristicWeight, maxHeuristicWeight)
 
 	// Save to a file
 	reportPath := filepath.Join(resultsDirectoryName, fileName)
@@ -298,7 +298,7 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 		alpha, _ := strconv.ParseFloat(record[0], 64)
 		beta, _ := strconv.ParseFloat(record[1], 64)
 		rho, _ := strconv.ParseFloat(record[2], 64)
-		pCmsa, _ := strconv.ParseFloat(record[3], 64)
+		heuristicWeight, _ := strconv.ParseFloat(record[3], 64)
 		iterations, _ := strconv.Atoi(record[4])
 		minBestAtIteration, _ := strconv.Atoi(record[5])
 		averageBestAtIteration, _ := strconv.ParseFloat(record[6], 64)
@@ -313,11 +313,11 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 
 		statistic := ExperimentsDataStatistics{
 			ExperimentParameters: ExperimentParameters{
-				alpha:      alpha,
-				beta:       beta,
-				rho:        rho,
-				pCmsa:      pCmsa,
-				iterations: iterations,
+				alpha:           alpha,
+				beta:            beta,
+				rho:             rho,
+				heuristicWeight: heuristicWeight,
+				iterations:      iterations,
 			},
 			minBestAtIteration:               minBestAtIteration,
 			averageBestAtIteration:           averageBestAtIteration,
@@ -352,7 +352,7 @@ func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics
 			fmt.Sprintf(floatFormat, statistic.alpha),
 			fmt.Sprintf(floatFormat, statistic.beta),
 			fmt.Sprintf(floatFormat, statistic.rho),
-			fmt.Sprintf(floatFormat, statistic.pCmsa),
+			fmt.Sprintf(floatFormat, statistic.heuristicWeight),
 			strconv.Itoa(statistic.iterations),
 			strconv.Itoa(statistic.minBestAtIteration),
 			fmt.Sprintf(floatFormat, statistic.averageBestAtIteration),
@@ -502,38 +502,38 @@ func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOpti
 	return results
 }
 
-func buildHeuristicModifiers(heuristic string, matrix, cmsa, cycleCover [][]float64, strength float64) [][]float64 {
+func buildHeuristicModifiers(heuristic string, matrix, msaSupport, cycleCover [][]float64, strength float64) [][]float64 {
 	switch heuristic {
-	case heuristicCmsa:
-		return buildCmsaHeuristicModifiers(cmsa, strength)
+	case heuristicMsaSupport:
+		return buildMsaSupportHeuristicModifiers(msaSupport, strength)
 	case heuristicCycleCover:
 		return buildCycleCoverHeuristicModifiers(cycleCover, strength)
-	case heuristicCmsaOverlap:
-		return buildCmsaCycleCoverMembershipHeuristicModifiers(cmsa, cycleCover, strength, true)
-	case heuristicCmsaDifference:
-		return buildCmsaCycleCoverMembershipHeuristicModifiers(cmsa, cycleCover, strength, false)
+	case heuristicMsaSupportOverlap:
+		return buildMsaSupportCycleCoverMembershipHeuristicModifiers(msaSupport, cycleCover, strength, true)
+	case heuristicMsaSupportDifference:
+		return buildMsaSupportCycleCoverMembershipHeuristicModifiers(msaSupport, cycleCover, strength, false)
 	default:
-		return buildNeutralHeuristicModifiers(len(cmsa))
+		return buildNeutralHeuristicModifiers(len(msaSupport))
 	}
 }
 
-func buildCmsaHeuristicModifiers(cmsa [][]float64, strength float64) [][]float64 {
-	dimension := len(cmsa)
+func buildMsaSupportHeuristicModifiers(msaSupport [][]float64, strength float64) [][]float64 {
+	dimension := len(msaSupport)
 	modifiers := buildNeutralHeuristicModifiers(dimension)
 	if dimension <= 1 || strength == 0 {
 		return modifiers
 	}
 
-	maxCmsaSelections := float64(dimension - 1)
+	maxMsaSupportSelections := float64(dimension - 1)
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
 			if i == j {
 				continue
 			}
 
-			cmsaSignal := cmsa[i][j] / maxCmsaSelections
-			if cmsaSignal >= cmsaHighSignalThreshold {
-				modifiers[i][j] = 1.0 + cmsaSignal*strength
+			msaSupportSignal := msaSupport[i][j] / maxMsaSupportSelections
+			if msaSupportSignal >= msaSupportHighSignalThreshold {
+				modifiers[i][j] = 1.0 + msaSupportSignal*strength
 			}
 		}
 	}
@@ -541,22 +541,22 @@ func buildCmsaHeuristicModifiers(cmsa [][]float64, strength float64) [][]float64
 	return modifiers
 }
 
-func buildCmsaCycleCoverMembershipHeuristicModifiers(cmsa, cycleCover [][]float64, strength float64, requireCycleCoverEdge bool) [][]float64 {
-	dimension := len(cmsa)
+func buildMsaSupportCycleCoverMembershipHeuristicModifiers(msaSupport, cycleCover [][]float64, strength float64, requireCycleCoverEdge bool) [][]float64 {
+	dimension := len(msaSupport)
 	modifiers := buildNeutralHeuristicModifiers(dimension)
 	if dimension <= 1 || strength == 0 {
 		return modifiers
 	}
 
-	maxCmsaSelections := float64(dimension - 1)
+	maxMsaSupportSelections := float64(dimension - 1)
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
 			if i == j {
 				continue
 			}
 
-			cmsaSignal := cmsa[i][j] / maxCmsaSelections
-			if cmsaSignal < cmsaHighSignalThreshold {
+			msaSupportSignal := msaSupport[i][j] / maxMsaSupportSelections
+			if msaSupportSignal < msaSupportHighSignalThreshold {
 				continue
 			}
 
@@ -564,7 +564,7 @@ func buildCmsaCycleCoverMembershipHeuristicModifiers(cmsa, cycleCover [][]float6
 				continue
 			}
 
-			modifiers[i][j] = 1.0 + cmsaSignal*strength
+			modifiers[i][j] = 1.0 + msaSupportSignal*strength
 		}
 	}
 
@@ -630,11 +630,11 @@ func generateParameters() []ExperimentParameters {
 	for _, alpha := range utilities.GenerateRange(1.0, 1.0, 0.25) {
 		for _, beta := range utilities.GenerateRange(2.0, 2.0, 1.0) {
 			for _, rho := range utilities.GenerateRange(0.8, 0.8, 0.1) {
-				for _, pCmsa := range []float64{0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0} {
+				for _, heuristicWeight := range []float64{0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0} {
 
 					parameters = append(parameters,
 						ExperimentParameters{
-							alpha, beta, rho, pCmsa, 0,
+							alpha, beta, rho, heuristicWeight, 0,
 						})
 				}
 			}
@@ -670,9 +670,9 @@ type AtspData struct {
 	matrix       [][]float64
 	knownOptimal float64
 
-	cmsaDirectoryPath,
+	msaSupportDirectoryPath,
 
-	cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
+	msaSupportHeatmapPlotPath, msaSupportHistogramPlotPath,
 
 	resultFilePath,
 	resultPlotFilePrefix,
@@ -680,23 +680,23 @@ type AtspData struct {
 	optimalUniqueToursCsvPath,
 	toursHeatmapPlotPath,
 	toursHistogramPlotPath,
-	cmsaToursOverlapHeatmapPlotPath,
-	cmsaSolutionAnalysisCsvPath,
-	cmsaSolutionThresholdsCsvPath,
+	msaSupportToursOverlapHeatmapPlotPath,
+	msaSupportSolutionAnalysisCsvPath,
+	msaSupportSolutionThresholdsCsvPath,
 	cycleCoverEdgesCsvPath,
 	cycleCoverAnalysisCsvPath,
 	cycleCoverThresholdsCsvPath,
-	cycleCoverCmsaOverlapCsvPath string
+	cycleCoverMsaSupportOverlapCsvPath string
 }
 
 func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspData {
 	name = strings.TrimSuffix(name, ".atsp")
 	resultsDirectoryPath := filepath.Join(resultsDirectoryName, name)
-	cmsaDirectoryPath := filepath.Join(resultsDirectoryPath, "cmsa")
+	msaSupportDirectoryPath := filepath.Join(resultsDirectoryPath, "msa_support")
 	plotsDirectoryPath := filepath.Join(resultsDirectoryPath, "plots")
 
-	cmsaHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "cmsa_heatmap.png")
-	cmsaHistogramPlotPath := filepath.Join(plotsDirectoryPath, "cmsa_histogram.png")
+	msaSupportHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "msa_support_heatmap.png")
+	msaSupportHistogramPlotPath := filepath.Join(plotsDirectoryPath, "msa_support_histogram.png")
 
 	resultFilePath := filepath.Join(resultsDirectoryPath, resultFileName)
 	resultPlotFilePrefix := filepath.Join(plotsDirectoryPath, "best_result")
@@ -704,22 +704,22 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 	optimalUniqueToursCsvPath := filepath.Join(resultsDirectoryPath, "solutions.csv")
 	toursHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "tours_heatmap.png")
 	toursHistogramPlotPath := filepath.Join(plotsDirectoryPath, "tours_histogram.png")
-	cmsaToursOverlapHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "cmsa_tours_overlap_heatmap.png")
-	cmsaSolutionAnalysisCsvPath := filepath.Join(resultsDirectoryPath, "cmsa_solution_analysis.csv")
-	cmsaSolutionThresholdsCsvPath := filepath.Join(resultsDirectoryPath, "cmsa_solution_thresholds.csv")
+	msaSupportToursOverlapHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "msa_support_tours_overlap_heatmap.png")
+	msaSupportSolutionAnalysisCsvPath := filepath.Join(resultsDirectoryPath, "msa_support_solution_analysis.csv")
+	msaSupportSolutionThresholdsCsvPath := filepath.Join(resultsDirectoryPath, "msa_support_solution_thresholds.csv")
 	cycleCoverEdgesCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_edges.csv")
 	cycleCoverAnalysisCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_analysis.csv")
 	cycleCoverThresholdsCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_thresholds.csv")
-	cycleCoverCmsaOverlapCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_cmsa_overlap.csv")
+	cycleCoverMsaSupportOverlapCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_msa_support_overlap.csv")
 
 	return AtspData{
 		name,
 		matrix,
 		knownOptimal,
 
-		cmsaDirectoryPath,
+		msaSupportDirectoryPath,
 
-		cmsaHeatmapPlotPath, cmsaHistogramPlotPath,
+		msaSupportHeatmapPlotPath, msaSupportHistogramPlotPath,
 
 		resultFilePath,
 		resultPlotFilePrefix,
@@ -727,13 +727,13 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 		optimalUniqueToursCsvPath,
 		toursHeatmapPlotPath,
 		toursHistogramPlotPath,
-		cmsaToursOverlapHeatmapPlotPath,
-		cmsaSolutionAnalysisCsvPath,
-		cmsaSolutionThresholdsCsvPath,
+		msaSupportToursOverlapHeatmapPlotPath,
+		msaSupportSolutionAnalysisCsvPath,
+		msaSupportSolutionThresholdsCsvPath,
 		cycleCoverEdgesCsvPath,
 		cycleCoverAnalysisCsvPath,
 		cycleCoverThresholdsCsvPath,
-		cycleCoverCmsaOverlapCsvPath,
+		cycleCoverMsaSupportOverlapCsvPath,
 	}
 }
 
@@ -786,28 +786,28 @@ func isValidRunMode(mode string) bool {
 }
 
 func isValidHeuristic(heuristic string) bool {
-	return heuristic == heuristicCmsa ||
+	return heuristic == heuristicMsaSupport ||
 		heuristic == heuristicCycleCover ||
-		heuristic == heuristicCmsaOverlap ||
-		heuristic == heuristicCmsaDifference
+		heuristic == heuristicMsaSupportOverlap ||
+		heuristic == heuristicMsaSupportDifference
 }
 
 func heuristicUsesCycleCover(heuristic string) bool {
 	return heuristic == heuristicCycleCover ||
-		heuristic == heuristicCmsaOverlap ||
-		heuristic == heuristicCmsaDifference
+		heuristic == heuristicMsaSupportOverlap ||
+		heuristic == heuristicMsaSupportDifference
 }
 
 func heuristicFileSuffix(heuristic string) string {
 	switch heuristic {
-	case heuristicCmsa:
+	case heuristicMsaSupport:
 		return ""
 	case heuristicCycleCover:
 		return "_cycle_cover"
-	case heuristicCmsaOverlap:
-		return "_cmsa_overlap"
-	case heuristicCmsaDifference:
-		return "_cmsa_difference"
+	case heuristicMsaSupportOverlap:
+		return "_msa_support_overlap"
+	case heuristicMsaSupportDifference:
+		return "_msa_support_difference"
 	default:
 		return "_" + strings.ReplaceAll(heuristic, "-", "_")
 	}
@@ -831,7 +831,7 @@ func bestParametersReportPathForHeuristic(heuristic string) string {
 }
 
 func resultFilePathsForHeuristic(atspsData []AtspData, heuristic string) []string {
-	if heuristic == heuristicCmsa {
+	if heuristic == heuristicMsaSupport {
 		paths, _ := filepath.Glob(filepath.Join(resultsDirectoryName, "*", resultFileName))
 		return paths
 	}
@@ -854,7 +854,7 @@ func shouldRunAnalysis(mode string) bool {
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, balanced, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, or all")
-	heuristic := flag.String("heuristic", heuristicCmsa, "ACO heuristic modifier to use in experiment mode: cmsa, cycle-cover, cmsa-overlap, or cmsa-difference")
+	heuristic := flag.String("heuristic", heuristicMsaSupport, "ACO heuristic modifier to use in experiment mode: msa-support, cycle-cover, msa-support-overlap, or msa-support-difference")
 	flag.Parse()
 
 	if !isValidRunMode(*mode) {
@@ -863,7 +863,7 @@ func main() {
 	}
 
 	if !isValidHeuristic(*heuristic) {
-		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, or %q\n", *heuristic, heuristicCmsa, heuristicCycleCover, heuristicCmsaOverlap, heuristicCmsaDifference)
+		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, or %q\n", *heuristic, heuristicMsaSupport, heuristicCycleCover, heuristicMsaSupportOverlap, heuristicMsaSupportDifference)
 		return
 	}
 
@@ -943,7 +943,7 @@ func startCPUProfile() (func(), error) {
 }
 
 func runExperimentMode(atspsData []AtspData, heuristic string) error {
-	if err := ensureCmsaArtifacts(atspsData); err != nil {
+	if err := ensureMsaSupportArtifacts(atspsData); err != nil {
 		return err
 	}
 
@@ -955,7 +955,7 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 		dimension := len(matrix)
 		instanceStart := time.Now()
 
-		heuristicMatrix, err := readCompositeMatrixForHeuristic(atspData, heuristic)
+		heuristicMatrix, err := readMsaSupportMatrixForHeuristic(atspData, heuristic)
 		if err != nil {
 			return err
 		}
@@ -984,7 +984,7 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 		for _, parameters := range experimentParameters {
 			setDimensionDependantParameters(dimension, &parameters)
 			parameterStart := time.Now()
-			heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters.pCmsa)
+			heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters.heuristicWeight)
 			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers)
 			data := ExperimentsData{parameters, results}
 
@@ -993,8 +993,8 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 			parameterStatistics := calculateStatistics([]ExperimentsData{data})
 			if len(parameterStatistics) != 0 {
 				statistic := parameterStatistics[0]
-				fmt.Printf("\tpCmsa=%.2f iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
-					parameters.pCmsa,
+				fmt.Printf("\theuristicWeight=%.2f iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+					parameters.heuristicWeight,
 					parameters.iterations,
 					numberOfExperiments,
 					time.Since(parameterStart).Round(time.Millisecond),
@@ -1009,7 +1009,7 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 			saveExperimentPlots(statistics, "MMAS deviation per iteration", resultPlotFilePrefixForHeuristic(atspData, heuristic))
 		}
 
-		uniqueOptimalTours, err := cmsaTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
+		uniqueOptimalTours, err := msaSupportTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
 		if err != nil {
 			return err
 		}
@@ -1017,12 +1017,12 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 		for _, data := range experimentData {
 			for _, result := range data.results {
 				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
-					cmsaTours.AddUniqueTour(uniqueOptimalTours, result.bestTour)
+					msaSupportTours.AddUniqueTour(uniqueOptimalTours, result.bestTour)
 				}
 			}
 		}
 
-		if err := cmsaTours.SaveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, atspData.cmsaDirectoryPath, uniqueOptimalTours); err != nil {
+		if err := msaSupportTours.SaveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, atspData.msaSupportDirectoryPath, uniqueOptimalTours); err != nil {
 			return err
 		}
 
@@ -1035,42 +1035,42 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 	return nil
 }
 
-func readCompositeMatrixForHeuristic(atspData AtspData, heuristic string) ([][]float64, error) {
-	return compositeMsa.Read(atspData.cmsaDirectoryPath)
+func readMsaSupportMatrixForHeuristic(atspData AtspData, heuristic string) ([][]float64, error) {
+	return msaSupport.Read(atspData.msaSupportDirectoryPath)
 }
 
-func ensureCmsaArtifacts(atspsData []AtspData) error {
+func ensureMsaSupportArtifacts(atspsData []AtspData) error {
 	for _, atspData := range atspsData {
 		name := atspData.name
 		matrix := atspData.matrix
-		cmsaDirectoryPath := atspData.cmsaDirectoryPath
+		msaSupportDirectoryPath := atspData.msaSupportDirectoryPath
 
-		cmsa, err := compositeMsa.Read(atspData.cmsaDirectoryPath)
+		msaSupportMatrix, err := msaSupport.Read(atspData.msaSupportDirectoryPath)
 
 		if err != nil {
 			start := time.Now()
-			cmsa, err = compositeMsa.Create(matrix, cmsaDirectoryPath)
+			msaSupportMatrix, err = msaSupport.Create(matrix, msaSupportDirectoryPath)
 			elapsed := time.Since(start)
 
-			fmt.Printf("\tCreating %s took: %d ms\n", cmsaDirectoryPath, elapsed.Milliseconds())
+			fmt.Printf("\tCreating %s took: %d ms\n", msaSupportDirectoryPath, elapsed.Milliseconds())
 
 			if err != nil {
-				return fmt.Errorf("error saving CMSA: %w", err)
+				return fmt.Errorf("error saving MSA support: %w", err)
 			}
 		}
 
-		cmsaHeatmapPlotTitle := name + " CMSA heatmap"
+		msaSupportHeatmapPlotTitle := name + " MSA support heatmap"
 
-		err = utilities.SaveHeatmapFromMatrix(cmsa, cmsaHeatmapPlotTitle, atspData.cmsaHeatmapPlotPath)
+		err = utilities.SaveHeatmapFromMatrix(msaSupportMatrix, msaSupportHeatmapPlotTitle, atspData.msaSupportHeatmapPlotPath)
 		if err != nil {
 			return err
 		}
 
-		dataForHistogram := filterZeroes(flattenMatrix(cmsa))
-		cmsaHistogramPlotTitle := name + " CMSA histogram"
+		dataForHistogram := filterZeroes(flattenMatrix(msaSupportMatrix))
+		msaSupportHistogramPlotTitle := name + " MSA support histogram"
 
 		dimension := len(matrix)
-		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, cmsaHistogramPlotTitle, atspData.cmsaHistogramPlotPath)
+		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, msaSupportHistogramPlotTitle, atspData.msaSupportHistogramPlotPath)
 		if err != nil {
 			return err
 		}
@@ -1080,19 +1080,23 @@ func ensureCmsaArtifacts(atspsData []AtspData) error {
 }
 
 func runAnalysisMode(atspsData []AtspData) error {
-	cmsaTourConfigs := make([]cmsaTours.InstanceConfig, 0, len(atspsData))
+	if err := ensureMsaSupportArtifacts(atspsData); err != nil {
+		return err
+	}
+
+	msaSupportTourConfigs := make([]msaSupportTours.InstanceConfig, 0, len(atspsData))
 	cycleCoverConfigs := make([]cycleCover.InstanceConfig, 0, len(atspsData))
 	for _, atspData := range atspsData {
-		cmsaTourConfigs = append(cmsaTourConfigs, cmsaTours.InstanceConfig{
-			Name:                        atspData.name,
-			Dimension:                   len(atspData.matrix),
-			CmsaDirectoryPath:           atspData.cmsaDirectoryPath,
-			OptimalToursCsvPath:         atspData.optimalUniqueToursCsvPath,
-			ToursHeatmapPath:            atspData.toursHeatmapPlotPath,
-			ToursHistogramPath:          atspData.toursHistogramPlotPath,
-			CmsaToursOverlapHeatmapPath: atspData.cmsaToursOverlapHeatmapPlotPath,
-			AnalysisCsvPath:             atspData.cmsaSolutionAnalysisCsvPath,
-			ThresholdsCsvPath:           atspData.cmsaSolutionThresholdsCsvPath,
+		msaSupportTourConfigs = append(msaSupportTourConfigs, msaSupportTours.InstanceConfig{
+			Name:                              atspData.name,
+			Dimension:                         len(atspData.matrix),
+			MsaSupportDirectoryPath:           atspData.msaSupportDirectoryPath,
+			OptimalToursCsvPath:               atspData.optimalUniqueToursCsvPath,
+			ToursHeatmapPath:                  atspData.toursHeatmapPlotPath,
+			ToursHistogramPath:                atspData.toursHistogramPlotPath,
+			MsaSupportToursOverlapHeatmapPath: atspData.msaSupportToursOverlapHeatmapPlotPath,
+			AnalysisCsvPath:                   atspData.msaSupportSolutionAnalysisCsvPath,
+			ThresholdsCsvPath:                 atspData.msaSupportSolutionThresholdsCsvPath,
 		})
 
 		cycleCoverConfigs = append(cycleCoverConfigs, cycleCover.InstanceConfig{
@@ -1100,24 +1104,24 @@ func runAnalysisMode(atspsData []AtspData) error {
 			Dimension:                   len(atspData.matrix),
 			Matrix:                      atspData.matrix,
 			KnownOptimal:                atspData.knownOptimal,
-			CmsaDirectoryPath:           atspData.cmsaDirectoryPath,
+			MsaSupportDirectoryPath:     atspData.msaSupportDirectoryPath,
 			OptimalToursCsvPath:         atspData.optimalUniqueToursCsvPath,
 			CycleCoverEdgesCsvPath:      atspData.cycleCoverEdgesCsvPath,
 			AnalysisCsvPath:             atspData.cycleCoverAnalysisCsvPath,
 			ThresholdsCsvPath:           atspData.cycleCoverThresholdsCsvPath,
-			CycleCoverOverlapMatrixPath: atspData.cycleCoverCmsaOverlapCsvPath,
+			CycleCoverOverlapMatrixPath: atspData.cycleCoverMsaSupportOverlapCsvPath,
 		})
 	}
 
-	cmsaSolutionSummaryPath := filepath.Join(resultsDirectoryName, "cmsa_solution_analysis_summary.csv")
-	cmsaSolutionReportPath := filepath.Join(resultsDirectoryName, "cmsa_solution_analysis_report.md")
+	msaSupportSolutionSummaryPath := filepath.Join(resultsDirectoryName, "msa_support_solution_analysis_summary.csv")
+	msaSupportSolutionReportPath := filepath.Join(resultsDirectoryName, "msa_support_solution_analysis_report.md")
 
-	_, err := cmsaTours.AnalyzeInstances(cmsaTours.Config{
-		Instances:      cmsaTourConfigs,
-		SummaryCsvPath: cmsaSolutionSummaryPath,
-		ReportPath:     cmsaSolutionReportPath,
+	_, err := msaSupportTours.AnalyzeInstances(msaSupportTours.Config{
+		Instances:      msaSupportTourConfigs,
+		SummaryCsvPath: msaSupportSolutionSummaryPath,
+		ReportPath:     msaSupportSolutionReportPath,
 		HighThreshold:  0.8,
-		Thresholds:     cmsaTours.DefaultThresholds(),
+		Thresholds:     msaSupportTours.DefaultThresholds(),
 	})
 	if err != nil {
 		return err
@@ -1131,7 +1135,7 @@ func runAnalysisMode(atspsData []AtspData) error {
 		SummaryCsvPath: cycleCoverSummaryPath,
 		ReportPath:     cycleCoverReportPath,
 		HighThreshold:  1.0,
-		Thresholds:     cmsaTours.DefaultThresholds(),
+		Thresholds:     msaSupportTours.DefaultThresholds(),
 	})
 	if err != nil {
 		return err
@@ -1146,8 +1150,8 @@ func runAnalysisMode(atspsData []AtspData) error {
 		return err
 	}
 
-	fmt.Printf("CMSA/solution analysis summary saved to %s\n", cmsaSolutionSummaryPath)
-	fmt.Printf("CMSA/solution analysis report saved to %s\n", cmsaSolutionReportPath)
+	fmt.Printf("MSA support/solution analysis summary saved to %s\n", msaSupportSolutionSummaryPath)
+	fmt.Printf("MSA support/solution analysis report saved to %s\n", msaSupportSolutionReportPath)
 	fmt.Printf("Cycle-cover analysis summary saved to %s\n", cycleCoverSummaryPath)
 	fmt.Printf("Cycle-cover analysis report saved to %s\n", cycleCoverReportPath)
 	fmt.Printf("Heuristic boosted-edge summary saved to %s\n", heuristicBoostSummaryPath)
@@ -1168,10 +1172,10 @@ type heuristicBoostSummaryRow struct {
 func buildHeuristicBoostSummary(atspsData []AtspData) ([]heuristicBoostSummaryRow, error) {
 	const referenceStrength = 1.0
 	heuristics := []string{
-		heuristicCmsa,
+		heuristicMsaSupport,
 		heuristicCycleCover,
-		heuristicCmsaOverlap,
-		heuristicCmsaDifference,
+		heuristicMsaSupportOverlap,
+		heuristicMsaSupportDifference,
 	}
 
 	instances := append([]AtspData(nil), atspsData...)
@@ -1186,7 +1190,7 @@ func buildHeuristicBoostSummary(atspsData []AtspData) ([]heuristicBoostSummaryRo
 		cycleCoverReady := false
 
 		for _, heuristic := range heuristics {
-			heuristicMatrix, err := readCompositeMatrixForHeuristic(atspData, heuristic)
+			heuristicMatrix, err := readMsaSupportMatrixForHeuristic(atspData, heuristic)
 			if err != nil {
 				return nil, fmt.Errorf("%s/%s: failed to read heuristic matrix: %w", atspData.name, heuristic, err)
 			}
@@ -1307,11 +1311,11 @@ func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plot
 		maxDeviationPlotData := utilities.LinePlotData{Name: "max deviation", Color: color.RGBA{R: 255, A: 255}, Values: statistic.maxDeviationPerIteration}
 		lines := []utilities.LinePlotData{minDeviationPlotData, avgDeviationPlotData, maxDeviationPlotData}
 
-		titleSuffix := fmt.Sprintf(" (alpha=%.2f, beta=%.2f, rho=%.2f, pCmsa=%.2f)",
-			statistic.alpha, statistic.beta, statistic.rho, statistic.pCmsa)
+		titleSuffix := fmt.Sprintf(" (alpha=%.2f, beta=%.2f, rho=%.2f, heuristicWeight=%.2f)",
+			statistic.alpha, statistic.beta, statistic.rho, statistic.heuristicWeight)
 
-		pCmsaPlotSuffix := "_pCmsa=" + strconv.Itoa(int(100*statistic.pCmsa)) + "%"
-		plotPath := plotPathPrefix + pCmsaPlotSuffix + ".png"
+		heuristicWeightPlotSuffix := "_heuristicWeight=" + strconv.Itoa(int(100*statistic.heuristicWeight)) + "%"
+		plotPath := plotPathPrefix + heuristicWeightPlotSuffix + ".png"
 
 		utilities.SaveLinePlotFromData(lines, plotTitle+titleSuffix, plotPath)
 	}

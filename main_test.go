@@ -44,8 +44,8 @@ func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
 		t.Fatalf("expected one statistic, got %d", len(statistics))
 	}
 
-	if statistics[0].pCmsa != 0.50 || statistics[0].successRate != 40.00 {
-		t.Fatalf("unexpected statistic values: pCmsa=%f successRate=%f", statistics[0].pCmsa, statistics[0].successRate)
+	if statistics[0].heuristicWeight != 0.50 || statistics[0].successRate != 40.00 {
+		t.Fatalf("unexpected statistic values: heuristicWeight=%f successRate=%f", statistics[0].heuristicWeight, statistics[0].successRate)
 	}
 
 	legacyPath := filepath.Join(dir, "legacy.csv")
@@ -61,15 +61,15 @@ func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
 	}
 }
 
-func TestBuildCmsaHeuristicModifiersBoostsOnlyEdgesUsedByEveryMsa(t *testing.T) {
-	cmsa := [][]float64{
+func TestBuildMsaSupportHeuristicModifiersBoostsOnlyEdgesUsedByEveryMsa(t *testing.T) {
+	msaSupport := [][]float64{
 		{0, 3, 2, 0},
 		{0, 0, 3, 1},
 		{1, 0, 0, 2},
 		{0, 0, 0, 0},
 	}
 
-	modifiers := buildCmsaHeuristicModifiers(cmsa, 0.5)
+	modifiers := buildMsaSupportHeuristicModifiers(msaSupport, 0.5)
 	expected := [][]float64{
 		{1, 1.5, 1, 1},
 		{1, 1, 1.5, 1},
@@ -78,17 +78,17 @@ func TestBuildCmsaHeuristicModifiersBoostsOnlyEdgesUsedByEveryMsa(t *testing.T) 
 	}
 
 	if !reflect.DeepEqual(modifiers, expected) {
-		t.Fatalf("unexpected CMSA modifiers\nwant: %v\n got: %v", expected, modifiers)
+		t.Fatalf("unexpected MSA support modifiers\nwant: %v\n got: %v", expected, modifiers)
 	}
 }
 
-func TestBuildCmsaHeuristicModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testing.T) {
-	cmsa := [][]float64{
+func TestBuildMsaSupportHeuristicModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testing.T) {
+	msaSupport := [][]float64{
 		{0, 3},
 		{3, 0},
 	}
 
-	modifiers := buildCmsaHeuristicModifiers(cmsa, 0)
+	modifiers := buildMsaSupportHeuristicModifiers(msaSupport, 0)
 	expected := [][]float64{
 		{1, 1},
 		{1, 1},
@@ -99,8 +99,8 @@ func TestBuildCmsaHeuristicModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *te
 	}
 }
 
-func TestBuildCmsaCycleCoverMembershipHeuristicModifiersSplitsOverlapAndDifference(t *testing.T) {
-	cmsa := [][]float64{
+func TestBuildMsaSupportCycleCoverMembershipHeuristicModifiersSplitsOverlapAndDifference(t *testing.T) {
+	msaSupport := [][]float64{
 		{0, 3, 3, 0},
 		{2, 0, 0, 0},
 		{0, 0, 0, 3},
@@ -113,7 +113,7 @@ func TestBuildCmsaCycleCoverMembershipHeuristicModifiersSplitsOverlapAndDifferen
 		{0, 0, 1, 0},
 	}
 
-	overlapModifiers := buildCmsaCycleCoverMembershipHeuristicModifiers(cmsa, cycleCover, 0.5, true)
+	overlapModifiers := buildMsaSupportCycleCoverMembershipHeuristicModifiers(msaSupport, cycleCover, 0.5, true)
 	expectedOverlap := [][]float64{
 		{1, 1.5, 1, 1},
 		{1, 1, 1, 1},
@@ -122,10 +122,10 @@ func TestBuildCmsaCycleCoverMembershipHeuristicModifiersSplitsOverlapAndDifferen
 	}
 
 	if !reflect.DeepEqual(overlapModifiers, expectedOverlap) {
-		t.Fatalf("unexpected CMSA-overlap modifiers\nwant: %v\n got: %v", expectedOverlap, overlapModifiers)
+		t.Fatalf("unexpected MSA support-overlap modifiers\nwant: %v\n got: %v", expectedOverlap, overlapModifiers)
 	}
 
-	differenceModifiers := buildCmsaCycleCoverMembershipHeuristicModifiers(cmsa, cycleCover, 0.5, false)
+	differenceModifiers := buildMsaSupportCycleCoverMembershipHeuristicModifiers(msaSupport, cycleCover, 0.5, false)
 	expectedDifference := [][]float64{
 		{1, 1, 1.5, 1},
 		{1, 1, 1, 1},
@@ -134,7 +134,7 @@ func TestBuildCmsaCycleCoverMembershipHeuristicModifiersSplitsOverlapAndDifferen
 	}
 
 	if !reflect.DeepEqual(differenceModifiers, expectedDifference) {
-		t.Fatalf("unexpected CMSA-difference modifiers\nwant: %v\n got: %v", expectedDifference, differenceModifiers)
+		t.Fatalf("unexpected MSA support-difference modifiers\nwant: %v\n got: %v", expectedDifference, differenceModifiers)
 	}
 }
 
@@ -224,33 +224,33 @@ func TestBuildMinimumCycleCoverMatrix(t *testing.T) {
 	}
 }
 
-func TestHeuristicSpecificPathsKeepCmsaBaselinePaths(t *testing.T) {
+func TestHeuristicSpecificPathsKeepMsaSupportBaselinePaths(t *testing.T) {
 	atspData := makeAtspData("test.atsp", [][]float64{{0, 1}, {1, 0}}, 2)
 
-	if resultFilePathForHeuristic(atspData, heuristicCmsa) != filepath.Join(resultsDirectoryName, "test", resultFileName) {
-		t.Fatalf("CMSA result path should keep the existing baseline location")
+	if resultFilePathForHeuristic(atspData, heuristicMsaSupport) != filepath.Join(resultsDirectoryName, "test", resultFileName) {
+		t.Fatalf("MSA support result path should keep the existing baseline location")
 	}
 
 	if resultFilePathForHeuristic(atspData, heuristicCycleCover) != filepath.Join(resultsDirectoryName, "test", "result_cycle_cover.csv") {
 		t.Fatalf("unexpected cycle-cover result path: %s", resultFilePathForHeuristic(atspData, heuristicCycleCover))
 	}
 
-	if resultFilePathForHeuristic(atspData, heuristicCmsaOverlap) != filepath.Join(resultsDirectoryName, "test", "result_cmsa_overlap.csv") {
-		t.Fatalf("unexpected CMSA-overlap result path: %s", resultFilePathForHeuristic(atspData, heuristicCmsaOverlap))
+	if resultFilePathForHeuristic(atspData, heuristicMsaSupportOverlap) != filepath.Join(resultsDirectoryName, "test", "result_msa_support_overlap.csv") {
+		t.Fatalf("unexpected MSA support-overlap result path: %s", resultFilePathForHeuristic(atspData, heuristicMsaSupportOverlap))
 	}
 
-	if resultFilePathForHeuristic(atspData, heuristicCmsaDifference) != filepath.Join(resultsDirectoryName, "test", "result_cmsa_difference.csv") {
-		t.Fatalf("unexpected CMSA-difference result path: %s", resultFilePathForHeuristic(atspData, heuristicCmsaDifference))
+	if resultFilePathForHeuristic(atspData, heuristicMsaSupportDifference) != filepath.Join(resultsDirectoryName, "test", "result_msa_support_difference.csv") {
+		t.Fatalf("unexpected MSA support-difference result path: %s", resultFilePathForHeuristic(atspData, heuristicMsaSupportDifference))
 	}
 }
 
-func TestCmsaOverlapAndDifferenceHeuristicsUseCycleCover(t *testing.T) {
-	if !isValidHeuristic(heuristicCmsaOverlap) || !isValidHeuristic(heuristicCmsaDifference) {
-		t.Fatal("CMSA-overlap and CMSA-difference should be valid heuristics")
+func TestMsaSupportOverlapAndDifferenceHeuristicsUseCycleCover(t *testing.T) {
+	if !isValidHeuristic(heuristicMsaSupportOverlap) || !isValidHeuristic(heuristicMsaSupportDifference) {
+		t.Fatal("MSA support-overlap and MSA support-difference should be valid heuristics")
 	}
 
-	if !heuristicUsesCycleCover(heuristicCmsaOverlap) || !heuristicUsesCycleCover(heuristicCmsaDifference) {
-		t.Fatal("CMSA-overlap and CMSA-difference should require cycle cover")
+	if !heuristicUsesCycleCover(heuristicMsaSupportOverlap) || !heuristicUsesCycleCover(heuristicMsaSupportDifference) {
+		t.Fatal("MSA support-overlap and MSA support-difference should require cycle cover")
 	}
 }
 

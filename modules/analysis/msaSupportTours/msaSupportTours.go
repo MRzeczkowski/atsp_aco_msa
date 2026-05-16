@@ -1,7 +1,7 @@
-package cmsaTours
+package msaSupportTours
 
 import (
-	"atsp_aco_msa/modules/algorithms/compositeMsa"
+	"atsp_aco_msa/modules/algorithms/msaSupport"
 	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/utilities"
 	"encoding/csv"
@@ -18,15 +18,15 @@ import (
 type Edge = models.Edge
 
 type InstanceConfig struct {
-	Name                        string
-	Dimension                   int
-	CmsaDirectoryPath           string
-	OptimalToursCsvPath         string
-	ToursHeatmapPath            string
-	ToursHistogramPath          string
-	CmsaToursOverlapHeatmapPath string
-	AnalysisCsvPath             string
-	ThresholdsCsvPath           string
+	Name                              string
+	Dimension                         int
+	MsaSupportDirectoryPath           string
+	OptimalToursCsvPath               string
+	ToursHeatmapPath                  string
+	ToursHistogramPath                string
+	MsaSupportToursOverlapHeatmapPath string
+	AnalysisCsvPath                   string
+	ThresholdsCsvPath                 string
 }
 
 type Config struct {
@@ -38,8 +38,8 @@ type Config struct {
 }
 
 type TourStatistics struct {
-	tourId                                                                                       string
-	commonalityWithCmsa, minCommonalityWithMsa, averageCommonalityWithMsa, maxCommonalityWithMsa float64
+	tourId                                                                                             string
+	commonalityWithMsaSupport, minCommonalityWithMsa, averageCommonalityWithMsa, maxCommonalityWithMsa float64
 }
 
 type InstanceAnalysis struct {
@@ -50,44 +50,44 @@ type InstanceAnalysis struct {
 }
 
 type InstanceMetrics struct {
-	FoundOptimalTourCount                   int
-	UniqueFoundOptimalEdgeCount             int
-	FoundOptimalEdgeDensity                 float64
-	CmsaPositiveEdgeCount                   int
-	CmsaPositiveDensity                     float64
-	HighCmsaThreshold                       float64
-	HighCmsaEdgeCount                       int
-	HighCmsaDensity                         float64
-	OptimalEdgeCmsaCoverage                 float64
-	HighCmsaPrecision                       float64
-	HighCmsaRecall                          float64
-	HighCmsaLift                            float64
-	TopCmsaEdgeCount                        int
-	TopCmsaDensity                          float64
-	TopCmsaPrecision                        float64
-	TopCmsaRecall                           float64
-	TopCmsaLift                             float64
-	TopCmsaFalsePositiveEdges               int
-	TopCmsaMinTourCoverage                  float64
-	TopCmsaAverageTourCoverage              float64
-	TopCmsaMedianTourCoverage               float64
-	TopCmsaMaxTourCoverage                  float64
-	AverageNormalizedCmsaOnOptimalEdges     float64
-	MedianNormalizedCmsaOnOptimalEdges      float64
-	AverageNormalizedCmsaOnNotFoundPositive float64
-	MedianNormalizedCmsaOnNotFoundPositive  float64
-	MissingFoundOptimalEdges                int
-	FalsePositiveHighCmsaEdges              int
+	FoundOptimalTourCount                         int
+	UniqueFoundOptimalEdgeCount                   int
+	FoundOptimalEdgeDensity                       float64
+	MsaSupportPositiveEdgeCount                   int
+	MsaSupportPositiveDensity                     float64
+	HighMsaSupportThreshold                       float64
+	HighMsaSupportEdgeCount                       int
+	HighMsaSupportDensity                         float64
+	OptimalEdgeMsaSupportCoverage                 float64
+	HighMsaSupportPrecision                       float64
+	HighMsaSupportRecall                          float64
+	HighMsaSupportLift                            float64
+	TopMsaSupportEdgeCount                        int
+	TopMsaSupportDensity                          float64
+	TopMsaSupportPrecision                        float64
+	TopMsaSupportRecall                           float64
+	TopMsaSupportLift                             float64
+	TopMsaSupportFalsePositiveEdges               int
+	TopMsaSupportMinTourCoverage                  float64
+	TopMsaSupportAverageTourCoverage              float64
+	TopMsaSupportMedianTourCoverage               float64
+	TopMsaSupportMaxTourCoverage                  float64
+	AverageNormalizedMsaSupportOnOptimalEdges     float64
+	MedianNormalizedMsaSupportOnOptimalEdges      float64
+	AverageNormalizedMsaSupportOnNotFoundPositive float64
+	MedianNormalizedMsaSupportOnNotFoundPositive  float64
+	MissingFoundOptimalEdges                      int
+	FalsePositiveHighMsaSupportEdges              int
 }
 
 type ThresholdMetrics struct {
-	Threshold              float64
-	HighCmsaEdgeCount      int
-	HighCmsaDensity        float64
-	Precision              float64
-	Recall                 float64
-	Lift                   float64
-	FalsePositiveHighEdges int
+	Threshold               float64
+	HighMsaSupportEdgeCount int
+	HighMsaSupportDensity   float64
+	Precision               float64
+	Recall                  float64
+	Lift                    float64
+	FalsePositiveHighEdges  int
 }
 
 func DefaultThresholds() []float64 {
@@ -155,22 +155,22 @@ func AnalyzeInstance(config InstanceConfig, thresholds []float64, highThreshold 
 		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read optimal tours: %w", config.Name, err)
 	}
 
-	cmsa, err := compositeMsa.Read(config.CmsaDirectoryPath)
+	msaSupportMatrix, err := msaSupport.Read(config.MsaSupportDirectoryPath)
 	if err != nil {
-		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read CMSA: %w", config.Name, err)
+		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read MSA support: %w", config.Name, err)
 	}
-	if err := validateSquareMatrix(cmsa); err != nil {
-		return InstanceAnalysis{}, fmt.Errorf("%s: invalid CMSA: %w", config.Name, err)
+	if err := validateSquareMatrix(msaSupportMatrix); err != nil {
+		return InstanceAnalysis{}, fmt.Errorf("%s: invalid MSA support: %w", config.Name, err)
 	}
-	if config.Dimension != 0 && config.Dimension != len(cmsa) {
-		return InstanceAnalysis{}, fmt.Errorf("%s: configured dimension %d does not match CMSA dimension %d", config.Name, config.Dimension, len(cmsa))
+	if config.Dimension != 0 && config.Dimension != len(msaSupportMatrix) {
+		return InstanceAnalysis{}, fmt.Errorf("%s: configured dimension %d does not match MSA support dimension %d", config.Name, config.Dimension, len(msaSupportMatrix))
 	}
-	if err := validateTours(uniqueOptimalTours, len(cmsa)); err != nil {
+	if err := validateTours(uniqueOptimalTours, len(msaSupportMatrix)); err != nil {
 		return InstanceAnalysis{}, fmt.Errorf("%s: invalid found optimal tours: %w", config.Name, err)
 	}
 
-	metrics := CalculateMetrics(cmsa, uniqueOptimalTours, highThreshold)
-	thresholdMetrics := CalculateThresholdMetrics(cmsa, uniqueOptimalTours, thresholds)
+	metrics := CalculateMetrics(msaSupportMatrix, uniqueOptimalTours, highThreshold)
+	thresholdMetrics := CalculateThresholdMetrics(msaSupportMatrix, uniqueOptimalTours, thresholds)
 
 	if err := saveInstanceAnalysis(config.AnalysisCsvPath, config.Name, config.Dimension, metrics); err != nil {
 		return InstanceAnalysis{}, err
@@ -188,9 +188,9 @@ func AnalyzeInstance(config InstanceConfig, thresholds []float64, highThreshold 
 			return InstanceAnalysis{}, err
 		}
 
-		overlapMatrix := BuildCmsaToursOverlapMatrix(cmsa, toursMatrix, toursCount)
-		overlapHeatmapPlotTitle := config.Name + " CMSA/tours overlap heatmap"
-		if err := utilities.SaveHeatmapFromMatrix(overlapMatrix, overlapHeatmapPlotTitle, config.CmsaToursOverlapHeatmapPath); err != nil {
+		overlapMatrix := BuildMsaSupportToursOverlapMatrix(msaSupportMatrix, toursMatrix, toursCount)
+		overlapHeatmapPlotTitle := config.Name + " MSA support/tours overlap heatmap"
+		if err := utilities.SaveHeatmapFromMatrix(overlapMatrix, overlapHeatmapPlotTitle, config.MsaSupportToursOverlapHeatmapPath); err != nil {
 			return InstanceAnalysis{}, err
 		}
 
@@ -219,84 +219,84 @@ func AnalyzeInstance(config InstanceConfig, thresholds []float64, highThreshold 
 	}, nil
 }
 
-func CalculateMetrics(cmsa [][]float64, uniqueOptimalTours map[string][]int, highThreshold float64) InstanceMetrics {
-	thresholdMetrics := calculateMetrics(cmsa, uniqueOptimalTours, highThreshold)
+func CalculateMetrics(msaSupport [][]float64, uniqueOptimalTours map[string][]int, highThreshold float64) InstanceMetrics {
+	thresholdMetrics := calculateMetrics(msaSupport, uniqueOptimalTours, highThreshold)
 	return thresholdMetrics
 }
 
-func CalculateThresholdMetrics(cmsa [][]float64, uniqueOptimalTours map[string][]int, thresholds []float64) []ThresholdMetrics {
+func CalculateThresholdMetrics(msaSupport [][]float64, uniqueOptimalTours map[string][]int, thresholds []float64) []ThresholdMetrics {
 	metrics := make([]ThresholdMetrics, 0, len(thresholds))
 	sortedThresholds := append([]float64(nil), thresholds...)
 	sort.Float64s(sortedThresholds)
 
 	for _, threshold := range sortedThresholds {
-		instanceMetrics := calculateMetrics(cmsa, uniqueOptimalTours, threshold)
+		instanceMetrics := calculateMetrics(msaSupport, uniqueOptimalTours, threshold)
 		metrics = append(metrics, ThresholdMetrics{
-			Threshold:              threshold,
-			HighCmsaEdgeCount:      instanceMetrics.HighCmsaEdgeCount,
-			HighCmsaDensity:        instanceMetrics.HighCmsaDensity,
-			Precision:              instanceMetrics.HighCmsaPrecision,
-			Recall:                 instanceMetrics.HighCmsaRecall,
-			Lift:                   instanceMetrics.HighCmsaLift,
-			FalsePositiveHighEdges: instanceMetrics.FalsePositiveHighCmsaEdges,
+			Threshold:               threshold,
+			HighMsaSupportEdgeCount: instanceMetrics.HighMsaSupportEdgeCount,
+			HighMsaSupportDensity:   instanceMetrics.HighMsaSupportDensity,
+			Precision:               instanceMetrics.HighMsaSupportPrecision,
+			Recall:                  instanceMetrics.HighMsaSupportRecall,
+			Lift:                    instanceMetrics.HighMsaSupportLift,
+			FalsePositiveHighEdges:  instanceMetrics.FalsePositiveHighMsaSupportEdges,
 		})
 	}
 
 	return metrics
 }
 
-func calculateMetrics(cmsa [][]float64, uniqueOptimalTours map[string][]int, highThreshold float64) InstanceMetrics {
-	dimension := len(cmsa)
+func calculateMetrics(msaSupport [][]float64, uniqueOptimalTours map[string][]int, highThreshold float64) InstanceMetrics {
+	dimension := len(msaSupport)
 	totalDirectedEdges := dimension * (dimension - 1)
 	tourEdges := buildTourEdgeSet(uniqueOptimalTours)
 	foundOptimalEdgeCount := len(tourEdges)
 	hasFoundOptimalEdges := foundOptimalEdgeCount > 0
 
-	positiveCmsaEdges := 0
-	highCmsaEdges := 0
-	highCmsaOptimalEdges := 0
+	positiveMsaSupportEdges := 0
+	highMsaSupportEdges := 0
+	highMsaSupportOptimalEdges := 0
 	positiveOptimalEdges := 0
 	falsePositiveHighEdges := 0
 	optimalValues := make([]float64, 0, foundOptimalEdgeCount)
 	notFoundPositiveValues := make([]float64, 0)
-	topCmsaEdges := buildTopCmsaEdgeSet(cmsa, dimension-1)
-	topCmsaOptimalEdges := countIntersection(topCmsaEdges, tourEdges)
-	topCmsaFalsePositiveEdges := 0
+	topMsaSupportEdges := buildTopMsaSupportEdgeSet(msaSupport, dimension-1)
+	topMsaSupportOptimalEdges := countIntersection(topMsaSupportEdges, tourEdges)
+	topMsaSupportFalsePositiveEdges := 0
 	if hasFoundOptimalEdges {
-		topCmsaFalsePositiveEdges = len(topCmsaEdges) - topCmsaOptimalEdges
+		topMsaSupportFalsePositiveEdges = len(topMsaSupportEdges) - topMsaSupportOptimalEdges
 	}
-	topCmsaTourCoverages := calculateTourCoverages(uniqueOptimalTours, topCmsaEdges)
+	topMsaSupportTourCoverages := calculateTourCoverages(uniqueOptimalTours, topMsaSupportEdges)
 
 	for i := 0; i < dimension; i++ {
-		for j := 0; j < len(cmsa[i]); j++ {
+		for j := 0; j < len(msaSupport[i]); j++ {
 			if i == j {
 				continue
 			}
 
-			value := normalizedCmsaValue(cmsa[i][j], dimension)
+			value := normalizedMsaSupportValue(msaSupport[i][j], dimension)
 			edge := Edge{From: i, To: j}
 			_, isOptimalEdge := tourEdges[edge]
 
 			if isOptimalEdge {
 				optimalValues = append(optimalValues, value)
-				if cmsa[i][j] > 0 {
+				if msaSupport[i][j] > 0 {
 					positiveOptimalEdges++
 				}
 			}
 
-			if cmsa[i][j] <= 0 {
+			if msaSupport[i][j] <= 0 {
 				continue
 			}
 
-			positiveCmsaEdges++
+			positiveMsaSupportEdges++
 			if hasFoundOptimalEdges && !isOptimalEdge {
 				notFoundPositiveValues = append(notFoundPositiveValues, value)
 			}
 
 			if value >= highThreshold {
-				highCmsaEdges++
+				highMsaSupportEdges++
 				if isOptimalEdge {
-					highCmsaOptimalEdges++
+					highMsaSupportOptimalEdges++
 				} else if hasFoundOptimalEdges {
 					falsePositiveHighEdges++
 				}
@@ -305,52 +305,52 @@ func calculateMetrics(cmsa [][]float64, uniqueOptimalTours map[string][]int, hig
 	}
 
 	metrics := InstanceMetrics{
-		FoundOptimalTourCount:                   len(uniqueOptimalTours),
-		UniqueFoundOptimalEdgeCount:             foundOptimalEdgeCount,
-		CmsaPositiveEdgeCount:                   positiveCmsaEdges,
-		HighCmsaThreshold:                       highThreshold,
-		HighCmsaEdgeCount:                       highCmsaEdges,
-		TopCmsaEdgeCount:                        len(topCmsaEdges),
-		TopCmsaFalsePositiveEdges:               topCmsaFalsePositiveEdges,
-		TopCmsaMinTourCoverage:                  minFloat(topCmsaTourCoverages),
-		TopCmsaAverageTourCoverage:              average(topCmsaTourCoverages),
-		TopCmsaMedianTourCoverage:               median(topCmsaTourCoverages),
-		TopCmsaMaxTourCoverage:                  maxFloat(topCmsaTourCoverages),
-		AverageNormalizedCmsaOnOptimalEdges:     average(optimalValues),
-		MedianNormalizedCmsaOnOptimalEdges:      median(optimalValues),
-		AverageNormalizedCmsaOnNotFoundPositive: average(notFoundPositiveValues),
-		MedianNormalizedCmsaOnNotFoundPositive:  median(notFoundPositiveValues),
-		MissingFoundOptimalEdges:                foundOptimalEdgeCount - positiveOptimalEdges,
-		FalsePositiveHighCmsaEdges:              falsePositiveHighEdges,
+		FoundOptimalTourCount:                         len(uniqueOptimalTours),
+		UniqueFoundOptimalEdgeCount:                   foundOptimalEdgeCount,
+		MsaSupportPositiveEdgeCount:                   positiveMsaSupportEdges,
+		HighMsaSupportThreshold:                       highThreshold,
+		HighMsaSupportEdgeCount:                       highMsaSupportEdges,
+		TopMsaSupportEdgeCount:                        len(topMsaSupportEdges),
+		TopMsaSupportFalsePositiveEdges:               topMsaSupportFalsePositiveEdges,
+		TopMsaSupportMinTourCoverage:                  minFloat(topMsaSupportTourCoverages),
+		TopMsaSupportAverageTourCoverage:              average(topMsaSupportTourCoverages),
+		TopMsaSupportMedianTourCoverage:               median(topMsaSupportTourCoverages),
+		TopMsaSupportMaxTourCoverage:                  maxFloat(topMsaSupportTourCoverages),
+		AverageNormalizedMsaSupportOnOptimalEdges:     average(optimalValues),
+		MedianNormalizedMsaSupportOnOptimalEdges:      median(optimalValues),
+		AverageNormalizedMsaSupportOnNotFoundPositive: average(notFoundPositiveValues),
+		MedianNormalizedMsaSupportOnNotFoundPositive:  median(notFoundPositiveValues),
+		MissingFoundOptimalEdges:                      foundOptimalEdgeCount - positiveOptimalEdges,
+		FalsePositiveHighMsaSupportEdges:              falsePositiveHighEdges,
 	}
 
 	if totalDirectedEdges > 0 {
 		metrics.FoundOptimalEdgeDensity = float64(foundOptimalEdgeCount) / float64(totalDirectedEdges)
-		metrics.CmsaPositiveDensity = float64(positiveCmsaEdges) / float64(totalDirectedEdges)
-		metrics.HighCmsaDensity = float64(highCmsaEdges) / float64(totalDirectedEdges)
-		metrics.TopCmsaDensity = float64(len(topCmsaEdges)) / float64(totalDirectedEdges)
+		metrics.MsaSupportPositiveDensity = float64(positiveMsaSupportEdges) / float64(totalDirectedEdges)
+		metrics.HighMsaSupportDensity = float64(highMsaSupportEdges) / float64(totalDirectedEdges)
+		metrics.TopMsaSupportDensity = float64(len(topMsaSupportEdges)) / float64(totalDirectedEdges)
 	}
 
 	if foundOptimalEdgeCount > 0 {
-		metrics.OptimalEdgeCmsaCoverage = float64(positiveOptimalEdges) / float64(foundOptimalEdgeCount)
-		metrics.HighCmsaRecall = float64(highCmsaOptimalEdges) / float64(foundOptimalEdgeCount)
-		metrics.TopCmsaRecall = float64(topCmsaOptimalEdges) / float64(foundOptimalEdgeCount)
+		metrics.OptimalEdgeMsaSupportCoverage = float64(positiveOptimalEdges) / float64(foundOptimalEdgeCount)
+		metrics.HighMsaSupportRecall = float64(highMsaSupportOptimalEdges) / float64(foundOptimalEdgeCount)
+		metrics.TopMsaSupportRecall = float64(topMsaSupportOptimalEdges) / float64(foundOptimalEdgeCount)
 	}
 
-	if highCmsaEdges > 0 && foundOptimalEdgeCount > 0 {
-		metrics.HighCmsaPrecision = float64(highCmsaOptimalEdges) / float64(highCmsaEdges)
+	if highMsaSupportEdges > 0 && foundOptimalEdgeCount > 0 {
+		metrics.HighMsaSupportPrecision = float64(highMsaSupportOptimalEdges) / float64(highMsaSupportEdges)
 	}
-	if len(topCmsaEdges) > 0 && foundOptimalEdgeCount > 0 {
-		metrics.TopCmsaPrecision = float64(topCmsaOptimalEdges) / float64(len(topCmsaEdges))
+	if len(topMsaSupportEdges) > 0 && foundOptimalEdgeCount > 0 {
+		metrics.TopMsaSupportPrecision = float64(topMsaSupportOptimalEdges) / float64(len(topMsaSupportEdges))
 	}
 
-	if totalDirectedEdges > 0 && foundOptimalEdgeCount > 0 && metrics.HighCmsaPrecision > 0 {
+	if totalDirectedEdges > 0 && foundOptimalEdgeCount > 0 && metrics.HighMsaSupportPrecision > 0 {
 		randomPrecision := float64(foundOptimalEdgeCount) / float64(totalDirectedEdges)
-		metrics.HighCmsaLift = metrics.HighCmsaPrecision / randomPrecision
+		metrics.HighMsaSupportLift = metrics.HighMsaSupportPrecision / randomPrecision
 	}
-	if totalDirectedEdges > 0 && foundOptimalEdgeCount > 0 && metrics.TopCmsaPrecision > 0 {
+	if totalDirectedEdges > 0 && foundOptimalEdgeCount > 0 && metrics.TopMsaSupportPrecision > 0 {
 		randomPrecision := float64(foundOptimalEdgeCount) / float64(totalDirectedEdges)
-		metrics.TopCmsaLift = metrics.TopCmsaPrecision / randomPrecision
+		metrics.TopMsaSupportLift = metrics.TopMsaSupportPrecision / randomPrecision
 	}
 
 	return metrics
@@ -406,8 +406,8 @@ func AddUniqueTour(savedTours map[string][]int, tour []int) {
 	savedTours[key] = tour
 }
 
-func SaveOptimalToursStatistics(optimalUniqueToursCsvPath, cmsaDir string, uniqueOptimalTours map[string][]int) error {
-	toursStatistics, err := calculateToursStatistics(cmsaDir, uniqueOptimalTours)
+func SaveOptimalToursStatistics(optimalUniqueToursCsvPath, msaSupportDir string, uniqueOptimalTours map[string][]int) error {
+	toursStatistics, err := calculateToursStatistics(msaSupportDir, uniqueOptimalTours)
 	if err != nil {
 		return err
 	}
@@ -437,19 +437,19 @@ func BuildToursMatrix(uniqueOptimalTours map[string][]int, dimension int) [][]fl
 	return toursMatrix
 }
 
-func BuildCmsaToursOverlapMatrix(cmsa, toursMatrix [][]float64, toursCount int) [][]float64 {
-	dimension := len(cmsa)
+func BuildMsaSupportToursOverlapMatrix(msaSupport, toursMatrix [][]float64, toursCount int) [][]float64 {
+	dimension := len(msaSupport)
 	overlapMatrix := make([][]float64, dimension)
 
-	maxCmsaSelections := float64(dimension - 1)
+	maxMsaSupportSelections := float64(dimension - 1)
 	maxTourSelections := float64(toursCount)
 
 	for i := 0; i < dimension; i++ {
 		overlapMatrix[i] = make([]float64, dimension)
 		for j := 0; j < dimension; j++ {
-			cmsaFrequency := 0.0
-			if maxCmsaSelections > 0 {
-				cmsaFrequency = cmsa[i][j] / maxCmsaSelections
+			msaSupportFrequency := 0.0
+			if maxMsaSupportSelections > 0 {
+				msaSupportFrequency = msaSupport[i][j] / maxMsaSupportSelections
 			}
 
 			toursFrequency := 0.0
@@ -457,7 +457,7 @@ func BuildCmsaToursOverlapMatrix(cmsa, toursMatrix [][]float64, toursCount int) 
 				toursFrequency = toursMatrix[i][j] / maxTourSelections
 			}
 
-			overlapMatrix[i][j] = cmsaFrequency * toursFrequency
+			overlapMatrix[i][j] = msaSupportFrequency * toursFrequency
 		}
 	}
 
@@ -467,7 +467,7 @@ func BuildCmsaToursOverlapMatrix(cmsa, toursMatrix [][]float64, toursCount int) 
 func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, toursStatistics []TourStatistics) error {
 	header := []string{
 		"Tour",
-		"Commonality with CMSA",
+		"Commonality with MSA support",
 		"Min commonality with MSA",
 		"Avg commonality with MSA",
 		"Max commonality with MSA",
@@ -489,7 +489,7 @@ func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, toursStatistic
 	for _, tourStatistics := range toursStatistics {
 		record := []string{
 			tourStatistics.tourId,
-			fmt.Sprintf(floatFormat, tourStatistics.commonalityWithCmsa),
+			fmt.Sprintf(floatFormat, tourStatistics.commonalityWithMsaSupport),
 			fmt.Sprintf(floatFormat, tourStatistics.minCommonalityWithMsa),
 			fmt.Sprintf(floatFormat, tourStatistics.averageCommonalityWithMsa),
 			fmt.Sprintf(floatFormat, tourStatistics.maxCommonalityWithMsa),
@@ -504,17 +504,17 @@ func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, toursStatistic
 	return writer.Error()
 }
 
-func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]int) ([]TourStatistics, error) {
+func calculateToursStatistics(msaSupportDir string, uniqueOptimalTours map[string][]int) ([]TourStatistics, error) {
 	if len(uniqueOptimalTours) == 0 {
 		return nil, nil
 	}
 
-	cmsa, err := compositeMsa.Read(cmsaDir)
+	msaSupportMatrix, err := msaSupport.Read(msaSupportDir)
 	if err != nil {
 		return nil, err
 	}
 
-	msas, err := compositeMsa.ReadMsas(cmsaDir)
+	msas, err := msaSupport.ReadMsas(msaSupportDir)
 	if err != nil {
 		return nil, err
 	}
@@ -524,7 +524,7 @@ func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]in
 		tour := uniqueOptimalTours[tourId]
 		tourEdges := models.ConvertTourToEdges(tour)
 
-		commonalityWithCmsa := calculateCommonalityWithMatrix(tourEdges, cmsa)
+		commonalityWithMsaSupport := calculateCommonalityWithMatrix(tourEdges, msaSupportMatrix)
 
 		minCommonalityWithMsa := math.MaxFloat64
 		averageCommonalityWithMsa := 0.0
@@ -553,7 +553,7 @@ func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]in
 
 		toursStatistics = append(toursStatistics, TourStatistics{
 			tourId,
-			commonalityWithCmsa,
+			commonalityWithMsaSupport,
 			minCommonalityWithMsa,
 			averageCommonalityWithMsa,
 			maxCommonalityWithMsa,
@@ -561,8 +561,8 @@ func calculateToursStatistics(cmsaDir string, uniqueOptimalTours map[string][]in
 	}
 
 	sort.SliceStable(toursStatistics, func(i, j int) bool {
-		if toursStatistics[i].commonalityWithCmsa != toursStatistics[j].commonalityWithCmsa {
-			return toursStatistics[i].commonalityWithCmsa > toursStatistics[j].commonalityWithCmsa
+		if toursStatistics[i].commonalityWithMsaSupport != toursStatistics[j].commonalityWithMsaSupport {
+			return toursStatistics[i].commonalityWithMsaSupport > toursStatistics[j].commonalityWithMsaSupport
 		}
 
 		if toursStatistics[i].averageCommonalityWithMsa != toursStatistics[j].averageCommonalityWithMsa {
@@ -611,18 +611,18 @@ func saveInstanceAnalysis(path, instance string, dimension int, metrics Instance
 		{"Dimension", strconv.Itoa(dimension)},
 		{"Unique found-optimal tours", strconv.Itoa(metrics.FoundOptimalTourCount)},
 		{"Unique found-optimal edges", strconv.Itoa(metrics.UniqueFoundOptimalEdgeCount)},
-		{"Raw CMSA found-optimal edge coverage [%]", formatPercent(metrics.OptimalEdgeCmsaCoverage)},
-		{"Threshold CMSA threshold", formatFloat(metrics.HighCmsaThreshold)},
-		{"Threshold CMSA edges", strconv.Itoa(metrics.HighCmsaEdgeCount)},
-		{"Threshold CMSA precision [%]", formatPercent(metrics.HighCmsaPrecision)},
-		{"Threshold CMSA recall [%]", formatPercent(metrics.HighCmsaRecall)},
-		{"Threshold CMSA lift", formatFloat(metrics.HighCmsaLift)},
-		{"Top CMSA edges", strconv.Itoa(metrics.TopCmsaEdgeCount)},
-		{"Top CMSA precision [%]", formatPercent(metrics.TopCmsaPrecision)},
-		{"Top CMSA recall [%]", formatPercent(metrics.TopCmsaRecall)},
-		{"Top CMSA lift", formatFloat(metrics.TopCmsaLift)},
-		{"Top CMSA avg tour coverage [%]", formatPercent(metrics.TopCmsaAverageTourCoverage)},
-		{"Top CMSA best tour coverage [%]", formatPercent(metrics.TopCmsaMaxTourCoverage)},
+		{"Raw MSA support found-optimal edge coverage [%]", formatPercent(metrics.OptimalEdgeMsaSupportCoverage)},
+		{"Threshold MSA support threshold", formatFloat(metrics.HighMsaSupportThreshold)},
+		{"Threshold MSA support edges", strconv.Itoa(metrics.HighMsaSupportEdgeCount)},
+		{"Threshold MSA support precision [%]", formatPercent(metrics.HighMsaSupportPrecision)},
+		{"Threshold MSA support recall [%]", formatPercent(metrics.HighMsaSupportRecall)},
+		{"Threshold MSA support lift", formatFloat(metrics.HighMsaSupportLift)},
+		{"Top MSA support edges", strconv.Itoa(metrics.TopMsaSupportEdgeCount)},
+		{"Top MSA support precision [%]", formatPercent(metrics.TopMsaSupportPrecision)},
+		{"Top MSA support recall [%]", formatPercent(metrics.TopMsaSupportRecall)},
+		{"Top MSA support lift", formatFloat(metrics.TopMsaSupportLift)},
+		{"Top MSA support avg tour coverage [%]", formatPercent(metrics.TopMsaSupportAverageTourCoverage)},
+		{"Top MSA support best tour coverage [%]", formatPercent(metrics.TopMsaSupportMaxTourCoverage)},
 	}
 
 	for _, row := range rows {
@@ -649,12 +649,12 @@ func saveThresholdAnalysis(path string, metrics []ThresholdMetrics) error {
 	writer := csv.NewWriter(file)
 	header := []string{
 		"Threshold",
-		"High CMSA edges",
-		"High CMSA density [%]",
+		"High MSA support edges",
+		"High MSA support density [%]",
 		"Precision vs found-optimal edges [%]",
 		"Recall vs found-optimal edges [%]",
 		"Lift vs found-optimal edge density",
-		"High-CMSA edges not seen in found-optimal tours",
+		"High-MSA support edges not seen in found-optimal tours",
 	}
 	if err := writer.Write(header); err != nil {
 		return err
@@ -663,8 +663,8 @@ func saveThresholdAnalysis(path string, metrics []ThresholdMetrics) error {
 	for _, metric := range metrics {
 		row := []string{
 			formatFloat(metric.Threshold),
-			strconv.Itoa(metric.HighCmsaEdgeCount),
-			formatPercent(metric.HighCmsaDensity),
+			strconv.Itoa(metric.HighMsaSupportEdgeCount),
+			formatPercent(metric.HighMsaSupportDensity),
 			formatPercent(metric.Precision),
 			formatPercent(metric.Recall),
 			formatFloat(metric.Lift),
@@ -695,18 +695,18 @@ func saveSummary(path string, analyses []InstanceAnalysis) error {
 		"Instance",
 		"Unique found-optimal tours",
 		"Unique found-optimal edges",
-		"Raw CMSA found-optimal edge coverage [%]",
-		"Threshold CMSA threshold",
-		"Threshold CMSA edges",
-		"Threshold CMSA precision [%]",
-		"Threshold CMSA recall [%]",
-		"Threshold CMSA lift",
-		"Top CMSA edges",
-		"Top CMSA precision [%]",
-		"Top CMSA recall [%]",
-		"Top CMSA lift",
-		"Top CMSA avg tour coverage [%]",
-		"Top CMSA best tour coverage [%]",
+		"Raw MSA support found-optimal edge coverage [%]",
+		"Threshold MSA support threshold",
+		"Threshold MSA support edges",
+		"Threshold MSA support precision [%]",
+		"Threshold MSA support recall [%]",
+		"Threshold MSA support lift",
+		"Top MSA support edges",
+		"Top MSA support precision [%]",
+		"Top MSA support recall [%]",
+		"Top MSA support lift",
+		"Top MSA support avg tour coverage [%]",
+		"Top MSA support best tour coverage [%]",
 	}
 	if err := writer.Write(header); err != nil {
 		return err
@@ -718,18 +718,18 @@ func saveSummary(path string, analyses []InstanceAnalysis) error {
 			analysis.Instance,
 			strconv.Itoa(metrics.FoundOptimalTourCount),
 			strconv.Itoa(metrics.UniqueFoundOptimalEdgeCount),
-			formatPercent(metrics.OptimalEdgeCmsaCoverage),
-			formatFloat(metrics.HighCmsaThreshold),
-			strconv.Itoa(metrics.HighCmsaEdgeCount),
-			formatPercent(metrics.HighCmsaPrecision),
-			formatPercent(metrics.HighCmsaRecall),
-			formatFloat(metrics.HighCmsaLift),
-			strconv.Itoa(metrics.TopCmsaEdgeCount),
-			formatPercent(metrics.TopCmsaPrecision),
-			formatPercent(metrics.TopCmsaRecall),
-			formatFloat(metrics.TopCmsaLift),
-			formatPercent(metrics.TopCmsaAverageTourCoverage),
-			formatPercent(metrics.TopCmsaMaxTourCoverage),
+			formatPercent(metrics.OptimalEdgeMsaSupportCoverage),
+			formatFloat(metrics.HighMsaSupportThreshold),
+			strconv.Itoa(metrics.HighMsaSupportEdgeCount),
+			formatPercent(metrics.HighMsaSupportPrecision),
+			formatPercent(metrics.HighMsaSupportRecall),
+			formatFloat(metrics.HighMsaSupportLift),
+			strconv.Itoa(metrics.TopMsaSupportEdgeCount),
+			formatPercent(metrics.TopMsaSupportPrecision),
+			formatPercent(metrics.TopMsaSupportRecall),
+			formatFloat(metrics.TopMsaSupportLift),
+			formatPercent(metrics.TopMsaSupportAverageTourCoverage),
+			formatPercent(metrics.TopMsaSupportMaxTourCoverage),
 		}
 		if err := writer.Write(row); err != nil {
 			return err
@@ -774,36 +774,36 @@ func saveReport(path string, analyses []InstanceAnalysis, highThreshold float64)
 	topMaxTourCoverageSum := 0.0
 	for _, analysis := range instancesWithTours {
 		metrics := analysis.Metrics
-		rawCoverageSum += metrics.OptimalEdgeCmsaCoverage
-		thresholdEdgeSum += float64(metrics.HighCmsaEdgeCount)
-		thresholdPrecisionSum += metrics.HighCmsaPrecision
-		thresholdRecallSum += metrics.HighCmsaRecall
-		thresholdLiftSum += metrics.HighCmsaLift
-		topEdgeSum += float64(metrics.TopCmsaEdgeCount)
-		topPrecisionSum += metrics.TopCmsaPrecision
-		topRecallSum += metrics.TopCmsaRecall
-		topLiftSum += metrics.TopCmsaLift
-		topAverageTourCoverageSum += metrics.TopCmsaAverageTourCoverage
-		topMaxTourCoverageSum += metrics.TopCmsaMaxTourCoverage
+		rawCoverageSum += metrics.OptimalEdgeMsaSupportCoverage
+		thresholdEdgeSum += float64(metrics.HighMsaSupportEdgeCount)
+		thresholdPrecisionSum += metrics.HighMsaSupportPrecision
+		thresholdRecallSum += metrics.HighMsaSupportRecall
+		thresholdLiftSum += metrics.HighMsaSupportLift
+		topEdgeSum += float64(metrics.TopMsaSupportEdgeCount)
+		topPrecisionSum += metrics.TopMsaSupportPrecision
+		topRecallSum += metrics.TopMsaSupportRecall
+		topLiftSum += metrics.TopMsaSupportLift
+		topAverageTourCoverageSum += metrics.TopMsaSupportAverageTourCoverage
+		topMaxTourCoverageSum += metrics.TopMsaSupportMaxTourCoverage
 	}
 
 	var builder strings.Builder
-	builder.WriteString("# CMSA-Solution Analysis\n\n")
+	builder.WriteString("# MSA Support / Solution Analysis\n\n")
 	builder.WriteString(fmt.Sprintf("- Instances analyzed: %d\n", len(analyses)))
 	builder.WriteString(fmt.Sprintf("- Instances with found optimal tours: %d\n", len(instancesWithTours)))
 	builder.WriteString(fmt.Sprintf("- Instances without found optimal tours: %d\n\n", len(analyses)-len(instancesWithTours)))
 
 	builder.WriteString("## How To Read This\n\n")
-	builder.WriteString("- `Precision` is the share of selected CMSA edges that were seen in found optimal tours.\n")
-	builder.WriteString("- `Recall` is the share of the found-optimal edge union selected by the CMSA variant.\n")
+	builder.WriteString("- `Precision` is the share of selected MSA support edges that were seen in found optimal tours.\n")
+	builder.WriteString("- `Recall` is the share of the found-optimal edge union selected by the MSA support variant.\n")
 	builder.WriteString("- `Lift` is precision divided by random edge-hit probability for that instance; higher means the selected edges are less random.\n")
 	builder.WriteString("- `Tour coverage` is per-tour, not union-based: it measures how much of one complete found optimal tour is covered by the selected edges.\n\n")
 
-	builder.WriteString("## Raw CMSA Coverage\n\n")
-	builder.WriteString("This checks whether CMSA contains found-optimal edges at all before selecting or filtering them.\n\n")
+	builder.WriteString("## Raw MSA Support Coverage\n\n")
+	builder.WriteString("This checks whether MSA support contains found-optimal edges at all before selecting or filtering them.\n\n")
 	builder.WriteString("| Metric | Average |\n")
 	builder.WriteString("|---|---:|\n")
-	builder.WriteString(fmt.Sprintf("| Found-optimal edges present in CMSA | %s%% |\n", formatPercent(average(rawCoverageSum))))
+	builder.WriteString(fmt.Sprintf("| Found-optimal edges present in MSA support | %s%% |\n", formatPercent(average(rawCoverageSum))))
 	builder.WriteString("\n")
 
 	builder.WriteString("| Instance | Coverage % |\n")
@@ -812,13 +812,13 @@ func saveReport(path string, analyses []InstanceAnalysis, highThreshold float64)
 		metrics := analysis.Metrics
 		builder.WriteString(fmt.Sprintf("| %s | %s |\n",
 			analysis.Instance,
-			formatPercent(metrics.OptimalEdgeCmsaCoverage),
+			formatPercent(metrics.OptimalEdgeMsaSupportCoverage),
 		))
 	}
 	builder.WriteString("\n")
 
-	builder.WriteString("## Threshold CMSA\n\n")
-	builder.WriteString(fmt.Sprintf("This variant selects every edge with normalized CMSA support at least %.1f.\n\n", highThreshold))
+	builder.WriteString("## Threshold MSA support\n\n")
+	builder.WriteString(fmt.Sprintf("This variant selects every edge with normalized MSA support at least %.1f.\n\n", highThreshold))
 	builder.WriteString("| Metric | Average |\n")
 	builder.WriteString("|---|---:|\n")
 	builder.WriteString(fmt.Sprintf("| Selected edges | %.1f |\n", average(thresholdEdgeSum)))
@@ -832,16 +832,16 @@ func saveReport(path string, analyses []InstanceAnalysis, highThreshold float64)
 		metrics := analysis.Metrics
 		builder.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s |\n",
 			analysis.Instance,
-			metrics.HighCmsaEdgeCount,
-			formatPercent(metrics.HighCmsaPrecision),
-			formatPercent(metrics.HighCmsaRecall),
-			formatFloat(metrics.HighCmsaLift),
+			metrics.HighMsaSupportEdgeCount,
+			formatPercent(metrics.HighMsaSupportPrecision),
+			formatPercent(metrics.HighMsaSupportRecall),
+			formatFloat(metrics.HighMsaSupportLift),
 		))
 	}
 	builder.WriteString("\n")
 
-	builder.WriteString("## Top N-1 CMSA\n\n")
-	builder.WriteString("This variant selects a fixed number of edges: the top `dimension - 1` positive CMSA edges, with deterministic tie-breaking by edge id.\n\n")
+	builder.WriteString("## Top N-1 MSA support\n\n")
+	builder.WriteString("This variant selects a fixed number of edges: the top `dimension - 1` positive MSA support edges, with deterministic tie-breaking by edge id.\n\n")
 	builder.WriteString("| Metric | Average |\n")
 	builder.WriteString("|---|---:|\n")
 	builder.WriteString(fmt.Sprintf("| Selected edges | %.1f |\n", average(topEdgeSum)))
@@ -857,11 +857,11 @@ func saveReport(path string, analyses []InstanceAnalysis, highThreshold float64)
 		metrics := analysis.Metrics
 		builder.WriteString(fmt.Sprintf("| %s | %d | %s | %s | %s | %s |\n",
 			analysis.Instance,
-			metrics.TopCmsaEdgeCount,
-			formatPercent(metrics.TopCmsaPrecision),
-			formatPercent(metrics.TopCmsaRecall),
-			formatPercent(metrics.TopCmsaAverageTourCoverage),
-			formatPercent(metrics.TopCmsaMaxTourCoverage),
+			metrics.TopMsaSupportEdgeCount,
+			formatPercent(metrics.TopMsaSupportPrecision),
+			formatPercent(metrics.TopMsaSupportRecall),
+			formatPercent(metrics.TopMsaSupportAverageTourCoverage),
+			formatPercent(metrics.TopMsaSupportMaxTourCoverage),
 		))
 	}
 	builder.WriteString("\n")
@@ -883,27 +883,27 @@ func buildTourEdgeSet(uniqueOptimalTours map[string][]int) map[Edge]struct{} {
 	return edges
 }
 
-func buildTopCmsaEdgeSet(cmsa [][]float64, limit int) map[Edge]struct{} {
+func buildTopMsaSupportEdgeSet(msaSupport [][]float64, limit int) map[Edge]struct{} {
 	if limit <= 0 {
 		return map[Edge]struct{}{}
 	}
 
-	type cmsaEdgeCandidate struct {
+	type msaSupportEdgeCandidate struct {
 		edge   Edge
 		signal float64
 	}
 
-	dimension := len(cmsa)
-	candidates := make([]cmsaEdgeCandidate, 0, dimension*(dimension-1))
+	dimension := len(msaSupport)
+	candidates := make([]msaSupportEdgeCandidate, 0, dimension*(dimension-1))
 	for i := 0; i < dimension; i++ {
-		for j := 0; j < len(cmsa[i]); j++ {
-			if i == j || cmsa[i][j] <= 0 {
+		for j := 0; j < len(msaSupport[i]); j++ {
+			if i == j || msaSupport[i][j] <= 0 {
 				continue
 			}
 
-			candidates = append(candidates, cmsaEdgeCandidate{
+			candidates = append(candidates, msaSupportEdgeCandidate{
 				edge:   Edge{From: i, To: j},
-				signal: normalizedCmsaValue(cmsa[i][j], dimension),
+				signal: normalizedMsaSupportValue(msaSupport[i][j], dimension),
 			})
 		}
 	}
@@ -998,7 +998,7 @@ func removeStaleTourPlots(config InstanceConfig) error {
 	for _, path := range []string{
 		config.ToursHeatmapPath,
 		config.ToursHistogramPath,
-		config.CmsaToursOverlapHeatmapPath,
+		config.MsaSupportToursOverlapHeatmapPath,
 	} {
 		if err := removeIfExists(path); err != nil {
 			return err
@@ -1049,7 +1049,7 @@ func sortedTourIds(tours map[string][]int) []string {
 	return tourIds
 }
 
-func normalizedCmsaValue(value float64, dimension int) float64 {
+func normalizedMsaSupportValue(value float64, dimension int) float64 {
 	if dimension <= 1 {
 		return 0
 	}

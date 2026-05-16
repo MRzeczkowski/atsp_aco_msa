@@ -1,9 +1,9 @@
 package cycleCover
 
 import (
-	"atsp_aco_msa/modules/algorithms/compositeMsa"
 	"atsp_aco_msa/modules/algorithms/hungarian"
-	"atsp_aco_msa/modules/analysis/cmsaTours"
+	"atsp_aco_msa/modules/algorithms/msaSupport"
+	"atsp_aco_msa/modules/analysis/msaSupportTours"
 	"atsp_aco_msa/modules/models"
 	"encoding/csv"
 	"fmt"
@@ -21,7 +21,7 @@ type InstanceConfig struct {
 	Dimension                   int
 	Matrix                      [][]float64
 	KnownOptimal                float64
-	CmsaDirectoryPath           string
+	MsaSupportDirectoryPath     string
 	OptimalToursCsvPath         string
 	CycleCoverEdgesCsvPath      string
 	AnalysisCsvPath             string
@@ -56,26 +56,26 @@ type InstanceMetrics struct {
 	CycleCoverAverageCycleLength float64
 	CycleCoverMaxCycleLength     int
 
-	CycleCoverMetrics             EdgeSetMetrics
-	HighCmsaThreshold             float64
-	HighCmsaMetrics               EdgeSetMetrics
-	CycleCoverPositiveCmsaMetrics EdgeSetMetrics
-	CycleCoverHighCmsaMetrics     EdgeSetMetrics
+	CycleCoverMetrics                   EdgeSetMetrics
+	HighMsaSupportThreshold             float64
+	HighMsaSupportMetrics               EdgeSetMetrics
+	CycleCoverPositiveMsaSupportMetrics EdgeSetMetrics
+	CycleCoverHighMsaSupportMetrics     EdgeSetMetrics
 
-	CycleCoverEdgesWithPositiveCmsa int
-	CycleCoverPositiveCmsaShare     float64
-	CycleCoverEdgesWithHighCmsa     int
-	CycleCoverHighCmsaShare         float64
+	CycleCoverEdgesWithPositiveMsaSupport int
+	CycleCoverPositiveMsaSupportShare     float64
+	CycleCoverEdgesWithHighMsaSupport     int
+	CycleCoverHighMsaSupportShare         float64
 
-	HighCmsaEdgesRemovedByCycleCover        int
-	HighCmsaOptimalEdgesRemovedByCycleCover int
-	HighCmsaPrecisionGainFromCycleCover     float64
-	HighCmsaRecallLossFromCycleCover        float64
+	HighMsaSupportEdgesRemovedByCycleCover        int
+	HighMsaSupportOptimalEdgesRemovedByCycleCover int
+	HighMsaSupportPrecisionGainFromCycleCover     float64
+	HighMsaSupportRecallLossFromCycleCover        float64
 
-	OptimalEdgesInCycleCoverAndHighCmsa    int
-	OptimalEdgesInCycleCoverNotHighCmsa    int
-	OptimalEdgesInHighCmsaNotCycleCover    int
-	OptimalEdgesInNeitherCycleCoverNorHigh int
+	OptimalEdgesInCycleCoverAndHighMsaSupport int
+	OptimalEdgesInCycleCoverNotHighMsaSupport int
+	OptimalEdgesInHighMsaSupportNotCycleCover int
+	OptimalEdgesInNeitherCycleCoverNorHigh    int
 }
 
 type EdgeSetMetrics struct {
@@ -89,21 +89,21 @@ type EdgeSetMetrics struct {
 }
 
 type ThresholdMetrics struct {
-	Threshold                               float64
-	HighCmsa                                EdgeSetMetrics
-	CycleCoverHighCmsa                      EdgeSetMetrics
-	HighCmsaEdgesRemovedByCycleCover        int
-	HighCmsaOptimalEdgesRemovedByCycleCover int
-	HighCmsaPrecisionGainFromCycleCover     float64
-	HighCmsaRecallLossFromCycleCover        float64
-	CycleCoverShareOfHighCmsaEdges          float64
-	CycleCoverShareOfHighCmsaOptimalEdges   float64
+	Threshold                                     float64
+	HighMsaSupport                                EdgeSetMetrics
+	CycleCoverHighMsaSupport                      EdgeSetMetrics
+	HighMsaSupportEdgesRemovedByCycleCover        int
+	HighMsaSupportOptimalEdgesRemovedByCycleCover int
+	HighMsaSupportPrecisionGainFromCycleCover     float64
+	HighMsaSupportRecallLossFromCycleCover        float64
+	CycleCoverShareOfHighMsaSupportEdges          float64
+	CycleCoverShareOfHighMsaSupportOptimalEdges   float64
 }
 
 func AnalyzeInstances(config Config) ([]InstanceAnalysis, error) {
 	thresholds := append([]float64(nil), config.Thresholds...)
 	if len(thresholds) == 0 {
-		thresholds = cmsaTours.DefaultThresholds()
+		thresholds = msaSupportTours.DefaultThresholds()
 	}
 	sort.Float64s(thresholds)
 
@@ -143,7 +143,7 @@ func AnalyzeInstances(config Config) ([]InstanceAnalysis, error) {
 
 func AnalyzeInstance(config InstanceConfig, thresholds []float64, highThreshold float64) (InstanceAnalysis, error) {
 	if len(thresholds) == 0 {
-		thresholds = cmsaTours.DefaultThresholds()
+		thresholds = msaSupportTours.DefaultThresholds()
 	}
 	thresholds = append([]float64(nil), thresholds...)
 	sort.Float64s(thresholds)
@@ -159,18 +159,18 @@ func AnalyzeInstance(config InstanceConfig, thresholds []float64, highThreshold 
 		return InstanceAnalysis{}, fmt.Errorf("%s: configured dimension %d does not match matrix dimension %d", config.Name, config.Dimension, len(config.Matrix))
 	}
 
-	cmsa, err := compositeMsa.Read(config.CmsaDirectoryPath)
+	msaSupportMatrix, err := msaSupport.Read(config.MsaSupportDirectoryPath)
 	if err != nil {
-		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read CMSA: %w", config.Name, err)
+		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read MSA support: %w", config.Name, err)
 	}
-	if err := validateSquareMatrix(cmsa); err != nil {
-		return InstanceAnalysis{}, fmt.Errorf("%s: invalid CMSA: %w", config.Name, err)
+	if err := validateSquareMatrix(msaSupportMatrix); err != nil {
+		return InstanceAnalysis{}, fmt.Errorf("%s: invalid MSA support: %w", config.Name, err)
 	}
-	if len(cmsa) != len(config.Matrix) {
-		return InstanceAnalysis{}, fmt.Errorf("%s: CMSA dimension %d does not match matrix dimension %d", config.Name, len(cmsa), len(config.Matrix))
+	if len(msaSupportMatrix) != len(config.Matrix) {
+		return InstanceAnalysis{}, fmt.Errorf("%s: MSA support dimension %d does not match matrix dimension %d", config.Name, len(msaSupportMatrix), len(config.Matrix))
 	}
 
-	uniqueOptimalTours, err := cmsaTours.ReadOptimalTours(config.OptimalToursCsvPath)
+	uniqueOptimalTours, err := msaSupportTours.ReadOptimalTours(config.OptimalToursCsvPath)
 	if err != nil {
 		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read found optimal tours: %w", config.Name, err)
 	}
@@ -186,9 +186,9 @@ func AnalyzeInstance(config InstanceConfig, thresholds []float64, highThreshold 
 		return InstanceAnalysis{}, fmt.Errorf("%s: invalid minimum cycle cover: %w", config.Name, err)
 	}
 
-	analysis := calculateAnalysis(config.Name, len(config.Matrix), config.KnownOptimal, cmsa, uniqueOptimalTours, cycleCoverEdges, cycleCoverCost, thresholds, highThreshold)
+	analysis := calculateAnalysis(config.Name, len(config.Matrix), config.KnownOptimal, msaSupportMatrix, uniqueOptimalTours, cycleCoverEdges, cycleCoverCost, thresholds, highThreshold)
 
-	if err := saveCycleCoverEdges(config.CycleCoverEdgesCsvPath, config.Matrix, cmsa, buildTourEdgeSet(uniqueOptimalTours), buildEdgeSet(cycleCoverEdges), highThreshold); err != nil {
+	if err := saveCycleCoverEdges(config.CycleCoverEdgesCsvPath, config.Matrix, msaSupportMatrix, buildTourEdgeSet(uniqueOptimalTours), buildEdgeSet(cycleCoverEdges), highThreshold); err != nil {
 		return InstanceAnalysis{}, err
 	}
 	if err := saveInstanceAnalysis(config.AnalysisCsvPath, analysis); err != nil {
@@ -198,7 +198,7 @@ func AnalyzeInstance(config InstanceConfig, thresholds []float64, highThreshold 
 		return InstanceAnalysis{}, err
 	}
 	if config.CycleCoverOverlapMatrixPath != "" {
-		matrix := buildCycleCoverCmsaOverlapMatrix(cmsa, buildEdgeSet(cycleCoverEdges))
+		matrix := buildCycleCoverMsaSupportOverlapMatrix(msaSupportMatrix, buildEdgeSet(cycleCoverEdges))
 		if err := saveMatrixCsv(config.CycleCoverOverlapMatrixPath, matrix); err != nil {
 			return InstanceAnalysis{}, err
 		}
@@ -207,32 +207,32 @@ func AnalyzeInstance(config InstanceConfig, thresholds []float64, highThreshold 
 	return analysis, nil
 }
 
-func calculateAnalysis(instance string, dimension int, knownOptimal float64, cmsa [][]float64, uniqueOptimalTours map[string][]int, cycleCoverEdges []Edge, cycleCoverCost float64, thresholds []float64, highThreshold float64) InstanceAnalysis {
+func calculateAnalysis(instance string, dimension int, knownOptimal float64, msaSupport [][]float64, uniqueOptimalTours map[string][]int, cycleCoverEdges []Edge, cycleCoverCost float64, thresholds []float64, highThreshold float64) InstanceAnalysis {
 	optimalEdges := buildTourEdgeSet(uniqueOptimalTours)
 	cycleCoverSet := buildEdgeSet(cycleCoverEdges)
-	positiveCmsaSet := buildCmsaThresholdSet(cmsa, 0, false)
-	highCmsaSet := buildCmsaThresholdSet(cmsa, highThreshold, true)
-	cycleCoverPositiveCmsaSet := intersectEdgeSets(cycleCoverSet, positiveCmsaSet)
-	cycleCoverHighCmsaSet := intersectEdgeSets(cycleCoverSet, highCmsaSet)
+	positiveMsaSupportSet := buildMsaSupportThresholdSet(msaSupport, 0, false)
+	highMsaSupportSet := buildMsaSupportThresholdSet(msaSupport, highThreshold, true)
+	cycleCoverPositiveMsaSupportSet := intersectEdgeSets(cycleCoverSet, positiveMsaSupportSet)
+	cycleCoverHighMsaSupportSet := intersectEdgeSets(cycleCoverSet, highMsaSupportSet)
 
 	totalDirectedEdges := dimension * (dimension - 1)
 	cycleLengths := cycleLengths(cycleCoverEdges, dimension)
 
 	metrics := InstanceMetrics{
-		FoundOptimalTourCount:           len(uniqueOptimalTours),
-		UniqueFoundOptimalEdgeCount:     len(optimalEdges),
-		CycleCoverCost:                  cycleCoverCost,
-		CycleCoverCycleCount:            len(cycleLengths),
-		CycleCoverMinCycleLength:        minInt(cycleLengths),
-		CycleCoverAverageCycleLength:    averageInt(cycleLengths),
-		CycleCoverMaxCycleLength:        maxInt(cycleLengths),
-		CycleCoverMetrics:               calculateEdgeSetMetrics(cycleCoverSet, optimalEdges, totalDirectedEdges),
-		HighCmsaThreshold:               highThreshold,
-		HighCmsaMetrics:                 calculateEdgeSetMetrics(highCmsaSet, optimalEdges, totalDirectedEdges),
-		CycleCoverPositiveCmsaMetrics:   calculateEdgeSetMetrics(cycleCoverPositiveCmsaSet, optimalEdges, totalDirectedEdges),
-		CycleCoverHighCmsaMetrics:       calculateEdgeSetMetrics(cycleCoverHighCmsaSet, optimalEdges, totalDirectedEdges),
-		CycleCoverEdgesWithPositiveCmsa: len(cycleCoverPositiveCmsaSet),
-		CycleCoverEdgesWithHighCmsa:     len(cycleCoverHighCmsaSet),
+		FoundOptimalTourCount:                 len(uniqueOptimalTours),
+		UniqueFoundOptimalEdgeCount:           len(optimalEdges),
+		CycleCoverCost:                        cycleCoverCost,
+		CycleCoverCycleCount:                  len(cycleLengths),
+		CycleCoverMinCycleLength:              minInt(cycleLengths),
+		CycleCoverAverageCycleLength:          averageInt(cycleLengths),
+		CycleCoverMaxCycleLength:              maxInt(cycleLengths),
+		CycleCoverMetrics:                     calculateEdgeSetMetrics(cycleCoverSet, optimalEdges, totalDirectedEdges),
+		HighMsaSupportThreshold:               highThreshold,
+		HighMsaSupportMetrics:                 calculateEdgeSetMetrics(highMsaSupportSet, optimalEdges, totalDirectedEdges),
+		CycleCoverPositiveMsaSupportMetrics:   calculateEdgeSetMetrics(cycleCoverPositiveMsaSupportSet, optimalEdges, totalDirectedEdges),
+		CycleCoverHighMsaSupportMetrics:       calculateEdgeSetMetrics(cycleCoverHighMsaSupportSet, optimalEdges, totalDirectedEdges),
+		CycleCoverEdgesWithPositiveMsaSupport: len(cycleCoverPositiveMsaSupportSet),
+		CycleCoverEdgesWithHighMsaSupport:     len(cycleCoverHighMsaSupportSet),
 	}
 
 	if totalDirectedEdges > 0 {
@@ -242,21 +242,21 @@ func calculateAnalysis(instance string, dimension int, knownOptimal float64, cms
 		metrics.CycleCoverGapToKnownOptimal = (knownOptimal - cycleCoverCost) / knownOptimal
 	}
 	if metrics.CycleCoverMetrics.EdgeCount > 0 {
-		metrics.CycleCoverPositiveCmsaShare = float64(metrics.CycleCoverEdgesWithPositiveCmsa) / float64(metrics.CycleCoverMetrics.EdgeCount)
-		metrics.CycleCoverHighCmsaShare = float64(metrics.CycleCoverEdgesWithHighCmsa) / float64(metrics.CycleCoverMetrics.EdgeCount)
+		metrics.CycleCoverPositiveMsaSupportShare = float64(metrics.CycleCoverEdgesWithPositiveMsaSupport) / float64(metrics.CycleCoverMetrics.EdgeCount)
+		metrics.CycleCoverHighMsaSupportShare = float64(metrics.CycleCoverEdgesWithHighMsaSupport) / float64(metrics.CycleCoverMetrics.EdgeCount)
 	}
 
-	metrics.HighCmsaEdgesRemovedByCycleCover = metrics.HighCmsaMetrics.EdgeCount - metrics.CycleCoverHighCmsaMetrics.EdgeCount
-	metrics.HighCmsaOptimalEdgesRemovedByCycleCover = metrics.HighCmsaMetrics.OptimalEdgeCount - metrics.CycleCoverHighCmsaMetrics.OptimalEdgeCount
-	metrics.HighCmsaPrecisionGainFromCycleCover = metrics.CycleCoverHighCmsaMetrics.Precision - metrics.HighCmsaMetrics.Precision
-	metrics.HighCmsaRecallLossFromCycleCover = metrics.HighCmsaMetrics.Recall - metrics.CycleCoverHighCmsaMetrics.Recall
+	metrics.HighMsaSupportEdgesRemovedByCycleCover = metrics.HighMsaSupportMetrics.EdgeCount - metrics.CycleCoverHighMsaSupportMetrics.EdgeCount
+	metrics.HighMsaSupportOptimalEdgesRemovedByCycleCover = metrics.HighMsaSupportMetrics.OptimalEdgeCount - metrics.CycleCoverHighMsaSupportMetrics.OptimalEdgeCount
+	metrics.HighMsaSupportPrecisionGainFromCycleCover = metrics.CycleCoverHighMsaSupportMetrics.Precision - metrics.HighMsaSupportMetrics.Precision
+	metrics.HighMsaSupportRecallLossFromCycleCover = metrics.HighMsaSupportMetrics.Recall - metrics.CycleCoverHighMsaSupportMetrics.Recall
 
-	metrics.OptimalEdgesInCycleCoverAndHighCmsa = countOptimalEdgesByMembership(optimalEdges, cycleCoverSet, highCmsaSet, true, true)
-	metrics.OptimalEdgesInCycleCoverNotHighCmsa = countOptimalEdgesByMembership(optimalEdges, cycleCoverSet, highCmsaSet, true, false)
-	metrics.OptimalEdgesInHighCmsaNotCycleCover = countOptimalEdgesByMembership(optimalEdges, cycleCoverSet, highCmsaSet, false, true)
-	metrics.OptimalEdgesInNeitherCycleCoverNorHigh = countOptimalEdgesByMembership(optimalEdges, cycleCoverSet, highCmsaSet, false, false)
+	metrics.OptimalEdgesInCycleCoverAndHighMsaSupport = countOptimalEdgesByMembership(optimalEdges, cycleCoverSet, highMsaSupportSet, true, true)
+	metrics.OptimalEdgesInCycleCoverNotHighMsaSupport = countOptimalEdgesByMembership(optimalEdges, cycleCoverSet, highMsaSupportSet, true, false)
+	metrics.OptimalEdgesInHighMsaSupportNotCycleCover = countOptimalEdgesByMembership(optimalEdges, cycleCoverSet, highMsaSupportSet, false, true)
+	metrics.OptimalEdgesInNeitherCycleCoverNorHigh = countOptimalEdgesByMembership(optimalEdges, cycleCoverSet, highMsaSupportSet, false, false)
 
-	thresholdMetrics := calculateThresholdMetrics(cmsa, optimalEdges, cycleCoverSet, thresholds, totalDirectedEdges)
+	thresholdMetrics := calculateThresholdMetrics(msaSupport, optimalEdges, cycleCoverSet, thresholds, totalDirectedEdges)
 
 	return InstanceAnalysis{
 		Instance:          instance,
@@ -266,33 +266,33 @@ func calculateAnalysis(instance string, dimension int, knownOptimal float64, cms
 	}
 }
 
-func calculateThresholdMetrics(cmsa [][]float64, optimalEdges, cycleCoverSet map[Edge]struct{}, thresholds []float64, totalDirectedEdges int) []ThresholdMetrics {
+func calculateThresholdMetrics(msaSupport [][]float64, optimalEdges, cycleCoverSet map[Edge]struct{}, thresholds []float64, totalDirectedEdges int) []ThresholdMetrics {
 	metrics := make([]ThresholdMetrics, 0, len(thresholds))
 	sortedThresholds := append([]float64(nil), thresholds...)
 	sort.Float64s(sortedThresholds)
 
 	for _, threshold := range sortedThresholds {
-		highCmsaSet := buildCmsaThresholdSet(cmsa, threshold, true)
-		cycleCoverHighCmsaSet := intersectEdgeSets(cycleCoverSet, highCmsaSet)
+		highMsaSupportSet := buildMsaSupportThresholdSet(msaSupport, threshold, true)
+		cycleCoverHighMsaSupportSet := intersectEdgeSets(cycleCoverSet, highMsaSupportSet)
 
-		highCmsaMetrics := calculateEdgeSetMetrics(highCmsaSet, optimalEdges, totalDirectedEdges)
-		cycleCoverHighCmsaMetrics := calculateEdgeSetMetrics(cycleCoverHighCmsaSet, optimalEdges, totalDirectedEdges)
+		highMsaSupportMetrics := calculateEdgeSetMetrics(highMsaSupportSet, optimalEdges, totalDirectedEdges)
+		cycleCoverHighMsaSupportMetrics := calculateEdgeSetMetrics(cycleCoverHighMsaSupportSet, optimalEdges, totalDirectedEdges)
 
 		metric := ThresholdMetrics{
-			Threshold:                               threshold,
-			HighCmsa:                                highCmsaMetrics,
-			CycleCoverHighCmsa:                      cycleCoverHighCmsaMetrics,
-			HighCmsaEdgesRemovedByCycleCover:        highCmsaMetrics.EdgeCount - cycleCoverHighCmsaMetrics.EdgeCount,
-			HighCmsaOptimalEdgesRemovedByCycleCover: highCmsaMetrics.OptimalEdgeCount - cycleCoverHighCmsaMetrics.OptimalEdgeCount,
-			HighCmsaPrecisionGainFromCycleCover:     cycleCoverHighCmsaMetrics.Precision - highCmsaMetrics.Precision,
-			HighCmsaRecallLossFromCycleCover:        highCmsaMetrics.Recall - cycleCoverHighCmsaMetrics.Recall,
+			Threshold:                                     threshold,
+			HighMsaSupport:                                highMsaSupportMetrics,
+			CycleCoverHighMsaSupport:                      cycleCoverHighMsaSupportMetrics,
+			HighMsaSupportEdgesRemovedByCycleCover:        highMsaSupportMetrics.EdgeCount - cycleCoverHighMsaSupportMetrics.EdgeCount,
+			HighMsaSupportOptimalEdgesRemovedByCycleCover: highMsaSupportMetrics.OptimalEdgeCount - cycleCoverHighMsaSupportMetrics.OptimalEdgeCount,
+			HighMsaSupportPrecisionGainFromCycleCover:     cycleCoverHighMsaSupportMetrics.Precision - highMsaSupportMetrics.Precision,
+			HighMsaSupportRecallLossFromCycleCover:        highMsaSupportMetrics.Recall - cycleCoverHighMsaSupportMetrics.Recall,
 		}
 
-		if highCmsaMetrics.EdgeCount > 0 {
-			metric.CycleCoverShareOfHighCmsaEdges = float64(cycleCoverHighCmsaMetrics.EdgeCount) / float64(highCmsaMetrics.EdgeCount)
+		if highMsaSupportMetrics.EdgeCount > 0 {
+			metric.CycleCoverShareOfHighMsaSupportEdges = float64(cycleCoverHighMsaSupportMetrics.EdgeCount) / float64(highMsaSupportMetrics.EdgeCount)
 		}
-		if highCmsaMetrics.OptimalEdgeCount > 0 {
-			metric.CycleCoverShareOfHighCmsaOptimalEdges = float64(cycleCoverHighCmsaMetrics.OptimalEdgeCount) / float64(highCmsaMetrics.OptimalEdgeCount)
+		if highMsaSupportMetrics.OptimalEdgeCount > 0 {
+			metric.CycleCoverShareOfHighMsaSupportOptimalEdges = float64(cycleCoverHighMsaSupportMetrics.OptimalEdgeCount) / float64(highMsaSupportMetrics.OptimalEdgeCount)
 		}
 
 		metrics = append(metrics, metric)
@@ -347,8 +347,8 @@ func buildEdgeSet(edges []Edge) map[Edge]struct{} {
 	return set
 }
 
-func buildCmsaThresholdSet(cmsa [][]float64, threshold float64, includeEqual bool) map[Edge]struct{} {
-	dimension := len(cmsa)
+func buildMsaSupportThresholdSet(msaSupport [][]float64, threshold float64, includeEqual bool) map[Edge]struct{} {
+	dimension := len(msaSupport)
 	set := make(map[Edge]struct{})
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
@@ -356,7 +356,7 @@ func buildCmsaThresholdSet(cmsa [][]float64, threshold float64, includeEqual boo
 				continue
 			}
 
-			value := normalizedCmsaValue(cmsa[i][j], dimension)
+			value := normalizedMsaSupportValue(msaSupport[i][j], dimension)
 			if includeEqual {
 				if value >= threshold {
 					set[Edge{From: i, To: j}] = struct{}{}
@@ -393,12 +393,12 @@ func countIntersection(left, right map[Edge]struct{}) int {
 	return count
 }
 
-func countOptimalEdgesByMembership(optimalEdges, cycleCoverSet, highCmsaSet map[Edge]struct{}, inCycleCover, inHighCmsa bool) int {
+func countOptimalEdgesByMembership(optimalEdges, cycleCoverSet, highMsaSupportSet map[Edge]struct{}, inCycleCover, inHighMsaSupport bool) int {
 	count := 0
 	for edge := range optimalEdges {
 		_, cycleCoverContains := cycleCoverSet[edge]
-		_, highCmsaContains := highCmsaSet[edge]
-		if cycleCoverContains == inCycleCover && highCmsaContains == inHighCmsa {
+		_, highMsaSupportContains := highMsaSupportSet[edge]
+		if cycleCoverContains == inCycleCover && highMsaSupportContains == inHighMsaSupport {
 			count++
 		}
 	}
@@ -424,15 +424,15 @@ func cycleLengths(edges []Edge, dimension int) []int {
 	return lengths
 }
 
-func buildCycleCoverCmsaOverlapMatrix(cmsa [][]float64, cycleCoverSet map[Edge]struct{}) [][]float64 {
-	dimension := len(cmsa)
+func buildCycleCoverMsaSupportOverlapMatrix(msaSupport [][]float64, cycleCoverSet map[Edge]struct{}) [][]float64 {
+	dimension := len(msaSupport)
 	matrix := make([][]float64, dimension)
 	for i := range matrix {
 		matrix[i] = make([]float64, dimension)
 	}
 
 	for edge := range cycleCoverSet {
-		matrix[edge.From][edge.To] = normalizedCmsaValue(cmsa[edge.From][edge.To], dimension)
+		matrix[edge.From][edge.To] = normalizedMsaSupportValue(msaSupport[edge.From][edge.To], dimension)
 	}
 
 	return matrix
@@ -525,7 +525,7 @@ func sortedEdges(edgeSet map[Edge]struct{}) []Edge {
 	return edges
 }
 
-func normalizedCmsaValue(value float64, dimension int) float64 {
+func normalizedMsaSupportValue(value float64, dimension int) float64 {
 	if dimension <= 1 {
 		return 0
 	}
@@ -579,7 +579,7 @@ func formatPercent(value float64) string {
 	return strconv.FormatFloat(100*value, 'f', 2, 64)
 }
 
-func saveCycleCoverEdges(path string, distances, cmsa [][]float64, optimalEdges, cycleCoverSet map[Edge]struct{}, highThreshold float64) error {
+func saveCycleCoverEdges(path string, distances, msaSupport [][]float64, optimalEdges, cycleCoverSet map[Edge]struct{}, highThreshold float64) error {
 	if path == "" {
 		return nil
 	}
@@ -598,26 +598,26 @@ func saveCycleCoverEdges(path string, distances, cmsa [][]float64, optimalEdges,
 		"From",
 		"To",
 		"Distance",
-		"CMSA",
-		"Normalized CMSA",
-		"High CMSA",
+		"MSA support",
+		"Normalized MSA support",
+		"High MSA support",
 		"Found-optimal edge",
 	}
 	if err := writer.Write(header); err != nil {
 		return err
 	}
 
-	dimension := len(cmsa)
+	dimension := len(msaSupport)
 	for _, edge := range sortedEdges(cycleCoverSet) {
-		normalizedCmsa := normalizedCmsaValue(cmsa[edge.From][edge.To], dimension)
+		normalizedMsaSupport := normalizedMsaSupportValue(msaSupport[edge.From][edge.To], dimension)
 		_, isOptimal := optimalEdges[edge]
 		row := []string{
 			strconv.Itoa(edge.From),
 			strconv.Itoa(edge.To),
 			formatFloat(distances[edge.From][edge.To]),
-			formatFloat(cmsa[edge.From][edge.To]),
-			formatFloat(normalizedCmsa),
-			strconv.FormatBool(normalizedCmsa >= highThreshold),
+			formatFloat(msaSupport[edge.From][edge.To]),
+			formatFloat(normalizedMsaSupport),
+			strconv.FormatBool(normalizedMsaSupport >= highThreshold),
 			strconv.FormatBool(isOptimal),
 		}
 		if err := writer.Write(row); err != nil {
@@ -663,23 +663,23 @@ func saveInstanceAnalysis(path string, analysis InstanceAnalysis) error {
 		{"Cycle cover max cycle length", strconv.Itoa(metrics.CycleCoverMaxCycleLength)},
 	}
 	rows = append(rows, edgeSetRows("Cycle cover", metrics.CycleCoverMetrics)...)
-	rows = append(rows, []string{"High CMSA threshold", formatFloat(metrics.HighCmsaThreshold)})
-	rows = append(rows, edgeSetRows("High CMSA", metrics.HighCmsaMetrics)...)
-	rows = append(rows, edgeSetRows("Cycle cover positive-CMSA", metrics.CycleCoverPositiveCmsaMetrics)...)
-	rows = append(rows, edgeSetRows("Cycle cover high-CMSA", metrics.CycleCoverHighCmsaMetrics)...)
+	rows = append(rows, []string{"High MSA support threshold", formatFloat(metrics.HighMsaSupportThreshold)})
+	rows = append(rows, edgeSetRows("High MSA support", metrics.HighMsaSupportMetrics)...)
+	rows = append(rows, edgeSetRows("Cycle cover positive-MSA support", metrics.CycleCoverPositiveMsaSupportMetrics)...)
+	rows = append(rows, edgeSetRows("Cycle cover high-MSA support", metrics.CycleCoverHighMsaSupportMetrics)...)
 	rows = append(rows,
-		[]string{"Cycle cover edges with positive CMSA", strconv.Itoa(metrics.CycleCoverEdgesWithPositiveCmsa)},
-		[]string{"Cycle cover positive-CMSA share [%]", formatPercent(metrics.CycleCoverPositiveCmsaShare)},
-		[]string{"Cycle cover edges with high CMSA", strconv.Itoa(metrics.CycleCoverEdgesWithHighCmsa)},
-		[]string{"Cycle cover high-CMSA share [%]", formatPercent(metrics.CycleCoverHighCmsaShare)},
-		[]string{"High-CMSA edges removed by cycle-cover gate", strconv.Itoa(metrics.HighCmsaEdgesRemovedByCycleCover)},
-		[]string{"High-CMSA found-optimal edges removed by cycle-cover gate", strconv.Itoa(metrics.HighCmsaOptimalEdgesRemovedByCycleCover)},
-		[]string{"High-CMSA precision gain from cycle-cover gate", formatFloat(metrics.HighCmsaPrecisionGainFromCycleCover)},
-		[]string{"High-CMSA recall loss from cycle-cover gate", formatFloat(metrics.HighCmsaRecallLossFromCycleCover)},
-		[]string{"Found-optimal edges in both cycle cover and high CMSA", strconv.Itoa(metrics.OptimalEdgesInCycleCoverAndHighCmsa)},
-		[]string{"Found-optimal edges in cycle cover but not high CMSA", strconv.Itoa(metrics.OptimalEdgesInCycleCoverNotHighCmsa)},
-		[]string{"Found-optimal edges in high CMSA but not cycle cover", strconv.Itoa(metrics.OptimalEdgesInHighCmsaNotCycleCover)},
-		[]string{"Found-optimal edges in neither cycle cover nor high CMSA", strconv.Itoa(metrics.OptimalEdgesInNeitherCycleCoverNorHigh)},
+		[]string{"Cycle cover edges with positive MSA support", strconv.Itoa(metrics.CycleCoverEdgesWithPositiveMsaSupport)},
+		[]string{"Cycle cover positive-MSA support share [%]", formatPercent(metrics.CycleCoverPositiveMsaSupportShare)},
+		[]string{"Cycle cover edges with high MSA support", strconv.Itoa(metrics.CycleCoverEdgesWithHighMsaSupport)},
+		[]string{"Cycle cover high-MSA support share [%]", formatPercent(metrics.CycleCoverHighMsaSupportShare)},
+		[]string{"High-MSA support edges removed by cycle-cover gate", strconv.Itoa(metrics.HighMsaSupportEdgesRemovedByCycleCover)},
+		[]string{"High-MSA support found-optimal edges removed by cycle-cover gate", strconv.Itoa(metrics.HighMsaSupportOptimalEdgesRemovedByCycleCover)},
+		[]string{"High-MSA support precision gain from cycle-cover gate", formatFloat(metrics.HighMsaSupportPrecisionGainFromCycleCover)},
+		[]string{"High-MSA support recall loss from cycle-cover gate", formatFloat(metrics.HighMsaSupportRecallLossFromCycleCover)},
+		[]string{"Found-optimal edges in both cycle cover and high MSA support", strconv.Itoa(metrics.OptimalEdgesInCycleCoverAndHighMsaSupport)},
+		[]string{"Found-optimal edges in cycle cover but not high MSA support", strconv.Itoa(metrics.OptimalEdgesInCycleCoverNotHighMsaSupport)},
+		[]string{"Found-optimal edges in high MSA support but not cycle cover", strconv.Itoa(metrics.OptimalEdgesInHighMsaSupportNotCycleCover)},
+		[]string{"Found-optimal edges in neither cycle cover nor high MSA support", strconv.Itoa(metrics.OptimalEdgesInNeitherCycleCoverNorHigh)},
 	)
 
 	for _, row := range rows {
@@ -721,20 +721,20 @@ func saveThresholdAnalysis(path string, metrics []ThresholdMetrics) error {
 	writer := csv.NewWriter(file)
 	header := []string{
 		"Threshold",
-		"High CMSA edges",
-		"High CMSA precision [%]",
-		"High CMSA recall [%]",
-		"High CMSA lift",
-		"Cycle-cover high-CMSA edges",
-		"Cycle-cover high-CMSA precision [%]",
-		"Cycle-cover high-CMSA recall [%]",
-		"Cycle-cover high-CMSA lift",
-		"High-CMSA edges removed by cycle cover",
-		"High-CMSA found-optimal edges removed by cycle cover",
+		"High MSA support edges",
+		"High MSA support precision [%]",
+		"High MSA support recall [%]",
+		"High MSA support lift",
+		"Cycle-cover high-MSA support edges",
+		"Cycle-cover high-MSA support precision [%]",
+		"Cycle-cover high-MSA support recall [%]",
+		"Cycle-cover high-MSA support lift",
+		"High-MSA support edges removed by cycle cover",
+		"High-MSA support found-optimal edges removed by cycle cover",
 		"Precision gain from cycle cover",
 		"Recall loss from cycle cover",
-		"Cycle-cover share of high-CMSA edges [%]",
-		"Cycle-cover share of high-CMSA found-optimal edges [%]",
+		"Cycle-cover share of high-MSA support edges [%]",
+		"Cycle-cover share of high-MSA support found-optimal edges [%]",
 	}
 	if err := writer.Write(header); err != nil {
 		return err
@@ -743,20 +743,20 @@ func saveThresholdAnalysis(path string, metrics []ThresholdMetrics) error {
 	for _, metric := range metrics {
 		row := []string{
 			formatFloat(metric.Threshold),
-			strconv.Itoa(metric.HighCmsa.EdgeCount),
-			formatPercent(metric.HighCmsa.Precision),
-			formatPercent(metric.HighCmsa.Recall),
-			formatFloat(metric.HighCmsa.Lift),
-			strconv.Itoa(metric.CycleCoverHighCmsa.EdgeCount),
-			formatPercent(metric.CycleCoverHighCmsa.Precision),
-			formatPercent(metric.CycleCoverHighCmsa.Recall),
-			formatFloat(metric.CycleCoverHighCmsa.Lift),
-			strconv.Itoa(metric.HighCmsaEdgesRemovedByCycleCover),
-			strconv.Itoa(metric.HighCmsaOptimalEdgesRemovedByCycleCover),
-			formatFloat(metric.HighCmsaPrecisionGainFromCycleCover),
-			formatFloat(metric.HighCmsaRecallLossFromCycleCover),
-			formatPercent(metric.CycleCoverShareOfHighCmsaEdges),
-			formatPercent(metric.CycleCoverShareOfHighCmsaOptimalEdges),
+			strconv.Itoa(metric.HighMsaSupport.EdgeCount),
+			formatPercent(metric.HighMsaSupport.Precision),
+			formatPercent(metric.HighMsaSupport.Recall),
+			formatFloat(metric.HighMsaSupport.Lift),
+			strconv.Itoa(metric.CycleCoverHighMsaSupport.EdgeCount),
+			formatPercent(metric.CycleCoverHighMsaSupport.Precision),
+			formatPercent(metric.CycleCoverHighMsaSupport.Recall),
+			formatFloat(metric.CycleCoverHighMsaSupport.Lift),
+			strconv.Itoa(metric.HighMsaSupportEdgesRemovedByCycleCover),
+			strconv.Itoa(metric.HighMsaSupportOptimalEdgesRemovedByCycleCover),
+			formatFloat(metric.HighMsaSupportPrecisionGainFromCycleCover),
+			formatFloat(metric.HighMsaSupportRecallLossFromCycleCover),
+			formatPercent(metric.CycleCoverShareOfHighMsaSupportEdges),
+			formatPercent(metric.CycleCoverShareOfHighMsaSupportOptimalEdges),
 		}
 		if err := writer.Write(row); err != nil {
 			return err
@@ -791,26 +791,26 @@ func saveSummary(path string, analyses []InstanceAnalysis) error {
 		"Cycle cover precision [%]",
 		"Cycle cover recall [%]",
 		"Cycle cover lift",
-		"High CMSA threshold",
-		"High CMSA edges",
-		"High CMSA precision [%]",
-		"High CMSA recall [%]",
-		"High CMSA lift",
-		"Cycle-cover positive-CMSA edges",
-		"Cycle-cover positive-CMSA share [%]",
-		"Cycle-cover high-CMSA edges",
-		"Cycle-cover high-CMSA share [%]",
-		"Cycle-cover high-CMSA precision [%]",
-		"Cycle-cover high-CMSA recall [%]",
-		"Cycle-cover high-CMSA lift",
-		"High-CMSA edges removed by cycle-cover gate",
-		"High-CMSA found-optimal edges removed by cycle-cover gate",
-		"High-CMSA precision gain from cycle-cover gate",
-		"High-CMSA recall loss from cycle-cover gate",
-		"Found-optimal edges in both cycle cover and high CMSA",
-		"Found-optimal edges in cycle cover but not high CMSA",
-		"Found-optimal edges in high CMSA but not cycle cover",
-		"Found-optimal edges in neither cycle cover nor high CMSA",
+		"High MSA support threshold",
+		"High MSA support edges",
+		"High MSA support precision [%]",
+		"High MSA support recall [%]",
+		"High MSA support lift",
+		"Cycle-cover positive-MSA support edges",
+		"Cycle-cover positive-MSA support share [%]",
+		"Cycle-cover high-MSA support edges",
+		"Cycle-cover high-MSA support share [%]",
+		"Cycle-cover high-MSA support precision [%]",
+		"Cycle-cover high-MSA support recall [%]",
+		"Cycle-cover high-MSA support lift",
+		"High-MSA support edges removed by cycle-cover gate",
+		"High-MSA support found-optimal edges removed by cycle-cover gate",
+		"High-MSA support precision gain from cycle-cover gate",
+		"High-MSA support recall loss from cycle-cover gate",
+		"Found-optimal edges in both cycle cover and high MSA support",
+		"Found-optimal edges in cycle cover but not high MSA support",
+		"Found-optimal edges in high MSA support but not cycle cover",
+		"Found-optimal edges in neither cycle cover nor high MSA support",
 	}
 	if err := writer.Write(header); err != nil {
 		return err
@@ -830,25 +830,25 @@ func saveSummary(path string, analyses []InstanceAnalysis) error {
 			formatPercent(metrics.CycleCoverMetrics.Precision),
 			formatPercent(metrics.CycleCoverMetrics.Recall),
 			formatFloat(metrics.CycleCoverMetrics.Lift),
-			formatFloat(metrics.HighCmsaThreshold),
-			strconv.Itoa(metrics.HighCmsaMetrics.EdgeCount),
-			formatPercent(metrics.HighCmsaMetrics.Precision),
-			formatPercent(metrics.HighCmsaMetrics.Recall),
-			formatFloat(metrics.HighCmsaMetrics.Lift),
-			strconv.Itoa(metrics.CycleCoverEdgesWithPositiveCmsa),
-			formatPercent(metrics.CycleCoverPositiveCmsaShare),
-			strconv.Itoa(metrics.CycleCoverHighCmsaMetrics.EdgeCount),
-			formatPercent(metrics.CycleCoverHighCmsaShare),
-			formatPercent(metrics.CycleCoverHighCmsaMetrics.Precision),
-			formatPercent(metrics.CycleCoverHighCmsaMetrics.Recall),
-			formatFloat(metrics.CycleCoverHighCmsaMetrics.Lift),
-			strconv.Itoa(metrics.HighCmsaEdgesRemovedByCycleCover),
-			strconv.Itoa(metrics.HighCmsaOptimalEdgesRemovedByCycleCover),
-			formatFloat(metrics.HighCmsaPrecisionGainFromCycleCover),
-			formatFloat(metrics.HighCmsaRecallLossFromCycleCover),
-			strconv.Itoa(metrics.OptimalEdgesInCycleCoverAndHighCmsa),
-			strconv.Itoa(metrics.OptimalEdgesInCycleCoverNotHighCmsa),
-			strconv.Itoa(metrics.OptimalEdgesInHighCmsaNotCycleCover),
+			formatFloat(metrics.HighMsaSupportThreshold),
+			strconv.Itoa(metrics.HighMsaSupportMetrics.EdgeCount),
+			formatPercent(metrics.HighMsaSupportMetrics.Precision),
+			formatPercent(metrics.HighMsaSupportMetrics.Recall),
+			formatFloat(metrics.HighMsaSupportMetrics.Lift),
+			strconv.Itoa(metrics.CycleCoverEdgesWithPositiveMsaSupport),
+			formatPercent(metrics.CycleCoverPositiveMsaSupportShare),
+			strconv.Itoa(metrics.CycleCoverHighMsaSupportMetrics.EdgeCount),
+			formatPercent(metrics.CycleCoverHighMsaSupportShare),
+			formatPercent(metrics.CycleCoverHighMsaSupportMetrics.Precision),
+			formatPercent(metrics.CycleCoverHighMsaSupportMetrics.Recall),
+			formatFloat(metrics.CycleCoverHighMsaSupportMetrics.Lift),
+			strconv.Itoa(metrics.HighMsaSupportEdgesRemovedByCycleCover),
+			strconv.Itoa(metrics.HighMsaSupportOptimalEdgesRemovedByCycleCover),
+			formatFloat(metrics.HighMsaSupportPrecisionGainFromCycleCover),
+			formatFloat(metrics.HighMsaSupportRecallLossFromCycleCover),
+			strconv.Itoa(metrics.OptimalEdgesInCycleCoverAndHighMsaSupport),
+			strconv.Itoa(metrics.OptimalEdgesInCycleCoverNotHighMsaSupport),
+			strconv.Itoa(metrics.OptimalEdgesInHighMsaSupportNotCycleCover),
 			strconv.Itoa(metrics.OptimalEdgesInNeitherCycleCoverNorHigh),
 		}
 		if err := writer.Write(row); err != nil {
@@ -866,14 +866,14 @@ func saveReport(path string, analyses []InstanceAnalysis, highThreshold float64)
 	}
 
 	var instancesWithTours int
-	var cycleCoverPrecisionSum, cycleCoverRecallSum, highCmsaPrecisionSum, highCmsaRecallSum float64
+	var cycleCoverPrecisionSum, cycleCoverRecallSum, highMsaSupportPrecisionSum, highMsaSupportRecallSum float64
 	var gatedPrecisionSum, gatedRecallSum, precisionGainSum, recallLossSum float64
-	var positiveCmsaShareSum, highCmsaShareSum float64
+	var positiveMsaSupportShareSum, highMsaSupportShareSum float64
 
 	for _, analysis := range analyses {
 		metrics := analysis.Metrics
-		positiveCmsaShareSum += metrics.CycleCoverPositiveCmsaShare
-		highCmsaShareSum += metrics.CycleCoverHighCmsaShare
+		positiveMsaSupportShareSum += metrics.CycleCoverPositiveMsaSupportShare
+		highMsaSupportShareSum += metrics.CycleCoverHighMsaSupportShare
 	}
 
 	for _, analysis := range analyses {
@@ -884,33 +884,33 @@ func saveReport(path string, analyses []InstanceAnalysis, highThreshold float64)
 		metrics := analysis.Metrics
 		cycleCoverPrecisionSum += metrics.CycleCoverMetrics.Precision
 		cycleCoverRecallSum += metrics.CycleCoverMetrics.Recall
-		highCmsaPrecisionSum += metrics.HighCmsaMetrics.Precision
-		highCmsaRecallSum += metrics.HighCmsaMetrics.Recall
-		gatedPrecisionSum += metrics.CycleCoverHighCmsaMetrics.Precision
-		gatedRecallSum += metrics.CycleCoverHighCmsaMetrics.Recall
-		precisionGainSum += metrics.HighCmsaPrecisionGainFromCycleCover
-		recallLossSum += metrics.HighCmsaRecallLossFromCycleCover
+		highMsaSupportPrecisionSum += metrics.HighMsaSupportMetrics.Precision
+		highMsaSupportRecallSum += metrics.HighMsaSupportMetrics.Recall
+		gatedPrecisionSum += metrics.CycleCoverHighMsaSupportMetrics.Precision
+		gatedRecallSum += metrics.CycleCoverHighMsaSupportMetrics.Recall
+		precisionGainSum += metrics.HighMsaSupportPrecisionGainFromCycleCover
+		recallLossSum += metrics.HighMsaSupportRecallLossFromCycleCover
 	}
 
 	var builder strings.Builder
-	builder.WriteString("# Cycle-Cover/CMSA Analysis\n\n")
-	builder.WriteString(fmt.Sprintf("Main high-CMSA threshold: %.1f\n\n", highThreshold))
+	builder.WriteString("# Cycle Cover / MSA Support Analysis\n\n")
+	builder.WriteString(fmt.Sprintf("Main high-MSA support threshold: %.1f\n\n", highThreshold))
 	builder.WriteString("## Summary\n\n")
 	builder.WriteString(fmt.Sprintf("- Instances analyzed: %d\n", len(analyses)))
 	builder.WriteString(fmt.Sprintf("- Instances with found optimal tours: %d\n", instancesWithTours))
 	if len(analyses) > 0 {
 		count := float64(len(analyses))
-		builder.WriteString(fmt.Sprintf("- Average cycle-cover edge share with positive CMSA: %s%%\n", formatPercent(positiveCmsaShareSum/count)))
-		builder.WriteString(fmt.Sprintf("- Average cycle-cover edge share with high CMSA: %s%%\n", formatPercent(highCmsaShareSum/count)))
+		builder.WriteString(fmt.Sprintf("- Average cycle-cover edge share with positive MSA support: %s%%\n", formatPercent(positiveMsaSupportShareSum/count)))
+		builder.WriteString(fmt.Sprintf("- Average cycle-cover edge share with high MSA support: %s%%\n", formatPercent(highMsaSupportShareSum/count)))
 	}
 	if instancesWithTours > 0 {
 		count := float64(instancesWithTours)
 		builder.WriteString(fmt.Sprintf("- Average cycle-cover precision: %s%%\n", formatPercent(cycleCoverPrecisionSum/count)))
 		builder.WriteString(fmt.Sprintf("- Average cycle-cover recall: %s%%\n", formatPercent(cycleCoverRecallSum/count)))
-		builder.WriteString(fmt.Sprintf("- Average high-CMSA precision: %s%%\n", formatPercent(highCmsaPrecisionSum/count)))
-		builder.WriteString(fmt.Sprintf("- Average high-CMSA recall: %s%%\n", formatPercent(highCmsaRecallSum/count)))
-		builder.WriteString(fmt.Sprintf("- Average cycle-cover-gated high-CMSA precision: %s%%\n", formatPercent(gatedPrecisionSum/count)))
-		builder.WriteString(fmt.Sprintf("- Average cycle-cover-gated high-CMSA recall: %s%%\n", formatPercent(gatedRecallSum/count)))
+		builder.WriteString(fmt.Sprintf("- Average high-MSA support precision: %s%%\n", formatPercent(highMsaSupportPrecisionSum/count)))
+		builder.WriteString(fmt.Sprintf("- Average high-MSA support recall: %s%%\n", formatPercent(highMsaSupportRecallSum/count)))
+		builder.WriteString(fmt.Sprintf("- Average cycle-cover-gated high-MSA support precision: %s%%\n", formatPercent(gatedPrecisionSum/count)))
+		builder.WriteString(fmt.Sprintf("- Average cycle-cover-gated high-MSA support recall: %s%%\n", formatPercent(gatedRecallSum/count)))
 		builder.WriteString(fmt.Sprintf("- Average precision gain from cycle-cover gate: %s\n", formatFloat(precisionGainSum/count)))
 		builder.WriteString(fmt.Sprintf("- Average recall loss from cycle-cover gate: %s\n", formatFloat(recallLossSum/count)))
 	}
@@ -918,14 +918,14 @@ func saveReport(path string, analyses []InstanceAnalysis, highThreshold float64)
 
 	builder.WriteString("## Notes\n\n")
 	builder.WriteString("- `Cycle cover` is the minimum assignment/cycle-cover solution computed from the original ATSP matrix with self-loops forbidden.\n")
-	builder.WriteString("- `High CMSA` uses normalized `CMSA / (dimension - 1)` and the threshold shown above.\n")
-	builder.WriteString("- `Cycle-cover positive-CMSA` is the set of cycle-cover edges with any positive CMSA support.\n")
-	builder.WriteString("- `Cycle-cover high-CMSA` is the strict intersection of high-CMSA edges and minimum-cycle-cover edges.\n")
+	builder.WriteString("- `High MSA support` uses normalized `MSA support / (dimension - 1)` and the threshold shown above.\n")
+	builder.WriteString("- `Cycle-cover positive-MSA support` is the set of cycle-cover edges with any positive MSA support.\n")
+	builder.WriteString("- `Cycle-cover high-MSA support` is the strict intersection of high-MSA support edges and minimum-cycle-cover edges.\n")
 	builder.WriteString("- Precision/recall use the union of tours recorded in `solutions.csv`; absent edges are not proven non-optimal.\n")
-	builder.WriteString("- Precision gain and recall loss compare `cycle-cover high-CMSA` against high-CMSA alone.\n\n")
+	builder.WriteString("- Precision gain and recall loss compare `cycle-cover high-MSA support` against high-MSA support alone.\n\n")
 
 	builder.WriteString("## Instances\n\n")
-	builder.WriteString("| Instance | Tours | Opt edges | CC gap % | CC cycles | CC in CMSA % | CC in high CMSA % | CC precision % | CC recall % | High precision % | High recall % | Gated precision % | Gated recall % | Precision gain | Recall loss |\n")
+	builder.WriteString("| Instance | Tours | Opt edges | CC gap % | CC cycles | CC in MSA support % | CC in high MSA support % | CC precision % | CC recall % | High precision % | High recall % | Gated precision % | Gated recall % | Precision gain | Recall loss |\n")
 	builder.WriteString("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
 	for _, analysis := range analyses {
 		metrics := analysis.Metrics
@@ -935,16 +935,16 @@ func saveReport(path string, analyses []InstanceAnalysis, highThreshold float64)
 			metrics.UniqueFoundOptimalEdgeCount,
 			formatPercent(metrics.CycleCoverGapToKnownOptimal),
 			metrics.CycleCoverCycleCount,
-			formatPercent(metrics.CycleCoverPositiveCmsaShare),
-			formatPercent(metrics.CycleCoverHighCmsaShare),
+			formatPercent(metrics.CycleCoverPositiveMsaSupportShare),
+			formatPercent(metrics.CycleCoverHighMsaSupportShare),
 			formatPercent(metrics.CycleCoverMetrics.Precision),
 			formatPercent(metrics.CycleCoverMetrics.Recall),
-			formatPercent(metrics.HighCmsaMetrics.Precision),
-			formatPercent(metrics.HighCmsaMetrics.Recall),
-			formatPercent(metrics.CycleCoverHighCmsaMetrics.Precision),
-			formatPercent(metrics.CycleCoverHighCmsaMetrics.Recall),
-			formatFloat(metrics.HighCmsaPrecisionGainFromCycleCover),
-			formatFloat(metrics.HighCmsaRecallLossFromCycleCover),
+			formatPercent(metrics.HighMsaSupportMetrics.Precision),
+			formatPercent(metrics.HighMsaSupportMetrics.Recall),
+			formatPercent(metrics.CycleCoverHighMsaSupportMetrics.Precision),
+			formatPercent(metrics.CycleCoverHighMsaSupportMetrics.Recall),
+			formatFloat(metrics.HighMsaSupportPrecisionGainFromCycleCover),
+			formatFloat(metrics.HighMsaSupportRecallLossFromCycleCover),
 		))
 	}
 
