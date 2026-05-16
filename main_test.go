@@ -116,7 +116,7 @@ func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
 	}
 }
 
-func TestSaveFinalResultsSummaryWritesOneTableWithHeuristicSubcolumns(t *testing.T) {
+func TestSaveFinalResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *testing.T) {
 	resultsRoot := t.TempDir()
 	firstAtspData := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
 	secondAtspData := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
@@ -174,26 +174,40 @@ func TestSaveFinalResultsSummaryWritesOneTableWithHeuristicSubcolumns(t *testing
 		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
-	summaryPath := filepath.Join(resultsRoot, "summary.csv")
+	summaryPath := filepath.Join(resultsRoot, "summary.md")
 	if err := saveFinalResultsSummary([]AtspData{firstAtspData, secondAtspData}, summaryPath); err != nil {
 		t.Fatalf("saveFinalResultsSummary returned unexpected error: %v", err)
 	}
 
 	contentBytes, err := os.ReadFile(summaryPath)
 	if err != nil {
-		t.Fatalf("failed to read final summary CSV: %v", err)
+		t.Fatalf("failed to read final summary Markdown: %v", err)
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(contentBytes)), "\n")
 	expected := []string{
-		"Instance,Baseline,,MSA support,,Cycle cover,",
-		",Avg min deviation [%],Success rate [%],Avg min deviation [%],Success rate [%],Avg min deviation [%],Success rate [%]",
-		"sample-a,4.25,10.00,2.50,20.00,1.75,30.00",
-		"sample-b,6.75,20.00,3.50,40.00,2.25,60.00",
-		"Average,5.50,15.00,3.00,30.00,2.00,45.00",
+		"# Final Results Summary",
+		"",
+		"## Findings",
+		"",
+		"- **Cycle cover has the lowest average best deviation overall: 2.00%.**",
+		"- **Cycle cover has the highest average success rate overall: 45.00%.**",
+		"- **Best-or-tied average best deviation counts: Baseline 0/2, MSA support 0/2, Cycle cover 2/2.**",
+		"",
+		"<table>",
+		"<thead>",
+		"<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">Baseline</th><th colspan=\"2\">MSA support</th><th colspan=\"2\">Cycle cover</th></tr>",
+		"<tr><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th></tr>",
+		"</thead>",
+		"<tbody>",
+		"<tr><td>sample-a</td><td align=\"right\">4.25</td><td align=\"right\">10.00</td><td align=\"right\">2.50</td><td align=\"right\">20.00</td><td align=\"right\"><strong>1.75</strong></td><td align=\"right\"><strong>30.00</strong></td></tr>",
+		"<tr><td>sample-b</td><td align=\"right\">6.75</td><td align=\"right\">20.00</td><td align=\"right\">3.50</td><td align=\"right\">40.00</td><td align=\"right\"><strong>2.25</strong></td><td align=\"right\"><strong>60.00</strong></td></tr>",
+		"<tr><td><strong>Average</strong></td><td align=\"right\">5.50</td><td align=\"right\">15.00</td><td align=\"right\">3.00</td><td align=\"right\">30.00</td><td align=\"right\"><strong>2.00</strong></td><td align=\"right\"><strong>45.00</strong></td></tr>",
+		"</tbody>",
+		"</table>",
 	}
 	if !reflect.DeepEqual(lines, expected) {
-		t.Fatalf("unexpected final summary CSV\nwant: %v\n got: %v", expected, lines)
+		t.Fatalf("unexpected final summary Markdown\nwant: %v\n got: %v", expected, lines)
 	}
 }
 
@@ -241,7 +255,7 @@ func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 	if !saved {
 		t.Fatal("expected final results summary to be saved")
 	}
-	if summaryPath != filepath.Join(finalResultsDirectoryName, "summary.csv") {
+	if summaryPath != filepath.Join(finalResultsDirectoryName, "summary.md") {
 		t.Fatalf("unexpected summary path: %s", summaryPath)
 	}
 	if _, err := os.Stat(summaryPath); err != nil {

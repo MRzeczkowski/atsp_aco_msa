@@ -11,6 +11,7 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
+	"html"
 	"image/color"
 	"math"
 	"os"
@@ -58,6 +59,11 @@ type HeuristicExperimentStatistics struct {
 type finalResultsSummaryMetric struct {
 	averageMinDeviation float64
 	successRate         float64
+}
+
+type finalResultsSummaryRow struct {
+	instance string
+	metrics  map[string]finalResultsSummaryMetric
 }
 
 const (
@@ -458,32 +464,12 @@ func saveHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperim
 	return writer.Error()
 }
 
-func saveFinalResultsSummary(atspsData []AtspData, summaryCsvPath string) error {
-	if err := os.MkdirAll(filepath.Dir(summaryCsvPath), 0700); err != nil {
+func saveFinalResultsSummary(atspsData []AtspData, summaryPath string) error {
+	if err := os.MkdirAll(filepath.Dir(summaryPath), 0700); err != nil {
 		return err
 	}
 
-	file, err := os.Create(summaryCsvPath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-	header := []string{"Instance"}
-	subHeader := []string{""}
-	for _, heuristic := range finalResultsSummaryHeuristics {
-		header = append(header, heuristicDisplayName(heuristic), "")
-		subHeader = append(subHeader, "Avg min deviation [%]", "Success rate [%]")
-	}
-
-	if err := writer.Write(header); err != nil {
-		return err
-	}
-	if err := writer.Write(subHeader); err != nil {
-		return err
-	}
-
+	rows := make([]finalResultsSummaryRow, 0, len(atspsData))
 	totals := make(map[string]finalResultsSummaryMetric, len(finalResultsSummaryHeuristics))
 	counts := make(map[string]int, len(finalResultsSummaryHeuristics))
 	for _, atspData := range atspsData {
@@ -492,11 +478,10 @@ func saveFinalResultsSummary(atspsData []AtspData, summaryCsvPath string) error 
 			return fmt.Errorf("%s: failed to read final result metrics: %w", atspData.name, err)
 		}
 
-		record := []string{atspData.name}
+		rows = append(rows, finalResultsSummaryRow{instance: atspData.name, metrics: metrics})
 		for _, heuristic := range finalResultsSummaryHeuristics {
 			metric, ok := metrics[heuristic]
 			if !ok {
-				record = append(record, "", "")
 				continue
 			}
 
@@ -505,36 +490,186 @@ func saveFinalResultsSummary(atspsData []AtspData, summaryCsvPath string) error 
 			total.successRate += metric.successRate
 			totals[heuristic] = total
 			counts[heuristic]++
-
-			record = append(record,
-				fmt.Sprintf("%.2f", metric.averageMinDeviation),
-				fmt.Sprintf("%.2f", metric.successRate))
-		}
-
-		if err := writer.Write(record); err != nil {
-			return err
 		}
 	}
 
-	averageRecord := []string{"Average"}
+	averageMetrics := make(map[string]finalResultsSummaryMetric, len(finalResultsSummaryHeuristics))
 	for _, heuristic := range finalResultsSummaryHeuristics {
 		count := counts[heuristic]
 		if count == 0 {
-			averageRecord = append(averageRecord, "", "")
 			continue
 		}
 
 		total := totals[heuristic]
-		averageRecord = append(averageRecord,
-			fmt.Sprintf("%.2f", total.averageMinDeviation/float64(count)),
-			fmt.Sprintf("%.2f", total.successRate/float64(count)))
-	}
-	if err := writer.Write(averageRecord); err != nil {
-		return err
+		averageMetrics[heuristic] = finalResultsSummaryMetric{
+			averageMinDeviation: total.averageMinDeviation / float64(count),
+			successRate:         total.successRate / float64(count),
+		}
 	}
 
-	writer.Flush()
-	return writer.Error()
+	var builder strings.Builder
+	builder.WriteString("# Final Results Summary\n\n")
+	writeFinalResultsSummaryFindings(&builder, rows, averageMetrics)
+	builder.WriteString("\n")
+	writeFinalResultsSummaryTable(&builder, rows, averageMetrics)
+
+	return os.WriteFile(summaryPath, []byte(builder.String()), 0644)
+}
+
+func writeFinalResultsSummaryFindings(builder *strings.Builder, rows []finalResultsSummaryRow, averageMetrics map[string]finalResultsSummaryMetric) {
+	averageBestDeviationHighlights, averageBestSuccessHighlights := finalResultsSummaryHighlights(averageMetrics)
+	bestDeviationHeuristics := highlightedHeuristicDisplayNames(averageBestDeviationHighlights)
+	bestSuccessHeuristics := highlightedHeuristicDisplayNames(averageBestSuccessHighlights)
+	deviationWinCounts := make(map[string]int, len(finalResultsSummaryHeuristics))
+
+	for _, row := range rows {
+		bestDeviationHighlights, _ := finalResultsSummaryHighlights(row.metrics)
+		for _, heuristic := range finalResultsSummaryHeuristics {
+			if bestDeviationHighlights[heuristic] {
+				deviationWinCounts[heuristic]++
+			}
+		}
+	}
+
+	builder.WriteString("## Findings\n\n")
+	if len(bestDeviationHeuristics) != 0 {
+		bestDeviation := averageMetrics[bestDeviationHeuristics[0].heuristic].averageMinDeviation
+		fmt.Fprintf(builder, "- **%s has the lowest average best deviation overall: %.2f%%.**\n",
+			joinHeuristicDisplayNames(bestDeviationHeuristics),
+			bestDeviation)
+	}
+	if len(bestSuccessHeuristics) != 0 {
+		bestSuccess := averageMetrics[bestSuccessHeuristics[0].heuristic].successRate
+		fmt.Fprintf(builder, "- **%s has the highest average success rate overall: %.2f%%.**\n",
+			joinHeuristicDisplayNames(bestSuccessHeuristics),
+			bestSuccess)
+	}
+
+	fmt.Fprintf(builder, "- **Best-or-tied average best deviation counts: Baseline %d/%d, MSA support %d/%d, Cycle cover %d/%d.**\n",
+		deviationWinCounts[heuristicBaseline], len(rows),
+		deviationWinCounts[heuristicMsaSupport], len(rows),
+		deviationWinCounts[heuristicCycleCover], len(rows))
+}
+
+func writeFinalResultsSummaryTable(builder *strings.Builder, rows []finalResultsSummaryRow, averageMetrics map[string]finalResultsSummaryMetric) {
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th rowspan=\"2\">Instance</th>")
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		fmt.Fprintf(builder, "<th colspan=\"2\">%s</th>", html.EscapeString(heuristicDisplayName(heuristic)))
+	}
+	builder.WriteString("</tr>\n")
+
+	builder.WriteString("<tr>")
+	for range finalResultsSummaryHeuristics {
+		builder.WriteString("<th>Avg best dev. [%]</th><th>Success [%]</th>")
+	}
+	builder.WriteString("</tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+
+	for _, row := range rows {
+		writeFinalResultsSummaryTableRow(builder, row.instance, row.metrics, false)
+	}
+	writeFinalResultsSummaryTableRow(builder, "Average", averageMetrics, true)
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+}
+
+func writeFinalResultsSummaryTableRow(builder *strings.Builder, instance string, metrics map[string]finalResultsSummaryMetric, boldInstance bool) {
+	deviationHighlights, successHighlights := finalResultsSummaryHighlights(metrics)
+	instanceCell := html.EscapeString(instance)
+	if boldInstance {
+		instanceCell = "<strong>" + instanceCell + "</strong>"
+	}
+
+	fmt.Fprintf(builder, "<tr><td>%s</td>", instanceCell)
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		metric, ok := metrics[heuristic]
+		if !ok {
+			builder.WriteString("<td></td><td></td>")
+			continue
+		}
+
+		fmt.Fprintf(builder, "<td align=\"right\">%s</td><td align=\"right\">%s</td>",
+			finalResultsSummaryMetricCell(metric.averageMinDeviation, deviationHighlights[heuristic]),
+			finalResultsSummaryMetricCell(metric.successRate, successHighlights[heuristic]))
+	}
+	builder.WriteString("</tr>\n")
+}
+
+func finalResultsSummaryHighlights(metrics map[string]finalResultsSummaryMetric) (map[string]bool, map[string]bool) {
+	deviationHighlights := make(map[string]bool, len(finalResultsSummaryHeuristics))
+	successHighlights := make(map[string]bool, len(finalResultsSummaryHeuristics))
+	minDeviation := math.Inf(1)
+	maxSuccess := math.Inf(-1)
+
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		metric, ok := metrics[heuristic]
+		if !ok {
+			continue
+		}
+
+		if metric.averageMinDeviation < minDeviation {
+			minDeviation = metric.averageMinDeviation
+		}
+		if metric.successRate > maxSuccess {
+			maxSuccess = metric.successRate
+		}
+	}
+
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		metric, ok := metrics[heuristic]
+		if !ok {
+			continue
+		}
+
+		if math.Abs(metric.averageMinDeviation-minDeviation) < 1e-9 {
+			deviationHighlights[heuristic] = true
+		}
+		if maxSuccess > 0 && math.Abs(metric.successRate-maxSuccess) < 1e-9 {
+			successHighlights[heuristic] = true
+		}
+	}
+
+	return deviationHighlights, successHighlights
+}
+
+type heuristicDisplay struct {
+	heuristic string
+	display   string
+}
+
+func highlightedHeuristicDisplayNames(highlights map[string]bool) []heuristicDisplay {
+	names := make([]heuristicDisplay, 0, len(highlights))
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		if highlights[heuristic] {
+			names = append(names, heuristicDisplay{
+				heuristic: heuristic,
+				display:   heuristicDisplayName(heuristic),
+			})
+		}
+	}
+
+	return names
+}
+
+func joinHeuristicDisplayNames(heuristics []heuristicDisplay) string {
+	names := make([]string, len(heuristics))
+	for i, heuristic := range heuristics {
+		names[i] = heuristic.display
+	}
+
+	return strings.Join(names, ", ")
+}
+
+func finalResultsSummaryMetricCell(value float64, bold bool) string {
+	valueText := fmt.Sprintf("%.2f", value)
+	if bold {
+		return "<strong>" + valueText + "</strong>"
+	}
+
+	return valueText
 }
 
 func readFinalResultSummaryMetrics(resultCsvPath string) (map[string]finalResultsSummaryMetric, error) {
@@ -1695,8 +1830,11 @@ func runFinalResultsAnalysis(atspsData []AtspData) (string, bool, error) {
 		return "", false, fmt.Errorf("cannot create final results summary; missing final result.csv for: %s", strings.Join(missingInstances, ", "))
 	}
 
-	finalResultsSummaryPath := filepath.Join(finalResultsDirectoryName, "summary.csv")
+	finalResultsSummaryPath := filepath.Join(finalResultsDirectoryName, "summary.md")
 	if err := saveFinalResultsSummary(finalAtspsData, finalResultsSummaryPath); err != nil {
+		return "", false, err
+	}
+	if err := removeFileIfExists(filepath.Join(finalResultsDirectoryName, "summary.csv")); err != nil {
 		return "", false, err
 	}
 
