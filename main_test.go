@@ -61,6 +61,61 @@ func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
 	}
 }
 
+func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "result.csv")
+	rows := []HeuristicExperimentStatistics{
+		{
+			heuristic: heuristicBaseline,
+			statistics: ExperimentsDataStatistics{
+				ExperimentParameters: ExperimentParameters{
+					alpha:           1.0,
+					beta:            2.0,
+					rho:             0.8,
+					heuristicWeight: 0.0,
+					iterations:      500,
+				},
+				averageBestDeviation: 3.0,
+			},
+		},
+		{
+			heuristic: heuristicCycleCover,
+			statistics: ExperimentsDataStatistics{
+				ExperimentParameters: ExperimentParameters{
+					alpha:           1.0,
+					beta:            2.0,
+					rho:             0.8,
+					heuristicWeight: 0.8,
+					iterations:      500,
+				},
+				averageBestDeviation: 1.0,
+			},
+		},
+	}
+
+	if err := saveHeuristicStatistics(path, rows); err != nil {
+		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read heuristic statistics CSV: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(contentBytes)), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected header plus two rows, got %d lines: %v", len(lines), lines)
+	}
+	if !strings.HasPrefix(lines[0], "Heuristic,Alpha,Beta,Rho,Heuristic weight") {
+		t.Fatalf("unexpected header: %s", lines[0])
+	}
+	if !strings.HasPrefix(lines[1], heuristicCycleCover+",") {
+		t.Fatalf("expected best average-deviation row first, got: %s", lines[1])
+	}
+	if !strings.HasPrefix(lines[2], heuristicBaseline+",") {
+		t.Fatalf("expected baseline row second, got: %s", lines[2])
+	}
+}
+
 func TestBuildMsaSupportHeuristicModifiersBoostsOnlyEdgesUsedByEveryMsa(t *testing.T) {
 	msaSupport := [][]float64{
 		{0, 3, 2, 0},
@@ -157,6 +212,25 @@ func TestBuildCycleCoverHeuristicModifiersBoostsOnlyCycleCoverEdges(t *testing.T
 	}
 }
 
+func TestBuildHeuristicModifiersReturnsNeutralMatrixForBaseline(t *testing.T) {
+	msaSupport := [][]float64{
+		{0, 1, 1},
+		{1, 0, 1},
+		{1, 1, 0},
+	}
+
+	modifiers := buildHeuristicModifiers(heuristicBaseline, nil, msaSupport, nil, 1.0)
+	expected := [][]float64{
+		{1, 1, 1},
+		{1, 1, 1},
+		{1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected baseline modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
 func TestAnalyzeHeuristicBoostsSummarizesModifierMatrix(t *testing.T) {
 	modifiers := [][]float64{
 		{1, 2, 1.5},
@@ -227,6 +301,10 @@ func TestBuildMinimumCycleCoverMatrix(t *testing.T) {
 func TestHeuristicSpecificPathsKeepMsaSupportBaselinePaths(t *testing.T) {
 	atspData := makeAtspData("test.atsp", [][]float64{{0, 1}, {1, 0}}, 2)
 
+	if resultFilePathForHeuristic(atspData, heuristicBaseline) != filepath.Join(resultsDirectoryName, "test", "result_baseline.csv") {
+		t.Fatalf("unexpected baseline result path: %s", resultFilePathForHeuristic(atspData, heuristicBaseline))
+	}
+
 	if resultFilePathForHeuristic(atspData, heuristicMsaSupport) != filepath.Join(resultsDirectoryName, "test", resultFileName) {
 		t.Fatalf("MSA support result path should keep the existing baseline location")
 	}
@@ -241,6 +319,66 @@ func TestHeuristicSpecificPathsKeepMsaSupportBaselinePaths(t *testing.T) {
 
 	if resultFilePathForHeuristic(atspData, heuristicMsaSupportDifference) != filepath.Join(resultsDirectoryName, "test", "result_msa_support_difference.csv") {
 		t.Fatalf("unexpected MSA support-difference result path: %s", resultFilePathForHeuristic(atspData, heuristicMsaSupportDifference))
+	}
+}
+
+func TestWithExperimentOutputRootMovesOutputsButKeepsMsaSupportCache(t *testing.T) {
+	atspData := makeAtspData("test.atsp", [][]float64{{0, 1}, {1, 0}}, 2)
+	output := withExperimentOutputRoot(atspData, finalResultsDirectoryName)
+
+	if output.msaSupportDirectoryPath != atspData.msaSupportDirectoryPath {
+		t.Fatalf("expected MSA support cache path to stay %s, got %s", atspData.msaSupportDirectoryPath, output.msaSupportDirectoryPath)
+	}
+
+	expectedResultPath := filepath.Join(finalResultsDirectoryName, "test", resultFileName)
+	if output.resultFilePath != expectedResultPath {
+		t.Fatalf("unexpected final result path\nwant: %s\n got: %s", expectedResultPath, output.resultFilePath)
+	}
+
+	if output.optimalUniqueToursCsvPath != atspData.optimalUniqueToursCsvPath {
+		t.Fatalf("expected solutions path to stay %s, got %s", atspData.optimalUniqueToursCsvPath, output.optimalUniqueToursCsvPath)
+	}
+}
+
+func TestFinalExperimentConfigurationsUseFixedBalancedComparison(t *testing.T) {
+	configs := finalExperimentConfigurations()
+	expected := []struct {
+		heuristic string
+		weight    float64
+	}{
+		{heuristicBaseline, defaultBaselineHeuristicWeight},
+		{heuristicMsaSupport, finalMsaSupportWeight},
+		{heuristicCycleCover, finalCycleCoverWeight},
+	}
+
+	if len(configs) != len(expected) {
+		t.Fatalf("expected %d final experiment configurations, got %d", len(expected), len(configs))
+	}
+
+	for i, config := range configs {
+		if config.heuristic != expected[i].heuristic {
+			t.Fatalf("unexpected final heuristic at %d: want %s got %s", i, expected[i].heuristic, config.heuristic)
+		}
+		if len(config.parameters) != 1 {
+			t.Fatalf("expected one final parameter set for %s, got %d", config.heuristic, len(config.parameters))
+		}
+
+		parameters := config.parameters[0]
+		if parameters.alpha != defaultExperimentAlpha ||
+			parameters.beta != defaultExperimentBeta ||
+			parameters.rho != defaultExperimentRho ||
+			parameters.heuristicWeight != expected[i].weight {
+			t.Fatalf("unexpected final parameters for %s: %+v", config.heuristic, parameters)
+		}
+	}
+}
+
+func TestFinalModeAndBaselineHeuristicAreValid(t *testing.T) {
+	if !isValidRunMode(runModeFinal) {
+		t.Fatal("final run mode should be valid")
+	}
+	if !isValidHeuristic(heuristicBaseline) {
+		t.Fatal("baseline heuristic should be valid")
 	}
 }
 
