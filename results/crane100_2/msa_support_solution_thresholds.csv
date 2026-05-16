@@ -1,4 +1,4 @@
-Threshold,High CMSA edges,High CMSA density [%],Precision vs found-optimal edges [%],Recall vs found-optimal edges [%],Lift vs found-optimal edge density,High-CMSA edges not seen in found-optimal tours
+Threshold,High MSA support edges,High MSA support density [%],Precision vs found-optimal edges [%],Recall vs found-optimal edges [%],Lift vs found-optimal edge density,High-MSA support edges not seen in found-optimal tours
 0.100000,115,1.16,47.83,55.00,47.347826,60
 0.200000,113,1.14,48.67,55.00,48.185841,58
 0.300000,109,1.10,50.46,55.00,49.954128,54

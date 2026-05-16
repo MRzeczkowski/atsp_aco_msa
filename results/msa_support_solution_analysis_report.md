@@ -1,4 +1,4 @@
-# CMSA-Solution Analysis
+# MSA Support / Solution Analysis
 
 - Instances analyzed: 28
 - Instances with found optimal tours: 23
@@ -6,18 +6,18 @@
 
 ## How To Read This
 
-- `Precision` is the share of selected CMSA edges that were seen in found optimal tours.
-- `Recall` is the share of the found-optimal edge union selected by the CMSA variant.
+- `Precision` is the share of selected MSA support edges that were seen in found optimal tours.
+- `Recall` is the share of the found-optimal edge union selected by the MSA support variant.
 - `Lift` is precision divided by random edge-hit probability for that instance; higher means the selected edges are less random.
 - `Tour coverage` is per-tour, not union-based: it measures how much of one complete found optimal tour is covered by the selected edges.
 
-## Raw CMSA Coverage
+## Raw MSA Support Coverage
 
-This checks whether CMSA contains found-optimal edges at all before selecting or filtering them.
+This checks whether MSA support contains found-optimal edges at all before selecting or filtering them.
 
 | Metric | Average |
 |---|---:|
-| Found-optimal edges present in CMSA | 60.54% |
+| Found-optimal edges present in MSA support | 60.54% |
 
 | Instance | Coverage % |
 |---|---:|
@@ -45,21 +45,21 @@ This checks whether CMSA contains found-optimal edges at all before selecting or
 | ftv90 | 68.14 |
 | td100_1 | 27.86 |
 
-## Threshold CMSA
+## Threshold MSA support
 
-This variant selects every edge with normalized CMSA support at least 0.8.
+This variant selects every edge with normalized MSA support at least 0.8.
 
 | Metric | Average |
 |---|---:|
 | Selected edges | 96.0 |
 | Precision | 58.40% |
 | Recall | 40.65% |
-| Lift | 43.505320 |
+| Lift | 43.505272 |
 
 | Instance | Edges | Precision % | Recall % | Lift |
 |---|---:|---:|---:|---:|
 | atex5 | 67 | 88.06 | 16.71 | 12.752442 |
-| code198 | 197 | 36.55 | 0.27 | 0.525392 |
+| code198 | 197 | 36.55 | 0.26 | 0.524291 |
 | crane100_0 | 95 | 44.21 | 42.00 | 43.768421 |
 | crane100_1 | 90 | 53.33 | 48.00 | 52.800000 |
 | crane100_2 | 86 | 54.65 | 47.00 | 54.104651 |
@@ -82,23 +82,23 @@ This variant selects every edge with normalized CMSA support at least 0.8.
 | ftv90 | 87 | 59.77 | 46.02 | 43.320110 |
 | td100_1 | 96 | 56.25 | 19.29 | 20.290179 |
 
-## Top N-1 CMSA
+## Top N-1 MSA support
 
-This variant selects a fixed number of edges: the top `dimension - 1` positive CMSA edges, with deterministic tie-breaking by edge id.
+This variant selects a fixed number of edges: the top `dimension - 1` positive MSA support edges, with deterministic tie-breaking by edge id.
 
 | Metric | Average |
 |---|---:|
 | Selected edges | 101.7 |
 | Precision | 56.51% |
 | Recall | 41.95% |
-| Lift | 42.195332 |
+| Lift | 42.195284 |
 | Average tour coverage | 46.82% |
 | Best-tour coverage | 48.62% |
 
 | Instance | Edges | Precision % | Recall % | Avg tour coverage % | Best-tour coverage % |
 |---|---:|---:|---:|---:|---:|
-| atex5 | 71 | 85.92 | 17.28 | 37.24 | 44.44 |
-| code198 | 197 | 36.55 | 0.27 | 1.01 | 1.01 |
+| atex5 | 71 | 85.92 | 17.28 | 37.23 | 44.44 |
+| code198 | 197 | 36.55 | 0.26 | 1.01 | 1.01 |
 | crane100_0 | 99 | 43.43 | 43.00 | 43.00 | 43.00 |
 | crane100_1 | 99 | 50.51 | 50.00 | 50.00 | 50.00 |
 | crane100_2 | 99 | 53.54 | 53.00 | 53.00 | 53.00 |

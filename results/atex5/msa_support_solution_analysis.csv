@@ -1,17 +1,17 @@
 Metric,Value
 Instance,atex5
 Dimension,72
-Unique found-optimal tours,159
+Unique found-optimal tours,160
 Unique found-optimal edges,353
-Raw CMSA found-optimal edge coverage [%],34.84
-Threshold CMSA threshold,0.800000
-Threshold CMSA edges,67
-Threshold CMSA precision [%],88.06
-Threshold CMSA recall [%],16.71
-Threshold CMSA lift,12.752442
-Top CMSA edges,71
-Top CMSA precision [%],85.92
-Top CMSA recall [%],17.28
-Top CMSA lift,12.441926
-Top CMSA avg tour coverage [%],37.24
-Top CMSA best tour coverage [%],44.44
+Raw MSA support found-optimal edge coverage [%],34.84
+Threshold MSA support threshold,0.800000
+Threshold MSA support edges,67
+Threshold MSA support precision [%],88.06
+Threshold MSA support recall [%],16.71
+Threshold MSA support lift,12.752442
+Top MSA support edges,71
+Top MSA support precision [%],85.92
+Top MSA support recall [%],17.28
+Top MSA support lift,12.441926
+Top MSA support avg tour coverage [%],37.23
+Top MSA support best tour coverage [%],44.44

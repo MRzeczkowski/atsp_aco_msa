@@ -1,7 +1,7 @@
 Metric,Value
 Instance,atex5
 Dimension,72
-Unique found-optimal tours,159
+Unique found-optimal tours,160
 Unique found-optimal edges,353
 Found-optimal edge density [%],6.91
 Cycle cover cost,128.000000
@@ -17,37 +17,37 @@ Cycle cover edges not seen in found-optimal tours,0
 Cycle cover precision vs found-optimal edges [%],100.00
 Cycle cover recall vs found-optimal edges [%],20.40
 Cycle cover lift vs found-optimal edge density,14.481586
-High CMSA threshold,1.000000
-High CMSA edges,32
-High CMSA edge density [%],0.63
-High CMSA found-optimal edges,32
-High CMSA edges not seen in found-optimal tours,0
-High CMSA precision vs found-optimal edges [%],100.00
-High CMSA recall vs found-optimal edges [%],9.07
-High CMSA lift vs found-optimal edge density,14.481586
-Cycle cover positive-CMSA edges,69
-Cycle cover positive-CMSA edge density [%],1.35
-Cycle cover positive-CMSA found-optimal edges,69
-Cycle cover positive-CMSA edges not seen in found-optimal tours,0
-Cycle cover positive-CMSA precision vs found-optimal edges [%],100.00
-Cycle cover positive-CMSA recall vs found-optimal edges [%],19.55
-Cycle cover positive-CMSA lift vs found-optimal edge density,14.481586
-Cycle cover high-CMSA edges,32
-Cycle cover high-CMSA edge density [%],0.63
-Cycle cover high-CMSA found-optimal edges,32
-Cycle cover high-CMSA edges not seen in found-optimal tours,0
-Cycle cover high-CMSA precision vs found-optimal edges [%],100.00
-Cycle cover high-CMSA recall vs found-optimal edges [%],9.07
-Cycle cover high-CMSA lift vs found-optimal edge density,14.481586
-Cycle cover edges with positive CMSA,69
-Cycle cover positive-CMSA share [%],95.83
-Cycle cover edges with high CMSA,32
-Cycle cover high-CMSA share [%],44.44
-High-CMSA edges removed by cycle-cover gate,0
-High-CMSA found-optimal edges removed by cycle-cover gate,0
-High-CMSA precision gain from cycle-cover gate,0.000000
-High-CMSA recall loss from cycle-cover gate,0.000000
-Found-optimal edges in both cycle cover and high CMSA,32
-Found-optimal edges in cycle cover but not high CMSA,40
-Found-optimal edges in high CMSA but not cycle cover,0
-Found-optimal edges in neither cycle cover nor high CMSA,281
+High MSA support threshold,1.000000
+High MSA support edges,32
+High MSA support edge density [%],0.63
+High MSA support found-optimal edges,32
+High MSA support edges not seen in found-optimal tours,0
+High MSA support precision vs found-optimal edges [%],100.00
+High MSA support recall vs found-optimal edges [%],9.07
+High MSA support lift vs found-optimal edge density,14.481586
+Cycle cover positive-MSA support edges,69
+Cycle cover positive-MSA support edge density [%],1.35
+Cycle cover positive-MSA support found-optimal edges,69
+Cycle cover positive-MSA support edges not seen in found-optimal tours,0
+Cycle cover positive-MSA support precision vs found-optimal edges [%],100.00
+Cycle cover positive-MSA support recall vs found-optimal edges [%],19.55
+Cycle cover positive-MSA support lift vs found-optimal edge density,14.481586
+Cycle cover high-MSA support edges,32
+Cycle cover high-MSA support edge density [%],0.63
+Cycle cover high-MSA support found-optimal edges,32
+Cycle cover high-MSA support edges not seen in found-optimal tours,0
+Cycle cover high-MSA support precision vs found-optimal edges [%],100.00
+Cycle cover high-MSA support recall vs found-optimal edges [%],9.07
+Cycle cover high-MSA support lift vs found-optimal edge density,14.481586
+Cycle cover edges with positive MSA support,69
+Cycle cover positive-MSA support share [%],95.83
+Cycle cover edges with high MSA support,32
+Cycle cover high-MSA support share [%],44.44
+High-MSA support edges removed by cycle-cover gate,0
+High-MSA support found-optimal edges removed by cycle-cover gate,0
+High-MSA support precision gain from cycle-cover gate,0.000000
+High-MSA support recall loss from cycle-cover gate,0.000000
+Found-optimal edges in both cycle cover and high MSA support,32
+Found-optimal edges in cycle cover but not high MSA support,40
+Found-optimal edges in high MSA support but not cycle cover,0
+Found-optimal edges in neither cycle cover nor high MSA support,281

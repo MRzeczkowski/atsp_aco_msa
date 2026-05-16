@@ -3,15 +3,15 @@ Instance,crane100_0
 Dimension,100
 Unique found-optimal tours,1
 Unique found-optimal edges,100
-Raw CMSA found-optimal edge coverage [%],66.00
-Threshold CMSA threshold,0.800000
-Threshold CMSA edges,95
-Threshold CMSA precision [%],44.21
-Threshold CMSA recall [%],42.00
-Threshold CMSA lift,43.768421
-Top CMSA edges,99
-Top CMSA precision [%],43.43
-Top CMSA recall [%],43.00
-Top CMSA lift,43.000000
-Top CMSA avg tour coverage [%],43.00
-Top CMSA best tour coverage [%],43.00
+Raw MSA support found-optimal edge coverage [%],66.00
+Threshold MSA support threshold,0.800000
+Threshold MSA support edges,95
+Threshold MSA support precision [%],44.21
+Threshold MSA support recall [%],42.00
+Threshold MSA support lift,43.768421
+Top MSA support edges,99
+Top MSA support precision [%],43.43
+Top MSA support recall [%],43.00
+Top MSA support lift,43.000000
+Top MSA support avg tour coverage [%],43.00
+Top MSA support best tour coverage [%],43.00

@@ -1,4 +1,4 @@
-From,To,Distance,CMSA,Normalized CMSA,High CMSA,Found-optimal edge
+From,To,Distance,MSA support,Normalized MSA support,High MSA support,Found-optimal edge
 0,23,55040.000000,0.000000,0.000000,false,true
 1,54,78917.000000,52.000000,0.800000,false,true
 2,34,42717.000000,62.000000,0.953846,false,false

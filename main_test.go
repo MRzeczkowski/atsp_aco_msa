@@ -116,6 +116,139 @@ func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
 	}
 }
 
+func TestSaveFinalResultsSummaryWritesOneTableWithHeuristicSubcolumns(t *testing.T) {
+	resultsRoot := t.TempDir()
+	firstAtspData := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	secondAtspData := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	rows := []HeuristicExperimentStatistics{
+		{
+			heuristic: heuristicBaseline,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 4.25,
+				successRate:          10.0,
+			},
+		},
+		{
+			heuristic: heuristicMsaSupport,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 2.50,
+				successRate:          20.0,
+			},
+		},
+		{
+			heuristic: heuristicCycleCover,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 1.75,
+				successRate:          30.0,
+			},
+		},
+	}
+	secondRows := []HeuristicExperimentStatistics{
+		{
+			heuristic: heuristicBaseline,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 6.75,
+				successRate:          20.0,
+			},
+		},
+		{
+			heuristic: heuristicMsaSupport,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 3.50,
+				successRate:          40.0,
+			},
+		},
+		{
+			heuristic: heuristicCycleCover,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 2.25,
+				successRate:          60.0,
+			},
+		},
+	}
+
+	if err := saveHeuristicStatistics(firstAtspData.resultFilePath, rows); err != nil {
+		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
+	}
+	if err := saveHeuristicStatistics(secondAtspData.resultFilePath, secondRows); err != nil {
+		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
+	}
+
+	summaryPath := filepath.Join(resultsRoot, "summary.csv")
+	if err := saveFinalResultsSummary([]AtspData{firstAtspData, secondAtspData}, summaryPath); err != nil {
+		t.Fatalf("saveFinalResultsSummary returned unexpected error: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(summaryPath)
+	if err != nil {
+		t.Fatalf("failed to read final summary CSV: %v", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(contentBytes)), "\n")
+	expected := []string{
+		"Instance,Baseline,,MSA support,,Cycle cover,",
+		",Avg min deviation [%],Success rate [%],Avg min deviation [%],Success rate [%],Avg min deviation [%],Success rate [%]",
+		"sample-a,4.25,10.00,2.50,20.00,1.75,30.00",
+		"sample-b,6.75,20.00,3.50,40.00,2.25,60.00",
+		"Average,5.50,15.00,3.00,30.00,2.00,45.00",
+	}
+	if !reflect.DeepEqual(lines, expected) {
+		t.Fatalf("unexpected final summary CSV\nwant: %v\n got: %v", expected, lines)
+	}
+}
+
+func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
+	resultsRoot := t.TempDir()
+	oldFinalResultsDirectoryName := finalResultsDirectoryName
+	finalResultsDirectoryName = filepath.Join(resultsRoot, "final")
+	defer func() {
+		finalResultsDirectoryName = oldFinalResultsDirectoryName
+	}()
+
+	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	finalAtspData := withExperimentOutputRoot(atspData, finalResultsDirectoryName)
+	rows := []HeuristicExperimentStatistics{
+		{
+			heuristic: heuristicBaseline,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 4.25,
+				successRate:          10.0,
+			},
+		},
+		{
+			heuristic: heuristicMsaSupport,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 2.50,
+				successRate:          20.0,
+			},
+		},
+		{
+			heuristic: heuristicCycleCover,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 1.75,
+				successRate:          30.0,
+			},
+		},
+	}
+	if err := saveHeuristicStatistics(finalAtspData.resultFilePath, rows); err != nil {
+		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
+	}
+
+	summaryPath, saved, err := runFinalResultsAnalysis([]AtspData{atspData})
+	if err != nil {
+		t.Fatalf("runFinalResultsAnalysis returned unexpected error: %v", err)
+	}
+	if !saved {
+		t.Fatal("expected final results summary to be saved")
+	}
+	if summaryPath != filepath.Join(finalResultsDirectoryName, "summary.csv") {
+		t.Fatalf("unexpected summary path: %s", summaryPath)
+	}
+	if _, err := os.Stat(summaryPath); err != nil {
+		t.Fatalf("expected final results summary file to exist: %v", err)
+	}
+}
+
 func TestBuildMsaSupportHeuristicModifiersBoostsOnlyEdgesUsedByEveryMsa(t *testing.T) {
 	msaSupport := [][]float64{
 		{0, 3, 2, 0},

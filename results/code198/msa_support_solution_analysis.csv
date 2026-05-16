@@ -1,17 +1,17 @@
 Metric,Value
 Instance,code198
 Dimension,198
-Unique found-optimal tours,2053
-Unique found-optimal edges,27134
-Raw CMSA found-optimal edge coverage [%],0.30
-Threshold CMSA threshold,0.800000
-Threshold CMSA edges,197
-Threshold CMSA precision [%],36.55
-Threshold CMSA recall [%],0.27
-Threshold CMSA lift,0.525392
-Top CMSA edges,197
-Top CMSA precision [%],36.55
-Top CMSA recall [%],0.27
-Top CMSA lift,0.525392
-Top CMSA avg tour coverage [%],1.01
-Top CMSA best tour coverage [%],1.01
+Unique found-optimal tours,2717
+Unique found-optimal edges,27191
+Raw MSA support found-optimal edge coverage [%],0.30
+Threshold MSA support threshold,0.800000
+Threshold MSA support edges,197
+Threshold MSA support precision [%],36.55
+Threshold MSA support recall [%],0.26
+Threshold MSA support lift,0.524291
+Top MSA support edges,197
+Top MSA support precision [%],36.55
+Top MSA support recall [%],0.26
+Top MSA support lift,0.524291
+Top MSA support avg tour coverage [%],1.01
+Top MSA support best tour coverage [%],1.01

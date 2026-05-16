@@ -3,15 +3,15 @@ Instance,ftv160
 Dimension,161
 Unique found-optimal tours,149
 Unique found-optimal edges,218
-Raw CMSA found-optimal edge coverage [%],67.43
-Threshold CMSA threshold,0.800000
-Threshold CMSA edges,148
-Threshold CMSA precision [%],68.92
-Threshold CMSA recall [%],46.79
-Threshold CMSA lift,81.438135
-Top CMSA edges,160
-Top CMSA precision [%],66.88
-Top CMSA recall [%],49.08
-Top CMSA lift,79.022936
-Top CMSA avg tour coverage [%],58.37
-Top CMSA best tour coverage [%],60.25
+Raw MSA support found-optimal edge coverage [%],67.43
+Threshold MSA support threshold,0.800000
+Threshold MSA support edges,148
+Threshold MSA support precision [%],68.92
+Threshold MSA support recall [%],46.79
+Threshold MSA support lift,81.438135
+Top MSA support edges,160
+Top MSA support precision [%],66.88
+Top MSA support recall [%],49.08
+Top MSA support lift,79.022936
+Top MSA support avg tour coverage [%],58.37
+Top MSA support best tour coverage [%],60.25

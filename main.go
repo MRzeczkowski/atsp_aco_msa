@@ -55,6 +55,11 @@ type HeuristicExperimentStatistics struct {
 	statistics ExperimentsDataStatistics
 }
 
+type finalResultsSummaryMetric struct {
+	averageMinDeviation float64
+	successRate         float64
+}
+
 const (
 	instanceSetSmoke    = "smoke"
 	instanceSetTiny     = "tiny"
@@ -92,6 +97,12 @@ const (
 	heuristicMsaSupportOverlap    = "msa-support-overlap"
 	heuristicMsaSupportDifference = "msa-support-difference"
 )
+
+var finalResultsSummaryHeuristics = []string{
+	heuristicBaseline,
+	heuristicMsaSupport,
+	heuristicCycleCover,
+}
 
 var smokeInstanceFiles = []string{
 	"ftv64.atsp",
@@ -445,6 +456,157 @@ func saveHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperim
 
 	writer.Flush()
 	return writer.Error()
+}
+
+func saveFinalResultsSummary(atspsData []AtspData, summaryCsvPath string) error {
+	if err := os.MkdirAll(filepath.Dir(summaryCsvPath), 0700); err != nil {
+		return err
+	}
+
+	file, err := os.Create(summaryCsvPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	header := []string{"Instance"}
+	subHeader := []string{""}
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		header = append(header, heuristicDisplayName(heuristic), "")
+		subHeader = append(subHeader, "Avg min deviation [%]", "Success rate [%]")
+	}
+
+	if err := writer.Write(header); err != nil {
+		return err
+	}
+	if err := writer.Write(subHeader); err != nil {
+		return err
+	}
+
+	totals := make(map[string]finalResultsSummaryMetric, len(finalResultsSummaryHeuristics))
+	counts := make(map[string]int, len(finalResultsSummaryHeuristics))
+	for _, atspData := range atspsData {
+		metrics, err := readFinalResultSummaryMetrics(atspData.resultFilePath)
+		if err != nil {
+			return fmt.Errorf("%s: failed to read final result metrics: %w", atspData.name, err)
+		}
+
+		record := []string{atspData.name}
+		for _, heuristic := range finalResultsSummaryHeuristics {
+			metric, ok := metrics[heuristic]
+			if !ok {
+				record = append(record, "", "")
+				continue
+			}
+
+			total := totals[heuristic]
+			total.averageMinDeviation += metric.averageMinDeviation
+			total.successRate += metric.successRate
+			totals[heuristic] = total
+			counts[heuristic]++
+
+			record = append(record,
+				fmt.Sprintf("%.2f", metric.averageMinDeviation),
+				fmt.Sprintf("%.2f", metric.successRate))
+		}
+
+		if err := writer.Write(record); err != nil {
+			return err
+		}
+	}
+
+	averageRecord := []string{"Average"}
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		count := counts[heuristic]
+		if count == 0 {
+			averageRecord = append(averageRecord, "", "")
+			continue
+		}
+
+		total := totals[heuristic]
+		averageRecord = append(averageRecord,
+			fmt.Sprintf("%.2f", total.averageMinDeviation/float64(count)),
+			fmt.Sprintf("%.2f", total.successRate/float64(count)))
+	}
+	if err := writer.Write(averageRecord); err != nil {
+		return err
+	}
+
+	writer.Flush()
+	return writer.Error()
+}
+
+func readFinalResultSummaryMetrics(resultCsvPath string) (map[string]finalResultsSummaryMetric, error) {
+	file, err := os.Open(resultCsvPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	header, err := reader.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	heuristicIndex := indexOf(header, "Heuristic")
+	averageDeviationIndex := indexOf(header, "Avg best deviation")
+	successRateIndex := indexOf(header, "Success rate [%]")
+	if heuristicIndex == -1 || averageDeviationIndex == -1 || successRateIndex == -1 {
+		return nil, fmt.Errorf("missing required summary columns")
+	}
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	metrics := make(map[string]finalResultsSummaryMetric, len(records))
+	for _, record := range records {
+		if len(record) != len(header) {
+			return nil, fmt.Errorf("invalid record length: got %d want %d", len(record), len(header))
+		}
+
+		averageDeviation, err := strconv.ParseFloat(record[averageDeviationIndex], 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid average deviation for %s: %w", record[heuristicIndex], err)
+		}
+		successRate, err := strconv.ParseFloat(record[successRateIndex], 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid success rate for %s: %w", record[heuristicIndex], err)
+		}
+
+		metrics[record[heuristicIndex]] = finalResultsSummaryMetric{
+			averageMinDeviation: averageDeviation,
+			successRate:         successRate,
+		}
+	}
+
+	return metrics, nil
+}
+
+func indexOf(values []string, value string) int {
+	for i, candidate := range values {
+		if candidate == value {
+			return i
+		}
+	}
+
+	return -1
+}
+
+func heuristicDisplayName(heuristic string) string {
+	switch heuristic {
+	case heuristicBaseline:
+		return "Baseline"
+	case heuristicMsaSupport:
+		return "MSA support"
+	case heuristicCycleCover:
+		return "Cycle cover"
+	default:
+		return heuristic
+	}
 }
 
 func statisticsCsvRecord(statistic ExperimentsDataStatistics) []string {
@@ -1490,12 +1652,55 @@ func runAnalysisMode(atspsData []AtspData) error {
 		return err
 	}
 
+	finalResultsSummaryPath, finalSummarySaved, err := runFinalResultsAnalysis(atspsData)
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("MSA support/solution analysis summary saved to %s\n", msaSupportSolutionSummaryPath)
 	fmt.Printf("MSA support/solution analysis report saved to %s\n", msaSupportSolutionReportPath)
 	fmt.Printf("Cycle-cover analysis summary saved to %s\n", cycleCoverSummaryPath)
 	fmt.Printf("Cycle-cover analysis report saved to %s\n", cycleCoverReportPath)
 	fmt.Printf("Heuristic boosted-edge summary saved to %s\n", heuristicBoostSummaryPath)
+	if finalSummarySaved {
+		fmt.Printf("Final results summary saved to %s\n", finalResultsSummaryPath)
+	}
 	return nil
+}
+
+func runFinalResultsAnalysis(atspsData []AtspData) (string, bool, error) {
+	finalAtspsData := make([]AtspData, 0, len(atspsData))
+	missingInstances := make([]string, 0)
+
+	for _, atspData := range atspsData {
+		finalAtspData := withExperimentOutputRoot(atspData, finalResultsDirectoryName)
+		if _, err := os.Stat(finalAtspData.resultFilePath); err != nil {
+			if os.IsNotExist(err) {
+				missingInstances = append(missingInstances, atspData.name)
+				continue
+			}
+
+			return "", false, err
+		}
+
+		finalAtspsData = append(finalAtspsData, finalAtspData)
+	}
+
+	if len(finalAtspsData) == 0 {
+		fmt.Printf("Final results summary skipped: no final result files found in %s\n", finalResultsDirectoryName)
+		return "", false, nil
+	}
+
+	if len(missingInstances) != 0 {
+		return "", false, fmt.Errorf("cannot create final results summary; missing final result.csv for: %s", strings.Join(missingInstances, ", "))
+	}
+
+	finalResultsSummaryPath := filepath.Join(finalResultsDirectoryName, "summary.csv")
+	if err := saveFinalResultsSummary(finalAtspsData, finalResultsSummaryPath); err != nil {
+		return "", false, err
+	}
+
+	return finalResultsSummaryPath, true, nil
 }
 
 type heuristicBoostSummaryRow struct {

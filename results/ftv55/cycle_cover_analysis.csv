@@ -17,37 +17,37 @@ Cycle cover edges not seen in found-optimal tours,15
 Cycle cover precision vs found-optimal edges [%],73.21
 Cycle cover recall vs found-optimal edges [%],51.25
 Cycle cover lift vs found-optimal edge density,28.187500
-High CMSA threshold,1.000000
-High CMSA edges,30
-High CMSA edge density [%],0.97
-High CMSA found-optimal edges,24
-High CMSA edges not seen in found-optimal tours,6
-High CMSA precision vs found-optimal edges [%],80.00
-High CMSA recall vs found-optimal edges [%],30.00
-High CMSA lift vs found-optimal edge density,30.800000
-Cycle cover positive-CMSA edges,45
-Cycle cover positive-CMSA edge density [%],1.46
-Cycle cover positive-CMSA found-optimal edges,36
-Cycle cover positive-CMSA edges not seen in found-optimal tours,9
-Cycle cover positive-CMSA precision vs found-optimal edges [%],80.00
-Cycle cover positive-CMSA recall vs found-optimal edges [%],45.00
-Cycle cover positive-CMSA lift vs found-optimal edge density,30.800000
-Cycle cover high-CMSA edges,23
-Cycle cover high-CMSA edge density [%],0.75
-Cycle cover high-CMSA found-optimal edges,20
-Cycle cover high-CMSA edges not seen in found-optimal tours,3
-Cycle cover high-CMSA precision vs found-optimal edges [%],86.96
-Cycle cover high-CMSA recall vs found-optimal edges [%],25.00
-Cycle cover high-CMSA lift vs found-optimal edge density,33.478261
-Cycle cover edges with positive CMSA,45
-Cycle cover positive-CMSA share [%],80.36
-Cycle cover edges with high CMSA,23
-Cycle cover high-CMSA share [%],41.07
-High-CMSA edges removed by cycle-cover gate,7
-High-CMSA found-optimal edges removed by cycle-cover gate,4
-High-CMSA precision gain from cycle-cover gate,0.069565
-High-CMSA recall loss from cycle-cover gate,0.050000
-Found-optimal edges in both cycle cover and high CMSA,20
-Found-optimal edges in cycle cover but not high CMSA,21
-Found-optimal edges in high CMSA but not cycle cover,4
-Found-optimal edges in neither cycle cover nor high CMSA,35
+High MSA support threshold,1.000000
+High MSA support edges,30
+High MSA support edge density [%],0.97
+High MSA support found-optimal edges,24
+High MSA support edges not seen in found-optimal tours,6
+High MSA support precision vs found-optimal edges [%],80.00
+High MSA support recall vs found-optimal edges [%],30.00
+High MSA support lift vs found-optimal edge density,30.800000
+Cycle cover positive-MSA support edges,45
+Cycle cover positive-MSA support edge density [%],1.46
+Cycle cover positive-MSA support found-optimal edges,36
+Cycle cover positive-MSA support edges not seen in found-optimal tours,9
+Cycle cover positive-MSA support precision vs found-optimal edges [%],80.00
+Cycle cover positive-MSA support recall vs found-optimal edges [%],45.00
+Cycle cover positive-MSA support lift vs found-optimal edge density,30.800000
+Cycle cover high-MSA support edges,23
+Cycle cover high-MSA support edge density [%],0.75
+Cycle cover high-MSA support found-optimal edges,20
+Cycle cover high-MSA support edges not seen in found-optimal tours,3
+Cycle cover high-MSA support precision vs found-optimal edges [%],86.96
+Cycle cover high-MSA support recall vs found-optimal edges [%],25.00
+Cycle cover high-MSA support lift vs found-optimal edge density,33.478261
+Cycle cover edges with positive MSA support,45
+Cycle cover positive-MSA support share [%],80.36
+Cycle cover edges with high MSA support,23
+Cycle cover high-MSA support share [%],41.07
+High-MSA support edges removed by cycle-cover gate,7
+High-MSA support found-optimal edges removed by cycle-cover gate,4
+High-MSA support precision gain from cycle-cover gate,0.069565
+High-MSA support recall loss from cycle-cover gate,0.050000
+Found-optimal edges in both cycle cover and high MSA support,20
+Found-optimal edges in cycle cover but not high MSA support,21
+Found-optimal edges in high MSA support but not cycle cover,4
+Found-optimal edges in neither cycle cover nor high MSA support,35

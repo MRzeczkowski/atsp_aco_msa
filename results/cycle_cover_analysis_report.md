@@ -1,37 +1,37 @@
-# Cycle-Cover/CMSA Analysis
+# Cycle Cover / MSA Support Analysis
 
-Main high-CMSA threshold: 1.0
+Main high-MSA support threshold: 1.0
 
 ## Summary
 
 - Instances analyzed: 28
 - Instances with found optimal tours: 23
-- Average cycle-cover edge share with positive CMSA: 60.63%
-- Average cycle-cover edge share with high CMSA: 31.16%
+- Average cycle-cover edge share with positive MSA support: 60.63%
+- Average cycle-cover edge share with high MSA support: 31.16%
 - Average cycle-cover precision: 73.88%
 - Average cycle-cover recall: 53.17%
-- Average high-CMSA precision: 67.67%
-- Average high-CMSA recall: 29.98%
-- Average cycle-cover-gated high-CMSA precision: 84.48%
-- Average cycle-cover-gated high-CMSA recall: 24.91%
+- Average high-MSA support precision: 67.67%
+- Average high-MSA support recall: 29.98%
+- Average cycle-cover-gated high-MSA support precision: 84.48%
+- Average cycle-cover-gated high-MSA support recall: 24.91%
 - Average precision gain from cycle-cover gate: 0.168140
 - Average recall loss from cycle-cover gate: 0.050729
 
 ## Notes
 
 - `Cycle cover` is the minimum assignment/cycle-cover solution computed from the original ATSP matrix with self-loops forbidden.
-- `High CMSA` uses normalized `CMSA / (dimension - 1)` and the threshold shown above.
-- `Cycle-cover positive-CMSA` is the set of cycle-cover edges with any positive CMSA support.
-- `Cycle-cover high-CMSA` is the strict intersection of high-CMSA edges and minimum-cycle-cover edges.
+- `High MSA support` uses normalized `MSA support / (dimension - 1)` and the threshold shown above.
+- `Cycle-cover positive-MSA support` is the set of cycle-cover edges with any positive MSA support.
+- `Cycle-cover high-MSA support` is the strict intersection of high-MSA support edges and minimum-cycle-cover edges.
 - Precision/recall use the union of tours recorded in `solutions.csv`; absent edges are not proven non-optimal.
-- Precision gain and recall loss compare `cycle-cover high-CMSA` against high-CMSA alone.
+- Precision gain and recall loss compare `cycle-cover high-MSA support` against high-MSA support alone.
 
 ## Instances
 
-| Instance | Tours | Opt edges | CC gap % | CC cycles | CC in CMSA % | CC in high CMSA % | CC precision % | CC recall % | High precision % | High recall % | Gated precision % | Gated recall % | Precision gain | Recall loss |
+| Instance | Tours | Opt edges | CC gap % | CC cycles | CC in MSA support % | CC in high MSA support % | CC precision % | CC recall % | High precision % | High recall % | Gated precision % | Gated recall % | Precision gain | Recall loss |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| atex5 | 159 | 353 | 97.57 | 35 | 95.83 | 44.44 | 100.00 | 20.40 | 100.00 | 9.07 | 100.00 | 9.07 | 0.000000 | 0.000000 |
-| code198 | 2053 | 27134 | 0.09 | 4 | 6.06 | 1.01 | 97.98 | 0.71 | 37.97 | 0.26 | 50.00 | 0.00 | 0.120321 | 0.002580 |
+| atex5 | 160 | 353 | 97.57 | 35 | 95.83 | 44.44 | 100.00 | 20.40 | 100.00 | 9.07 | 100.00 | 9.07 | 0.000000 | 0.000000 |
+| code198 | 2717 | 27191 | 0.09 | 4 | 6.06 | 1.01 | 97.98 | 0.71 | 37.97 | 0.26 | 50.00 | 0.00 | 0.120321 | 0.002574 |
 | crane100_0 | 1 | 100 | 8.55 | 22 | 76.00 | 39.00 | 53.00 | 53.00 | 53.57 | 30.00 | 64.10 | 25.00 | 0.105311 | 0.050000 |
 | crane100_1 | 1 | 100 | 5.57 | 17 | 67.00 | 32.00 | 60.00 | 60.00 | 57.89 | 33.00 | 84.38 | 27.00 | 0.264803 | 0.060000 |
 | crane100_2 | 1 | 100 | 10.30 | 29 | 73.00 | 35.00 | 58.00 | 58.00 | 63.33 | 38.00 | 82.86 | 29.00 | 0.195238 | 0.090000 |

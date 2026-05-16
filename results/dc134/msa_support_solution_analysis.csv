@@ -3,15 +3,15 @@ Instance,dc134
 Dimension,134
 Unique found-optimal tours,0
 Unique found-optimal edges,0
-Raw CMSA found-optimal edge coverage [%],0.00
-Threshold CMSA threshold,0.800000
-Threshold CMSA edges,131
-Threshold CMSA precision [%],0.00
-Threshold CMSA recall [%],0.00
-Threshold CMSA lift,0.000000
-Top CMSA edges,133
-Top CMSA precision [%],0.00
-Top CMSA recall [%],0.00
-Top CMSA lift,0.000000
-Top CMSA avg tour coverage [%],0.00
-Top CMSA best tour coverage [%],0.00
+Raw MSA support found-optimal edge coverage [%],0.00
+Threshold MSA support threshold,0.800000
+Threshold MSA support edges,131
+Threshold MSA support precision [%],0.00
+Threshold MSA support recall [%],0.00
+Threshold MSA support lift,0.000000
+Top MSA support edges,133
+Top MSA support precision [%],0.00
+Top MSA support recall [%],0.00
+Top MSA support lift,0.000000
+Top MSA support avg tour coverage [%],0.00
+Top MSA support best tour coverage [%],0.00

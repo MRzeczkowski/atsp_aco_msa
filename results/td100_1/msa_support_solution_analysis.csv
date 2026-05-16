@@ -3,15 +3,15 @@ Instance,td100_1
 Dimension,101
 Unique found-optimal tours,100
 Unique found-optimal edges,280
-Raw CMSA found-optimal edge coverage [%],27.86
-Threshold CMSA threshold,0.800000
-Threshold CMSA edges,96
-Threshold CMSA precision [%],56.25
-Threshold CMSA recall [%],19.29
-Threshold CMSA lift,20.290179
-Top CMSA edges,100
-Top CMSA precision [%],55.00
-Top CMSA recall [%],19.64
-Top CMSA lift,19.839286
-Top CMSA avg tour coverage [%],27.07
-Top CMSA best tour coverage [%],28.71
+Raw MSA support found-optimal edge coverage [%],27.86
+Threshold MSA support threshold,0.800000
+Threshold MSA support edges,96
+Threshold MSA support precision [%],56.25
+Threshold MSA support recall [%],19.29
+Threshold MSA support lift,20.290179
+Top MSA support edges,100
+Top MSA support precision [%],55.00
+Top MSA support recall [%],19.64
+Top MSA support lift,19.839286
+Top MSA support avg tour coverage [%],27.07
+Top MSA support best tour coverage [%],28.71
