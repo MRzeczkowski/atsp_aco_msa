@@ -4,7 +4,7 @@ Found **10** best unique parameter combinations.
 
 ## Best Parameters
 
-| Alpha | Beta | Rho | pCmsa | Times used |
+| Alpha | Beta | Rho | Heuristic weight | Times used |
 |-------|------|-----|-------|------------|
 | 1.00 | 2.00 | 0.80 | 0.10 | 4 |
 | 1.00 | 2.00 | 0.80 | 0.20 | 8 |
@@ -37,7 +37,7 @@ Found **10** best unique parameter combinations.
 |-------|-------|
 | 0.80 | 10 |
 
-### pCmsa
+### Heuristic weight
 
 | Value | Count |
 |-------|-------|
@@ -57,4 +57,4 @@ Found **10** best unique parameter combinations.
 - **Alpha**: 1.00 - 1.00
 - **Beta**: 2.00 - 2.00
 - **Rho**: 0.80 - 0.80
-- **pCmsa**: 0.10 - 1.00
+- **Heuristic weight**: 0.10 - 1.00

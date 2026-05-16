@@ -1,4 +1,4 @@
-Alpha,Beta,Rho,pCmsa,Iterations,Min best at iteration,Avg best at iteration,Max best at iteration,Min local search improvements,Avg local search improvements,Max local search improvements,Min best deviation,Avg best deviation,Max best deviation,Success rate [%]
+Alpha,Beta,Rho,Heuristic weight,Iterations,Min best at iteration,Avg best at iteration,Max best at iteration,Min local search improvements,Avg local search improvements,Max local search improvements,Min best deviation,Avg best deviation,Max best deviation,Success rate [%]
 1.00,2.00,0.80,0.20,5000,51,2888.37,4785,0,0.00,0,0.55,4.19,9.37,0.00
 1.00,2.00,0.80,0.60,5000,55,2183.23,4922,0,0.00,0,1.06,4.30,8.86,0.00
 1.00,2.00,0.80,0.10,5000,257,2071.40,4841,0,0.00,0,1.75,4.38,8.91,0.00
