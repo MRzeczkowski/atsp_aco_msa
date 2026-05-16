@@ -57,8 +57,10 @@ type HeuristicExperimentStatistics struct {
 }
 
 type finalResultsSummaryMetric struct {
-	averageMinDeviation float64
-	successRate         float64
+	averageMinDeviation  float64
+	successRate          float64
+	averageBestIteration float64
+	iterations           int
 }
 
 type finalResultsSummaryRow struct {
@@ -469,18 +471,38 @@ func saveFinalResultsSummary(atspsData []AtspData, summaryPath string) error {
 		return err
 	}
 
+	rows, err := readFinalResultsSummaryRows(atspsData)
+	if err != nil {
+		return err
+	}
+
+	return saveFinalResultsSummaryRows(rows, summaryPath)
+}
+
+func readFinalResultsSummaryRows(atspsData []AtspData) ([]finalResultsSummaryRow, error) {
 	rows := make([]finalResultsSummaryRow, 0, len(atspsData))
-	totals := make(map[string]finalResultsSummaryMetric, len(finalResultsSummaryHeuristics))
-	counts := make(map[string]int, len(finalResultsSummaryHeuristics))
 	for _, atspData := range atspsData {
 		metrics, err := readFinalResultSummaryMetrics(atspData.resultFilePath)
 		if err != nil {
-			return fmt.Errorf("%s: failed to read final result metrics: %w", atspData.name, err)
+			return nil, fmt.Errorf("%s: failed to read final result metrics: %w", atspData.name, err)
 		}
 
 		rows = append(rows, finalResultsSummaryRow{instance: atspData.name, metrics: metrics})
+	}
+
+	return rows, nil
+}
+
+func saveFinalResultsSummaryRows(rows []finalResultsSummaryRow, summaryPath string) error {
+	if err := os.MkdirAll(filepath.Dir(summaryPath), 0700); err != nil {
+		return err
+	}
+
+	totals := make(map[string]finalResultsSummaryMetric, len(finalResultsSummaryHeuristics))
+	counts := make(map[string]int, len(finalResultsSummaryHeuristics))
+	for _, row := range rows {
 		for _, heuristic := range finalResultsSummaryHeuristics {
-			metric, ok := metrics[heuristic]
+			metric, ok := row.metrics[heuristic]
 			if !ok {
 				continue
 			}
@@ -488,6 +510,8 @@ func saveFinalResultsSummary(atspsData []AtspData, summaryPath string) error {
 			total := totals[heuristic]
 			total.averageMinDeviation += metric.averageMinDeviation
 			total.successRate += metric.successRate
+			total.averageBestIteration += metric.averageBestIteration
+			total.iterations += metric.iterations
 			totals[heuristic] = total
 			counts[heuristic]++
 		}
@@ -502,8 +526,10 @@ func saveFinalResultsSummary(atspsData []AtspData, summaryPath string) error {
 
 		total := totals[heuristic]
 		averageMetrics[heuristic] = finalResultsSummaryMetric{
-			averageMinDeviation: total.averageMinDeviation / float64(count),
-			successRate:         total.successRate / float64(count),
+			averageMinDeviation:  total.averageMinDeviation / float64(count),
+			successRate:          total.successRate / float64(count),
+			averageBestIteration: total.averageBestIteration / float64(count),
+			iterations:           int(math.Round(float64(total.iterations) / float64(count))),
 		}
 	}
 
@@ -670,6 +696,370 @@ func finalResultsSummaryMetricCell(value float64, bold bool) string {
 	}
 
 	return valueText
+}
+
+func saveFinalPairwisePerformanceReport(path string, rows []finalResultsSummaryRow) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+
+	comparisons := []finalPairwisePerformanceComparison{
+		calculateFinalPairwisePerformanceComparison(rows, heuristicMsaSupport, heuristicBaseline),
+		calculateFinalPairwisePerformanceComparison(rows, heuristicCycleCover, heuristicBaseline),
+		calculateFinalPairwisePerformanceComparison(rows, heuristicMsaSupport, heuristicCycleCover),
+	}
+
+	var builder strings.Builder
+	builder.WriteString("# Pairwise Performance Summary\n\n")
+	builder.WriteString("Negative average-best-deviation delta means the first heuristic in the comparison had lower deviation.\n\n")
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Comparison</th><th>Avg best dev. delta [pp]</th><th>Wins</th><th>Ties</th><th>Losses</th><th>Success delta [pp]</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	for _, comparison := range comparisons {
+		fmt.Fprintf(&builder,
+			"<tr><td>%s vs %s</td><td align=\"right\">%s</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%s</td></tr>\n",
+			html.EscapeString(heuristicDisplayName(comparison.left)),
+			html.EscapeString(heuristicDisplayName(comparison.right)),
+			formatSignedFloat(comparison.averageBestDeviationDelta),
+			comparison.wins,
+			comparison.ties,
+			comparison.losses,
+			formatSignedFloat(comparison.successRateDelta))
+	}
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+type finalPairwisePerformanceComparison struct {
+	left                      string
+	right                     string
+	count                     int
+	wins                      int
+	ties                      int
+	losses                    int
+	averageBestDeviationDelta float64
+	successRateDelta          float64
+}
+
+func calculateFinalPairwisePerformanceComparison(rows []finalResultsSummaryRow, left, right string) finalPairwisePerformanceComparison {
+	const epsilon = 1e-9
+	comparison := finalPairwisePerformanceComparison{left: left, right: right}
+
+	for _, row := range rows {
+		leftMetric, leftOk := row.metrics[left]
+		rightMetric, rightOk := row.metrics[right]
+		if !leftOk || !rightOk {
+			continue
+		}
+
+		comparison.count++
+		deviationDelta := leftMetric.averageMinDeviation - rightMetric.averageMinDeviation
+		comparison.averageBestDeviationDelta += deviationDelta
+		comparison.successRateDelta += leftMetric.successRate - rightMetric.successRate
+
+		if math.Abs(deviationDelta) < epsilon {
+			comparison.ties++
+		} else if deviationDelta < 0 {
+			comparison.wins++
+		} else {
+			comparison.losses++
+		}
+	}
+
+	if comparison.count > 0 {
+		comparison.averageBestDeviationDelta /= float64(comparison.count)
+		comparison.successRateDelta /= float64(comparison.count)
+	}
+
+	return comparison
+}
+
+func saveFinalConvergenceSummaryReport(path string, rows []finalResultsSummaryRow) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+
+	averages := averageConvergenceByHeuristic(rows, nil)
+
+	var builder strings.Builder
+	builder.WriteString("# Convergence Summary\n\n")
+	builder.WriteString("Each value is the average iteration where the best run solution was found, expressed as a percentage of the configured iteration budget. Lower values mean earlier convergence.\n\n")
+	writeFinalConvergenceFindings(&builder, rows, averages)
+	builder.WriteString("\n")
+	writeFinalConvergenceTable(&builder, rows, averages)
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+func writeFinalConvergenceFindings(builder *strings.Builder, rows []finalResultsSummaryRow, averages map[string]float64) {
+	winCounts := make(map[string]int, len(finalResultsSummaryHeuristics))
+	for _, row := range rows {
+		highlights := lowestConvergenceHighlights(row.metrics)
+		for _, heuristic := range finalResultsSummaryHeuristics {
+			if highlights[heuristic] {
+				winCounts[heuristic]++
+			}
+		}
+	}
+
+	builder.WriteString("## Findings\n\n")
+	fmt.Fprintf(builder,
+		"- **Average best-iteration position: Baseline %.2f%%, MSA support %.2f%%, cycle cover %.2f%%.**\n",
+		averages[heuristicBaseline],
+		averages[heuristicMsaSupport],
+		averages[heuristicCycleCover])
+	fmt.Fprintf(builder,
+		"- **Earliest-or-tied convergence counts: Baseline %d/%d, MSA support %d/%d, cycle cover %d/%d.**\n",
+		winCounts[heuristicBaseline], len(rows),
+		winCounts[heuristicMsaSupport], len(rows),
+		winCounts[heuristicCycleCover], len(rows))
+}
+
+func writeFinalConvergenceTable(builder *strings.Builder, rows []finalResultsSummaryRow, averages map[string]float64) {
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Instance</th><th>Baseline best iter [%]</th><th>MSA support best iter [%]</th><th>Cycle cover best iter [%]</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	for _, row := range rows {
+		highlights := lowestConvergenceHighlights(row.metrics)
+		fmt.Fprintf(builder, "<tr><td>%s</td>", html.EscapeString(row.instance))
+		for _, heuristic := range finalResultsSummaryHeuristics {
+			metric, ok := row.metrics[heuristic]
+			if !ok {
+				builder.WriteString("<td></td>")
+				continue
+			}
+			fmt.Fprintf(builder, "<td align=\"right\">%s</td>",
+				finalResultsSummaryMetricCell(convergencePercent(metric), highlights[heuristic]))
+		}
+		builder.WriteString("</tr>\n")
+	}
+
+	averageHighlights := lowestFloatHighlights(averages, false)
+	builder.WriteString("<tr><td><strong>Average</strong></td>")
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		fmt.Fprintf(builder, "<td align=\"right\">%s</td>",
+			finalResultsSummaryMetricCell(averages[heuristic], averageHighlights[heuristic]))
+	}
+	builder.WriteString("</tr>\n")
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+}
+
+func averageConvergenceByHeuristic(rows []finalResultsSummaryRow, allowedInstances map[string]struct{}) map[string]float64 {
+	sums := make(map[string]float64, len(finalResultsSummaryHeuristics))
+	counts := make(map[string]int, len(finalResultsSummaryHeuristics))
+	for _, row := range rows {
+		if allowedInstances != nil {
+			if _, ok := allowedInstances[row.instance]; !ok {
+				continue
+			}
+		}
+
+		for _, heuristic := range finalResultsSummaryHeuristics {
+			metric, ok := row.metrics[heuristic]
+			if !ok {
+				continue
+			}
+			if metric.iterations <= 0 {
+				continue
+			}
+
+			sums[heuristic] += convergencePercent(metric)
+			counts[heuristic]++
+		}
+	}
+
+	averages := make(map[string]float64, len(finalResultsSummaryHeuristics))
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		if counts[heuristic] == 0 {
+			continue
+		}
+		averages[heuristic] = sums[heuristic] / float64(counts[heuristic])
+	}
+
+	return averages
+}
+
+func lowestConvergenceHighlights(metrics map[string]finalResultsSummaryMetric) map[string]bool {
+	values := make(map[string]float64, len(finalResultsSummaryHeuristics))
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		metric, ok := metrics[heuristic]
+		if !ok || metric.iterations <= 0 {
+			continue
+		}
+		values[heuristic] = convergencePercent(metric)
+	}
+
+	return lowestFloatHighlights(values, false)
+}
+
+func convergencePercent(metric finalResultsSummaryMetric) float64 {
+	if metric.iterations <= 0 {
+		return 0
+	}
+
+	return 100.0 * metric.averageBestIteration / float64(metric.iterations)
+}
+
+func saveStructuralPerformanceLinkReport(path string, rows []finalResultsSummaryRow, analyses []cycleCover.InstanceAnalysis) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+
+	structuralRows := filterAnalysesWithFoundOptimalEdges(sortedCycleCoverAnalyses(analyses))
+	structuralTotals := structuralSimilarityTotals(structuralRows)
+	allowedInstances := make(map[string]struct{}, len(structuralRows))
+	for _, row := range structuralRows {
+		allowedInstances[row.Instance] = struct{}{}
+	}
+
+	performance := averagePerformanceByHeuristic(rows, allowedInstances)
+	msaPrecision := ratio(structuralTotals.msaOptimalEdges, structuralTotals.msaEdges)
+	cycleCoverPrecision := ratio(structuralTotals.cycleCoverOptimalEdges, structuralTotals.cycleCoverEdges)
+	msaRecall := ratio(structuralTotals.msaOptimalEdges, structuralTotals.foundOptimalEdges)
+	cycleCoverRecall := ratio(structuralTotals.cycleCoverOptimalEdges, structuralTotals.foundOptimalEdges)
+
+	precisionHighlights := highestFloatHighlights(map[string]float64{
+		heuristicMsaSupport: msaPrecision,
+		heuristicCycleCover: cycleCoverPrecision,
+	})
+	recallHighlights := highestFloatHighlights(map[string]float64{
+		heuristicMsaSupport: msaRecall,
+		heuristicCycleCover: cycleCoverRecall,
+	})
+	deviationHighlights := lowestFloatHighlights(map[string]float64{
+		heuristicMsaSupport: performance[heuristicMsaSupport].averageMinDeviation,
+		heuristicCycleCover: performance[heuristicCycleCover].averageMinDeviation,
+	}, true)
+	successHighlights := highestFloatHighlights(map[string]float64{
+		heuristicMsaSupport: performance[heuristicMsaSupport].successRate,
+		heuristicCycleCover: performance[heuristicCycleCover].successRate,
+	})
+
+	var builder strings.Builder
+	builder.WriteString("# Structural Similarity And Performance\n\n")
+	builder.WriteString("This table links structural similarity to found optimal tours with final MMAS performance. Both structural and performance values are computed only for instances with at least one found optimal tour.\n\n")
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Heuristic</th><th>Structural precision [%]</th><th>Structural recall [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	writeStructuralPerformanceLinkRow(&builder, heuristicMsaSupport, msaPrecision, msaRecall, performance[heuristicMsaSupport], precisionHighlights, recallHighlights, deviationHighlights, successHighlights)
+	writeStructuralPerformanceLinkRow(&builder, heuristicCycleCover, cycleCoverPrecision, cycleCoverRecall, performance[heuristicCycleCover], precisionHighlights, recallHighlights, deviationHighlights, successHighlights)
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+func writeStructuralPerformanceLinkRow(builder *strings.Builder, heuristic string, precision, recall float64, performance finalResultsSummaryMetric, precisionHighlights, recallHighlights, deviationHighlights, successHighlights map[string]bool) {
+	fmt.Fprintf(builder,
+		"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td></tr>\n",
+		html.EscapeString(heuristicDisplayName(heuristic)),
+		finalResultsSummaryMetricCell(100*precision, precisionHighlights[heuristic]),
+		finalResultsSummaryMetricCell(100*recall, recallHighlights[heuristic]),
+		finalResultsSummaryMetricCell(performance.averageMinDeviation, deviationHighlights[heuristic]),
+		finalResultsSummaryMetricCell(performance.successRate, successHighlights[heuristic]))
+}
+
+func averagePerformanceByHeuristic(rows []finalResultsSummaryRow, allowedInstances map[string]struct{}) map[string]finalResultsSummaryMetric {
+	totals := make(map[string]finalResultsSummaryMetric, len(finalResultsSummaryHeuristics))
+	counts := make(map[string]int, len(finalResultsSummaryHeuristics))
+	for _, row := range rows {
+		if allowedInstances != nil {
+			if _, ok := allowedInstances[row.instance]; !ok {
+				continue
+			}
+		}
+
+		for _, heuristic := range finalResultsSummaryHeuristics {
+			metric, ok := row.metrics[heuristic]
+			if !ok {
+				continue
+			}
+
+			total := totals[heuristic]
+			total.averageMinDeviation += metric.averageMinDeviation
+			total.successRate += metric.successRate
+			totals[heuristic] = total
+			counts[heuristic]++
+		}
+	}
+
+	averages := make(map[string]finalResultsSummaryMetric, len(finalResultsSummaryHeuristics))
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		count := counts[heuristic]
+		if count == 0 {
+			continue
+		}
+
+		total := totals[heuristic]
+		averages[heuristic] = finalResultsSummaryMetric{
+			averageMinDeviation: total.averageMinDeviation / float64(count),
+			successRate:         total.successRate / float64(count),
+		}
+	}
+
+	return averages
+}
+
+func highestFloatHighlights(values map[string]float64) map[string]bool {
+	return floatHighlights(values, true, false)
+}
+
+func lowestFloatHighlights(values map[string]float64, allowZero bool) map[string]bool {
+	return floatHighlights(values, false, allowZero)
+}
+
+func floatHighlights(values map[string]float64, higherIsBetter, allowZero bool) map[string]bool {
+	const epsilon = 1e-9
+	highlights := make(map[string]bool, len(values))
+	if len(values) == 0 {
+		return highlights
+	}
+
+	best := math.Inf(1)
+	if higherIsBetter {
+		best = math.Inf(-1)
+	}
+
+	for _, value := range values {
+		if !allowZero && value <= 0 {
+			continue
+		}
+		if higherIsBetter {
+			if value > best {
+				best = value
+			}
+		} else if value < best {
+			best = value
+		}
+	}
+
+	if math.IsInf(best, 0) {
+		return highlights
+	}
+
+	for key, value := range values {
+		if !allowZero && value <= 0 {
+			continue
+		}
+		if math.Abs(value-best) < epsilon {
+			highlights[key] = true
+		}
+	}
+
+	return highlights
+}
+
+func formatSignedFloat(value float64) string {
+	return fmt.Sprintf("%+.2f", value)
 }
 
 func saveStructuralSimilarityReport(path string, analyses []cycleCover.InstanceAnalysis) error {
@@ -982,9 +1372,11 @@ func readFinalResultSummaryMetrics(resultCsvPath string) (map[string]finalResult
 	}
 
 	heuristicIndex := indexOf(header, "Heuristic")
+	iterationsIndex := indexOf(header, "Iterations")
+	averageBestIterationIndex := indexOf(header, "Avg best at iteration")
 	averageDeviationIndex := indexOf(header, "Avg best deviation")
 	successRateIndex := indexOf(header, "Success rate [%]")
-	if heuristicIndex == -1 || averageDeviationIndex == -1 || successRateIndex == -1 {
+	if heuristicIndex == -1 || iterationsIndex == -1 || averageBestIterationIndex == -1 || averageDeviationIndex == -1 || successRateIndex == -1 {
 		return nil, fmt.Errorf("missing required summary columns")
 	}
 
@@ -999,6 +1391,14 @@ func readFinalResultSummaryMetrics(resultCsvPath string) (map[string]finalResult
 			return nil, fmt.Errorf("invalid record length: got %d want %d", len(record), len(header))
 		}
 
+		iterations, err := strconv.Atoi(record[iterationsIndex])
+		if err != nil {
+			return nil, fmt.Errorf("invalid iterations for %s: %w", record[heuristicIndex], err)
+		}
+		averageBestIteration, err := strconv.ParseFloat(record[averageBestIterationIndex], 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid average best iteration for %s: %w", record[heuristicIndex], err)
+		}
 		averageDeviation, err := strconv.ParseFloat(record[averageDeviationIndex], 64)
 		if err != nil {
 			return nil, fmt.Errorf("invalid average deviation for %s: %w", record[heuristicIndex], err)
@@ -1009,8 +1409,10 @@ func readFinalResultSummaryMetrics(resultCsvPath string) (map[string]finalResult
 		}
 
 		metrics[record[heuristicIndex]] = finalResultsSummaryMetric{
-			averageMinDeviation: averageDeviation,
-			successRate:         successRate,
+			averageMinDeviation:  averageDeviation,
+			successRate:          successRate,
+			averageBestIteration: averageBestIteration,
+			iterations:           iterations,
 		}
 	}
 
@@ -2093,7 +2495,7 @@ func runAnalysisMode(atspsData []AtspData) error {
 		return err
 	}
 
-	finalResultsSummaryPath, finalSummarySaved, err := runFinalResultsAnalysis(atspsData)
+	finalResultsSummaryPath, finalSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses)
 	if err != nil {
 		return err
 	}
@@ -2107,11 +2509,14 @@ func runAnalysisMode(atspsData []AtspData) error {
 	fmt.Printf("Heuristic boosted-edge summary saved to %s\n", heuristicBoostSummaryPath)
 	if finalSummarySaved {
 		fmt.Printf("Final results summary saved to %s\n", finalResultsSummaryPath)
+		fmt.Printf("Pairwise performance report saved to %s\n", filepath.Join(finalResultsDirectoryName, "pairwise_performance.md"))
+		fmt.Printf("Convergence summary report saved to %s\n", filepath.Join(finalResultsDirectoryName, "convergence_summary.md"))
+		fmt.Printf("Structural/performance link report saved to %s\n", filepath.Join(finalResultsDirectoryName, "structural_performance_link.md"))
 	}
 	return nil
 }
 
-func runFinalResultsAnalysis(atspsData []AtspData) (string, bool, error) {
+func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCover.InstanceAnalysis) (string, bool, error) {
 	finalAtspsData := make([]AtspData, 0, len(atspsData))
 	missingInstances := make([]string, 0)
 
@@ -2138,9 +2543,25 @@ func runFinalResultsAnalysis(atspsData []AtspData) (string, bool, error) {
 		return "", false, fmt.Errorf("cannot create final results summary; missing final result.csv for: %s", strings.Join(missingInstances, ", "))
 	}
 
-	finalResultsSummaryPath := filepath.Join(finalResultsDirectoryName, "summary.md")
-	if err := saveFinalResultsSummary(finalAtspsData, finalResultsSummaryPath); err != nil {
+	finalRows, err := readFinalResultsSummaryRows(finalAtspsData)
+	if err != nil {
 		return "", false, err
+	}
+
+	finalResultsSummaryPath := filepath.Join(finalResultsDirectoryName, "summary.md")
+	if err := saveFinalResultsSummaryRows(finalRows, finalResultsSummaryPath); err != nil {
+		return "", false, err
+	}
+	if err := saveFinalPairwisePerformanceReport(filepath.Join(finalResultsDirectoryName, "pairwise_performance.md"), finalRows); err != nil {
+		return "", false, err
+	}
+	if err := saveFinalConvergenceSummaryReport(filepath.Join(finalResultsDirectoryName, "convergence_summary.md"), finalRows); err != nil {
+		return "", false, err
+	}
+	if len(cycleCoverAnalyses) != 0 {
+		if err := saveStructuralPerformanceLinkReport(filepath.Join(finalResultsDirectoryName, "structural_performance_link.md"), finalRows, cycleCoverAnalyses); err != nil {
+			return "", false, err
+		}
 	}
 	if err := removeFileIfExists(filepath.Join(finalResultsDirectoryName, "summary.csv")); err != nil {
 		return "", false, err

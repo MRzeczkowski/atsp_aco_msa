@@ -249,7 +249,7 @@ func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
-	summaryPath, saved, err := runFinalResultsAnalysis([]AtspData{atspData})
+	summaryPath, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil)
 	if err != nil {
 		t.Fatalf("runFinalResultsAnalysis returned unexpected error: %v", err)
 	}
@@ -301,6 +301,55 @@ func TestSaveMsaSupportCycleCoverOverlapReport(t *testing.T) {
 	assertContains(t, content, "<tr><th>Instance</th><th>MSA in CC [%]</th><th>CC in MSA [%]</th><th>Optimal both</th><th>Optimal only MSA</th><th>Optimal only CC</th></tr>")
 	assertContains(t, content, "<tr><td>a</td><td align=\"right\">50.00</td><td align=\"right\">25.00</td><td align=\"right\">1</td><td align=\"right\">0</td><td align=\"right\">2</td></tr>")
 	assertContains(t, content, "<tr><td><strong>Total</strong></td><td align=\"right\">42.86</td><td align=\"right\">33.33</td><td align=\"right\">3</td><td align=\"right\">2</td><td align=\"right\">3</td></tr>")
+}
+
+func TestSaveFinalPairwisePerformanceReport(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "pairwise_performance.md")
+	if err := saveFinalPairwisePerformanceReport(path, sampleFinalSummaryRows()); err != nil {
+		t.Fatalf("saveFinalPairwisePerformanceReport returned unexpected error: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read pairwise performance report: %v", err)
+	}
+
+	content := string(contentBytes)
+	assertContains(t, content, "<tr><td>MSA support vs Baseline</td><td align=\"right\">-1.50</td><td align=\"right\">2</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">+15.00</td></tr>")
+	assertContains(t, content, "<tr><td>MSA support vs Cycle cover</td><td align=\"right\">+0.25</td><td align=\"right\">0</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">-5.00</td></tr>")
+}
+
+func TestSaveFinalConvergenceSummaryReport(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "convergence_summary.md")
+	if err := saveFinalConvergenceSummaryReport(path, sampleFinalSummaryRows()); err != nil {
+		t.Fatalf("saveFinalConvergenceSummaryReport returned unexpected error: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read convergence summary report: %v", err)
+	}
+
+	content := string(contentBytes)
+	assertContains(t, content, "- **Average best-iteration position: Baseline 75.00%, MSA support 50.00%, cycle cover 35.00%.**")
+	assertContains(t, content, "<tr><td>a</td><td align=\"right\">80.00</td><td align=\"right\">60.00</td><td align=\"right\"><strong>40.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td><strong>Average</strong></td><td align=\"right\">75.00</td><td align=\"right\">50.00</td><td align=\"right\"><strong>35.00</strong></td></tr>")
+}
+
+func TestSaveStructuralPerformanceLinkReport(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "structural_performance_link.md")
+	if err := saveStructuralPerformanceLinkReport(path, sampleFinalSummaryRows(), sampleCycleCoverAnalyses()); err != nil {
+		t.Fatalf("saveStructuralPerformanceLinkReport returned unexpected error: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read structural performance link report: %v", err)
+	}
+
+	content := string(contentBytes)
+	assertContains(t, content, "<tr><td>MSA support</td><td align=\"right\"><strong>71.43</strong></td><td align=\"right\">35.71</td><td align=\"right\">3.00</td><td align=\"right\">20.00</td></tr>")
+	assertContains(t, content, "<tr><td>Cycle cover</td><td align=\"right\">66.67</td><td align=\"right\"><strong>42.86</strong></td><td align=\"right\"><strong>2.75</strong></td><td align=\"right\"><strong>25.00</strong></td></tr>")
 }
 
 func TestBuildMsaSupportHeuristicModifiersBoostsOnlyEdgesUsedByEveryMsa(t *testing.T) {
@@ -740,6 +789,57 @@ func sampleCycleCoverAnalyses() []cycleCover.InstanceAnalysis {
 				OptimalEdgesInHighMsaSupportNotCycleCover: 0,
 				OptimalEdgesInCycleCoverNotHighMsaSupport: 2,
 				OptimalEdgesInNeitherCycleCoverNorHigh:    1,
+			},
+		},
+	}
+}
+
+func sampleFinalSummaryRows() []finalResultsSummaryRow {
+	return []finalResultsSummaryRow{
+		{
+			instance: "a",
+			metrics: map[string]finalResultsSummaryMetric{
+				heuristicBaseline: {
+					averageMinDeviation:  4.0,
+					successRate:          10.0,
+					averageBestIteration: 80.0,
+					iterations:           100,
+				},
+				heuristicMsaSupport: {
+					averageMinDeviation:  2.5,
+					successRate:          20.0,
+					averageBestIteration: 60.0,
+					iterations:           100,
+				},
+				heuristicCycleCover: {
+					averageMinDeviation:  2.0,
+					successRate:          30.0,
+					averageBestIteration: 40.0,
+					iterations:           100,
+				},
+			},
+		},
+		{
+			instance: "b",
+			metrics: map[string]finalResultsSummaryMetric{
+				heuristicBaseline: {
+					averageMinDeviation:  5.0,
+					successRate:          0.0,
+					averageBestIteration: 70.0,
+					iterations:           100,
+				},
+				heuristicMsaSupport: {
+					averageMinDeviation:  3.5,
+					successRate:          20.0,
+					averageBestIteration: 40.0,
+					iterations:           100,
+				},
+				heuristicCycleCover: {
+					averageMinDeviation:  3.5,
+					successRate:          20.0,
+					averageBestIteration: 30.0,
+					iterations:           100,
+				},
 			},
 		},
 	}
