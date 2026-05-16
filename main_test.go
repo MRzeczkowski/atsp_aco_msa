@@ -298,13 +298,55 @@ func TestSelectAtspFilesBalanced(t *testing.T) {
 	}
 }
 
+func TestSelectAtspFilesTiny(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
+	if err != nil {
+		t.Fatalf("failed to glob ATSP files: %v", err)
+	}
+
+	selected, err := selectAtspFiles(paths, instanceSetTiny)
+	if err != nil {
+		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
+	}
+
+	selectedFiles := make([]string, len(selected))
+	for i, selectedPath := range selected {
+		selectedFiles[i] = filepath.Base(selectedPath)
+	}
+
+	if !reflect.DeepEqual(selectedFiles, tinyInstanceFiles) {
+		t.Fatalf("tiny selection mismatch\nwant: %v\n got: %v", tinyInstanceFiles, selectedFiles)
+	}
+}
+
+func TestSelectAtspFilesLarge(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
+	if err != nil {
+		t.Fatalf("failed to glob ATSP files: %v", err)
+	}
+
+	selected, err := selectAtspFiles(paths, instanceSetLarge)
+	if err != nil {
+		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
+	}
+
+	selectedFiles := make([]string, len(selected))
+	for i, selectedPath := range selected {
+		selectedFiles[i] = filepath.Base(selectedPath)
+	}
+
+	if !reflect.DeepEqual(selectedFiles, largeInstanceFiles) {
+		t.Fatalf("large selection mismatch\nwant: %v\n got: %v", largeInstanceFiles, selectedFiles)
+	}
+}
+
 func TestSelectedAtspFilesHaveKnownOptima(t *testing.T) {
 	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
 	if err != nil {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
 
-	for _, instanceSet := range []string{instanceSetSmoke, instanceSetBalanced, instanceSetAllKnown} {
+	for _, instanceSet := range []string{instanceSetSmoke, instanceSetTiny, instanceSetBalanced, instanceSetLarge, instanceSetAllKnown} {
 		selected, err := selectAtspFiles(paths, instanceSet)
 		if err != nil {
 			t.Fatalf("selectAtspFiles(%s) returned unexpected error: %v", instanceSet, err)

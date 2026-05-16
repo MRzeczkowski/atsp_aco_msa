@@ -1,21 +1,14 @@
 # Best Parameters Report
 
-Found **10** best unique parameter combinations.
+Found **3** best unique parameter combinations.
 
 ## Best Parameters
 
 | Alpha | Beta | Rho | Heuristic weight | Times used |
 |-------|------|-----|-------|------------|
-| 1.00 | 2.00 | 0.80 | 0.10 | 4 |
-| 1.00 | 2.00 | 0.80 | 0.20 | 8 |
-| 1.00 | 2.00 | 0.80 | 0.30 | 8 |
-| 1.00 | 2.00 | 0.80 | 0.40 | 10 |
-| 1.00 | 2.00 | 0.80 | 0.50 | 5 |
-| 1.00 | 2.00 | 0.80 | 0.60 | 7 |
-| 1.00 | 2.00 | 0.80 | 0.70 | 11 |
-| 1.00 | 2.00 | 0.80 | 0.80 | 11 |
-| 1.00 | 2.00 | 0.80 | 0.90 | 11 |
-| 1.00 | 2.00 | 0.80 | 1.00 | 9 |
+| 1.00 | 2.00 | 0.80 | 0.50 | 1 |
+| 1.00 | 2.00 | 0.80 | 0.60 | 1 |
+| 1.00 | 2.00 | 0.80 | 1.00 | 1 |
 
 ## Parameter Values Occurrences
 
@@ -23,33 +16,26 @@ Found **10** best unique parameter combinations.
 
 | Value | Count |
 |-------|-------|
-| 1.00 | 10 |
+| 1.00 | 3 |
 
 ### Beta
 
 | Value | Count |
 |-------|-------|
-| 2.00 | 10 |
+| 2.00 | 3 |
 
 ### Rho
 
 | Value | Count |
 |-------|-------|
-| 0.80 | 10 |
+| 0.80 | 3 |
 
 ### Heuristic weight
 
 | Value | Count |
 |-------|-------|
-| 0.10 | 1 |
-| 0.20 | 1 |
-| 0.30 | 1 |
-| 0.40 | 1 |
 | 0.50 | 1 |
 | 0.60 | 1 |
-| 0.70 | 1 |
-| 0.80 | 1 |
-| 0.90 | 1 |
 | 1.00 | 1 |
 
 ## Parameter Ranges
@@ -57,4 +43,4 @@ Found **10** best unique parameter combinations.
 - **Alpha**: 1.00 - 1.00
 - **Beta**: 2.00 - 2.00
 - **Rho**: 0.80 - 0.80
-- **Heuristic weight**: 0.10 - 1.00
+- **Heuristic weight**: 0.50 - 1.00

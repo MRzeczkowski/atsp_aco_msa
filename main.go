@@ -52,7 +52,9 @@ type ExperimentsDataStatistics struct {
 
 const (
 	instanceSetSmoke    = "smoke"
+	instanceSetTiny     = "tiny"
 	instanceSetBalanced = "balanced"
+	instanceSetLarge    = "large"
 	instanceSetAllKnown = "all-known"
 )
 
@@ -79,6 +81,20 @@ var smokeInstanceFiles = []string{
 	"crane66_2.atsp",
 	"atex5.atsp",
 	"ftv90.atsp",
+}
+
+var tinyInstanceFiles = []string{
+	"atex1.atsp",
+	"br17.atsp",
+	"atex3.atsp",
+	"ftv33.atsp",
+	"ftv35.atsp",
+	"ftv38.atsp",
+	"p43.atsp",
+	"ftv44.atsp",
+	"atex4.atsp",
+	"ftv47.atsp",
+	"ry48p.atsp",
 }
 
 var balancedInstanceFiles = []string{
@@ -110,6 +126,13 @@ var balancedInstanceFiles = []string{
 	"dc176.atsp",
 	"dc188.atsp",
 	"code198.atsp",
+}
+
+var largeInstanceFiles = []string{
+	"rbg323.atsp",
+	// "rbg358.atsp",
+	// "rbg403.atsp",
+	// "rbg443.atsp",
 }
 
 var statisticsCsvHeader = []string{
@@ -741,8 +764,12 @@ func selectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, erro
 	switch instanceSet {
 	case instanceSetSmoke:
 		return selectConfiguredAtspFiles(atspFilePaths, smokeInstanceFiles)
+	case instanceSetTiny:
+		return selectConfiguredAtspFiles(atspFilePaths, tinyInstanceFiles)
 	case instanceSetBalanced:
 		return selectConfiguredAtspFiles(atspFilePaths, balancedInstanceFiles)
+	case instanceSetLarge:
+		return selectConfiguredAtspFiles(atspFilePaths, largeInstanceFiles)
 	case instanceSetAllKnown:
 		selected := make([]string, 0, len(atspFilePaths))
 		for _, atspFilePath := range atspFilePaths {
@@ -758,7 +785,7 @@ func selectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, erro
 
 		return selected, nil
 	default:
-		return nil, fmt.Errorf("unsupported -instances value %q; use %q, %q, or %q", instanceSet, instanceSetSmoke, instanceSetBalanced, instanceSetAllKnown)
+		return nil, fmt.Errorf("unsupported -instances value %q; use %q, %q, %q, %q, or %q", instanceSet, instanceSetSmoke, instanceSetTiny, instanceSetBalanced, instanceSetLarge, instanceSetAllKnown)
 	}
 }
 
@@ -852,7 +879,7 @@ func shouldRunAnalysis(mode string) bool {
 }
 
 func main() {
-	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, balanced, or all-known")
+	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, tiny, balanced, large, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, or all")
 	heuristic := flag.String("heuristic", heuristicMsaSupport, "ACO heuristic modifier to use in experiment mode: msa-support, cycle-cover, msa-support-overlap, or msa-support-difference")
 	flag.Parse()
