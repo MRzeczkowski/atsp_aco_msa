@@ -250,7 +250,7 @@ func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
-	summaryPath, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil)
+	summaryPath, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil, finalResultsDirectoryName)
 	if err != nil {
 		t.Fatalf("runFinalResultsAnalysis returned unexpected error: %v", err)
 	}
@@ -262,6 +262,57 @@ func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 	}
 	if _, err := os.Stat(summaryPath); err != nil {
 		t.Fatalf("expected final results summary file to exist: %v", err)
+	}
+}
+
+func TestRunFinalResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
+	resultsRoot := t.TempDir()
+	finalThreeOptRoot := filepath.Join(resultsRoot, "final_3opt")
+	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	finalThreeOptAtspData := withExperimentOutputRoot(atspData, finalThreeOptRoot)
+	rows := []HeuristicExperimentStatistics{
+		{
+			heuristic: heuristicBaseline,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 3.00,
+				successRate:          10.0,
+			},
+		},
+		{
+			heuristic: heuristicMsaSupport,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 2.00,
+				successRate:          20.0,
+			},
+		},
+		{
+			heuristic: heuristicCycleCover,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 1.00,
+				successRate:          30.0,
+			},
+		},
+	}
+	if err := saveHeuristicStatistics(finalThreeOptAtspData.resultFilePath, rows); err != nil {
+		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
+	}
+
+	summaryPath, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil, finalThreeOptRoot)
+	if err != nil {
+		t.Fatalf("runFinalResultsAnalysis returned unexpected error: %v", err)
+	}
+	if !saved {
+		t.Fatal("expected final+3opt results summary to be saved")
+	}
+	if summaryPath != filepath.Join(finalThreeOptRoot, "summary.md") {
+		t.Fatalf("unexpected summary path: %s", summaryPath)
+	}
+
+	for _, name := range []string{"summary.md", "pairwise_performance.md", "convergence_summary.md"} {
+		path := filepath.Join(finalThreeOptRoot, name)
+		if _, err := os.Stat(path); err != nil {
+			t.Fatalf("expected %s to exist: %v", path, err)
+		}
 	}
 }
 

@@ -2776,7 +2776,12 @@ func runAnalysisMode(atspsData []AtspData) error {
 		return err
 	}
 
-	finalResultsSummaryPath, finalSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses)
+	finalResultsSummaryPath, finalSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses, finalResultsDirectoryName)
+	if err != nil {
+		return err
+	}
+
+	finalThreeOptResultsSummaryPath, finalThreeOptSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses, finalThreeOptResultsDirectoryName)
 	if err != nil {
 		return err
 	}
@@ -2795,15 +2800,21 @@ func runAnalysisMode(atspsData []AtspData) error {
 		fmt.Printf("Convergence summary report saved to %s\n", filepath.Join(finalResultsDirectoryName, "convergence_summary.md"))
 		fmt.Printf("Structural/performance link report saved to %s\n", filepath.Join(finalResultsDirectoryName, "structural_performance_link.md"))
 	}
+	if finalThreeOptSummarySaved {
+		fmt.Printf("Final+3opt results summary saved to %s\n", finalThreeOptResultsSummaryPath)
+		fmt.Printf("Final+3opt pairwise performance report saved to %s\n", filepath.Join(finalThreeOptResultsDirectoryName, "pairwise_performance.md"))
+		fmt.Printf("Final+3opt convergence summary report saved to %s\n", filepath.Join(finalThreeOptResultsDirectoryName, "convergence_summary.md"))
+		fmt.Printf("Final+3opt structural/performance link report saved to %s\n", filepath.Join(finalThreeOptResultsDirectoryName, "structural_performance_link.md"))
+	}
 	return nil
 }
 
-func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCover.InstanceAnalysis) (string, bool, error) {
+func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCover.InstanceAnalysis, resultsRootPath string) (string, bool, error) {
 	finalAtspsData := make([]AtspData, 0, len(atspsData))
 	missingInstances := make([]string, 0)
 
 	for _, atspData := range atspsData {
-		finalAtspData := withExperimentOutputRoot(atspData, finalResultsDirectoryName)
+		finalAtspData := withExperimentOutputRoot(atspData, resultsRootPath)
 		if _, err := os.Stat(finalAtspData.resultFilePath); err != nil {
 			if os.IsNotExist(err) {
 				missingInstances = append(missingInstances, atspData.name)
@@ -2817,7 +2828,7 @@ func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCov
 	}
 
 	if len(finalAtspsData) == 0 {
-		fmt.Printf("Final results summary skipped: no final result files found in %s\n", finalResultsDirectoryName)
+		fmt.Printf("Final results summary skipped: no final result files found in %s\n", resultsRootPath)
 		return "", false, nil
 	}
 
@@ -2830,22 +2841,22 @@ func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCov
 		return "", false, err
 	}
 
-	finalResultsSummaryPath := filepath.Join(finalResultsDirectoryName, "summary.md")
+	finalResultsSummaryPath := filepath.Join(resultsRootPath, "summary.md")
 	if err := saveFinalResultsSummaryRows(finalRows, finalResultsSummaryPath); err != nil {
 		return "", false, err
 	}
-	if err := saveFinalPairwisePerformanceReport(filepath.Join(finalResultsDirectoryName, "pairwise_performance.md"), finalRows); err != nil {
+	if err := saveFinalPairwisePerformanceReport(filepath.Join(resultsRootPath, "pairwise_performance.md"), finalRows); err != nil {
 		return "", false, err
 	}
-	if err := saveFinalConvergenceSummaryReport(filepath.Join(finalResultsDirectoryName, "convergence_summary.md"), finalRows); err != nil {
+	if err := saveFinalConvergenceSummaryReport(filepath.Join(resultsRootPath, "convergence_summary.md"), finalRows); err != nil {
 		return "", false, err
 	}
 	if len(cycleCoverAnalyses) != 0 {
-		if err := saveStructuralPerformanceLinkReport(filepath.Join(finalResultsDirectoryName, "structural_performance_link.md"), finalRows, cycleCoverAnalyses); err != nil {
+		if err := saveStructuralPerformanceLinkReport(filepath.Join(resultsRootPath, "structural_performance_link.md"), finalRows, cycleCoverAnalyses); err != nil {
 			return "", false, err
 		}
 	}
-	if err := removeFileIfExists(filepath.Join(finalResultsDirectoryName, "summary.csv")); err != nil {
+	if err := removeFileIfExists(filepath.Join(resultsRootPath, "summary.csv")); err != nil {
 		return "", false, err
 	}
 
