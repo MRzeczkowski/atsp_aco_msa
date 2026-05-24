@@ -82,6 +82,7 @@ const (
 	runModeAnalyze    = "analyze"
 	runModeAll        = "all"
 	runModeFinal      = "final"
+	runModeFinal3Opt  = "final+3opt"
 )
 
 const (
@@ -1822,7 +1823,7 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 	return statistics
 }
 
-func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOptimal float64, matrix, heuristicModifiers [][]float64) []ExperimentResult {
+func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOptimal float64, matrix, heuristicModifiers [][]float64, useThreeOpt bool) []ExperimentResult {
 	results := make([]ExperimentResult, numberOfRuns)
 
 	aco := aco.NewACO(
@@ -1833,6 +1834,7 @@ func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOpti
 		knownOptimal,
 		matrix,
 		heuristicModifiers)
+	aco.SetUseThreeOpt(useThreeOpt)
 
 	for i := 0; i < numberOfRuns; i++ {
 
@@ -2050,6 +2052,7 @@ func buildMinimumCycleCoverMatrix(matrix [][]float64) ([][]float64, float64, err
 
 var resultsDirectoryName = "results"
 var finalResultsDirectoryName = filepath.Join(resultsDirectoryName, "final")
+var finalThreeOptResultsDirectoryName = filepath.Join(resultsDirectoryName, "final_3opt")
 var resultFileName = "result.csv"
 
 type AtspData struct {
@@ -2184,7 +2187,7 @@ func selectConfiguredAtspFiles(atspFilePaths, configuredFiles []string) ([]strin
 }
 
 func isValidRunMode(mode string) bool {
-	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeFinal
+	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeFinal || mode == runModeFinal3Opt
 }
 
 func isValidHeuristic(heuristic string) bool {
@@ -2252,17 +2255,29 @@ func shouldRunAnalysis(mode string) bool {
 }
 
 func shouldRunFinalExperiments(mode string) bool {
-	return mode == runModeFinal
+	return mode == runModeFinal || mode == runModeFinal3Opt
+}
+
+func finalExperimentOutputRoot(mode string) string {
+	if mode == runModeFinal3Opt {
+		return finalThreeOptResultsDirectoryName
+	}
+
+	return finalResultsDirectoryName
+}
+
+func finalExperimentUsesThreeOpt(mode string) bool {
+	return mode == runModeFinal3Opt
 }
 
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, tiny, balanced, large, or all-known")
-	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, or final")
+	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, or final+3opt")
 	heuristic := flag.String("heuristic", heuristicMsaSupport, "ACO heuristic modifier to use in experiment mode: baseline, msa-support, cycle-cover, msa-support-overlap, or msa-support-difference")
 	flag.Parse()
 
 	if !isValidRunMode(*mode) {
-		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal)
+		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal, runModeFinal3Opt)
 		return
 	}
 
@@ -2305,7 +2320,7 @@ func main() {
 			return
 		}
 
-		err = runFinalExperimentMode(atspsData)
+		err = runFinalExperimentMode(atspsData, finalExperimentOutputRoot(*mode), finalExperimentUsesThreeOpt(*mode))
 		stopProfiling()
 		if err != nil {
 			fmt.Println(err)
@@ -2374,18 +2389,18 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 	return runExperimentSet(atspsData, resultsDirectoryName, heuristic, generateParameters(), defaultExperimentRunCount)
 }
 
-func runFinalExperimentMode(atspsData []AtspData) error {
+func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool) error {
 	if err := ensureMsaSupportCache(atspsData); err != nil {
 		return err
 	}
 
-	if err := removeLegacyFinalReports(); err != nil {
+	if err := removeLegacyFinalReports(resultsRootPath); err != nil {
 		return err
 	}
 
 	for _, atspData := range atspsData {
-		finalAtspData := withExperimentOutputRoot(atspData, finalResultsDirectoryName)
-		if err := runFinalExperimentForInstance(finalAtspData); err != nil {
+		finalAtspData := withExperimentOutputRoot(atspData, resultsRootPath)
+		if err := runFinalExperimentForInstance(finalAtspData, useThreeOpt); err != nil {
 			return err
 		}
 	}
@@ -2393,11 +2408,15 @@ func runFinalExperimentMode(atspsData []AtspData) error {
 	return nil
 }
 
-func runFinalExperimentForInstance(atspData AtspData) error {
+func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool) error {
 	matrix := atspData.matrix
 	knownOptimal := atspData.knownOptimal
 	dimension := len(matrix)
 	instanceStart := time.Now()
+	finalRunName := "final"
+	if useThreeOpt {
+		finalRunName = "final+3opt"
+	}
 
 	if err := removeLegacyFinalResultFiles(atspData); err != nil {
 		return err
@@ -2408,7 +2427,8 @@ func runFinalExperimentForInstance(atspData AtspData) error {
 		return err
 	}
 
-	fmt.Printf("Starting final %s (dimension=%d, heuristics=%d, runs/heuristic=%d)\n",
+	fmt.Printf("Starting %s %s (dimension=%d, heuristics=%d, runs/heuristic=%d)\n",
+		finalRunName,
 		atspData.name,
 		dimension,
 		len(finalExperimentConfigurations()),
@@ -2437,7 +2457,7 @@ func runFinalExperimentForInstance(atspData AtspData) error {
 			setDimensionDependantParameters(dimension, &parameters)
 			parameterStart := time.Now()
 			heuristicModifiers := buildHeuristicModifiers(config.heuristic, matrix, heuristicMatrix, cycleCover, parameters.heuristicWeight)
-			results := runExperiments(finalNumberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers)
+			results := runExperiments(finalNumberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, useThreeOpt)
 			data := ExperimentsData{parameters, results}
 			experimentData = append(experimentData, data)
 
@@ -2475,15 +2495,15 @@ func runFinalExperimentForInstance(atspData AtspData) error {
 		return err
 	}
 
-	fmt.Printf("Finished final %s in %s\n", atspData.name, time.Since(instanceStart).Round(time.Millisecond))
+	fmt.Printf("Finished %s %s in %s\n", finalRunName, atspData.name, time.Since(instanceStart).Round(time.Millisecond))
 	return nil
 }
 
-func removeLegacyFinalReports() error {
+func removeLegacyFinalReports(resultsRootPath string) error {
 	legacyReports := []string{
-		filepath.Join(finalResultsDirectoryName, bestParametersReportPathForHeuristic(heuristicBaseline)),
-		filepath.Join(finalResultsDirectoryName, bestParametersReportPathForHeuristic(heuristicMsaSupport)),
-		filepath.Join(finalResultsDirectoryName, bestParametersReportPathForHeuristic(heuristicCycleCover)),
+		filepath.Join(resultsRootPath, bestParametersReportPathForHeuristic(heuristicBaseline)),
+		filepath.Join(resultsRootPath, bestParametersReportPathForHeuristic(heuristicMsaSupport)),
+		filepath.Join(resultsRootPath, bestParametersReportPathForHeuristic(heuristicCycleCover)),
 	}
 
 	for _, path := range legacyReports {
@@ -2556,7 +2576,7 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 			setDimensionDependantParameters(dimension, &parameters)
 			parameterStart := time.Now()
 			heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters.heuristicWeight)
-			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers)
+			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, false)
 			data := ExperimentsData{parameters, results}
 
 			experimentData = append(experimentData, data)

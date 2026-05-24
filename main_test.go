@@ -666,8 +666,26 @@ func TestFinalModeAndBaselineHeuristicAreValid(t *testing.T) {
 	if !isValidRunMode(runModeFinal) {
 		t.Fatal("final run mode should be valid")
 	}
+	if !isValidRunMode(runModeFinal3Opt) {
+		t.Fatal("final+3opt run mode should be valid")
+	}
 	if !isValidHeuristic(heuristicBaseline) {
 		t.Fatal("baseline heuristic should be valid")
+	}
+}
+
+func TestFinal3OptModeUsesSeparateOutputRootAndThreeOpt(t *testing.T) {
+	if finalExperimentOutputRoot(runModeFinal3Opt) != finalThreeOptResultsDirectoryName {
+		t.Fatalf("final+3opt should use %s", finalThreeOptResultsDirectoryName)
+	}
+	if finalExperimentOutputRoot(runModeFinal) != finalResultsDirectoryName {
+		t.Fatalf("final should use %s", finalResultsDirectoryName)
+	}
+	if !finalExperimentUsesThreeOpt(runModeFinal3Opt) {
+		t.Fatal("final+3opt should enable reduced 3-opt")
+	}
+	if finalExperimentUsesThreeOpt(runModeFinal) {
+		t.Fatal("final should not enable reduced 3-opt")
 	}
 }
 

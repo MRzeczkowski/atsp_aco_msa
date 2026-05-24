@@ -19,6 +19,7 @@ type ACO struct {
 	targetTourLength                        float64
 	neighborsLists                          [][]int
 	rng                                     *rand.Rand
+	useThreeOpt                             bool
 
 	pheromones, heuristics, desirabilities [][]float64
 
@@ -80,6 +81,10 @@ func NewACO(alpha, beta, rho float64, iterations int, targetTourLength float64, 
 	}
 }
 
+func (aco *ACO) SetUseThreeOpt(enabled bool) {
+	aco.useThreeOpt = enabled
+}
+
 func (aco *ACO) Run() {
 	ants := min(25, aco.dimension)
 	initialPheromoneValue := 100000.0 // Arbitrary large value
@@ -110,6 +115,10 @@ func (aco *ACO) Run() {
 	aco.BestTour = make([]int, aco.dimension)
 	aco.DeviationPerIteration = make([]float64, aco.iterations)
 	aco.ThreeOptImprovementsCount = 0
+	aco.reducedThreeOpt.Improvements = 0
+	defer func() {
+		aco.ThreeOptImprovementsCount = aco.reducedThreeOpt.Improvements
+	}()
 
 	tours := make([][]int, ants)
 
@@ -131,7 +140,9 @@ func (aco *ACO) Run() {
 		for i := 0; i < ants; i++ {
 			aco.constructTour(tours[i], canVisitBits[i], desirabilities[i])
 
-			// aco.reducedThreeOpt.Run(tours[i])
+			if aco.useThreeOpt {
+				aco.reducedThreeOpt.Run(tours[i])
+			}
 
 			length := utilities.TourLength(tours[i], aco.distances)
 
@@ -186,7 +197,6 @@ func (aco *ACO) Run() {
 		aco.depositPheromones(depositTour, pheromoneDeposit)
 	}
 
-	aco.ThreeOptImprovementsCount = aco.reducedThreeOpt.Improvements
 }
 
 // Function to construct tour for each ant

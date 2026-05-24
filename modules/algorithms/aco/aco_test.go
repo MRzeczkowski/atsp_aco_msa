@@ -136,6 +136,25 @@ func TestRunAppliesHeuristicModifierMatrix(t *testing.T) {
 	}
 }
 
+func TestNewACODisablesThreeOptByDefault(t *testing.T) {
+	distances := [][]float64{
+		{0, 1, 2},
+		{3, 0, 4},
+		{5, 6, 0},
+	}
+	heuristicModifiers := newNeutralHeuristicModifiers(len(distances))
+
+	aco := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, heuristicModifiers)
+	if aco.useThreeOpt {
+		t.Fatal("expected reduced 3-opt to be disabled by default")
+	}
+
+	aco.SetUseThreeOpt(true)
+	if !aco.useThreeOpt {
+		t.Fatal("expected SetUseThreeOpt(true) to enable reduced 3-opt")
+	}
+}
+
 func newNeutralHeuristicModifiers(dimension int) [][]float64 {
 	modifiers := make([][]float64, dimension)
 	for i := range modifiers {
