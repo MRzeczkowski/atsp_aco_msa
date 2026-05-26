@@ -250,7 +250,7 @@ func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
-	summaryPath, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil, finalResultsDirectoryName)
+	summaryPath, _, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil, finalResultsDirectoryName)
 	if err != nil {
 		t.Fatalf("runFinalResultsAnalysis returned unexpected error: %v", err)
 	}
@@ -297,7 +297,7 @@ func TestRunFinalResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
 		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
-	summaryPath, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil, finalThreeOptRoot)
+	summaryPath, _, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil, finalThreeOptRoot)
 	if err != nil {
 		t.Fatalf("runFinalResultsAnalysis returned unexpected error: %v", err)
 	}
@@ -314,6 +314,76 @@ func TestRunFinalResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
 			t.Fatalf("expected %s to exist: %v", path, err)
 		}
 	}
+}
+
+func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "comparison_to_final.md")
+	finalRows := []finalResultsSummaryRow{
+		{
+			instance: "sample",
+			metrics: map[string]finalResultsSummaryMetric{
+				heuristicBaseline: {
+					averageMinDeviation:  10.0,
+					successRate:          10.0,
+					averageBestIteration: 50.0,
+					iterations:           100,
+				},
+				heuristicMsaSupport: {
+					averageMinDeviation:  8.0,
+					successRate:          12.0,
+					averageBestIteration: 60.0,
+					iterations:           100,
+				},
+				heuristicCycleCover: {
+					averageMinDeviation:  7.0,
+					successRate:          11.0,
+					averageBestIteration: 30.0,
+					iterations:           100,
+				},
+			},
+		},
+	}
+	finalThreeOptRows := []finalResultsSummaryRow{
+		{
+			instance: "sample",
+			metrics: map[string]finalResultsSummaryMetric{
+				heuristicBaseline: {
+					averageMinDeviation:  1.0,
+					successRate:          50.0,
+					averageBestIteration: 20.0,
+					iterations:           100,
+				},
+				heuristicMsaSupport: {
+					averageMinDeviation:  0.9,
+					successRate:          51.0,
+					averageBestIteration: 19.0,
+					iterations:           100,
+				},
+				heuristicCycleCover: {
+					averageMinDeviation:  0.8,
+					successRate:          52.0,
+					averageBestIteration: 19.0,
+					iterations:           100,
+				},
+			},
+		},
+	}
+
+	if err := saveFinalThreeOptComparisonReport(path, finalRows, finalThreeOptRows); err != nil {
+		t.Fatalf("saveFinalThreeOptComparisonReport returned unexpected error: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read comparison report: %v", err)
+	}
+
+	content := string(contentBytes)
+	assertContains(t, content, "# Reduced 3-Opt Impact")
+	assertContains(t, content, "Deviation gain over baseline shrinks with 3-opt")
+	assertContains(t, content, "<tr><th>Heuristic</th><th>Avg best dev. without 3-opt [%]</th><th>Avg best dev. with 3-opt [%]</th><th>Success without 3-opt [%]</th><th>Success with 3-opt [%]</th></tr>")
+	assertContains(t, content, "<tr><td>MSA support</td><td align=\"right\">+2.00</td><td align=\"right\">+0.10</td><td align=\"right\">5.00</td></tr>")
+	assertContains(t, content, "<tr><td>Cycle cover</td><td align=\"right\">+3.00</td><td align=\"right\">+0.20</td><td align=\"right\">6.67</td></tr>")
 }
 
 func TestSaveStructuralSimilarityReport(t *testing.T) {

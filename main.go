@@ -502,6 +502,17 @@ func saveFinalResultsSummaryRows(rows []finalResultsSummaryRow, summaryPath stri
 		return err
 	}
 
+	averageMetrics := averageFinalResultsSummaryMetrics(rows)
+	var builder strings.Builder
+	builder.WriteString("# Final Results Summary\n\n")
+	writeFinalResultsSummaryFindings(&builder, rows, averageMetrics)
+	builder.WriteString("\n")
+	writeFinalResultsSummaryTable(&builder, rows, averageMetrics)
+
+	return os.WriteFile(summaryPath, []byte(builder.String()), 0644)
+}
+
+func averageFinalResultsSummaryMetrics(rows []finalResultsSummaryRow) map[string]finalResultsSummaryMetric {
 	totals := make(map[string]finalResultsSummaryMetric, len(finalResultsSummaryHeuristics))
 	counts := make(map[string]int, len(finalResultsSummaryHeuristics))
 	for _, row := range rows {
@@ -537,13 +548,7 @@ func saveFinalResultsSummaryRows(rows []finalResultsSummaryRow, summaryPath stri
 		}
 	}
 
-	var builder strings.Builder
-	builder.WriteString("# Final Results Summary\n\n")
-	writeFinalResultsSummaryFindings(&builder, rows, averageMetrics)
-	builder.WriteString("\n")
-	writeFinalResultsSummaryTable(&builder, rows, averageMetrics)
-
-	return os.WriteFile(summaryPath, []byte(builder.String()), 0644)
+	return averageMetrics
 }
 
 func writeFinalResultsSummaryFindings(builder *strings.Builder, rows []finalResultsSummaryRow, averageMetrics map[string]finalResultsSummaryMetric) {
@@ -909,6 +914,114 @@ func convergencePercent(metric finalResultsSummaryMetric) float64 {
 	}
 
 	return 100.0 * metric.averageBestIteration / float64(metric.iterations)
+}
+
+func saveFinalThreeOptComparisonReport(path string, finalRows, finalThreeOptRows []finalResultsSummaryRow) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+
+	finalAverages := averageFinalResultsSummaryMetrics(finalRows)
+	finalThreeOptAverages := averageFinalResultsSummaryMetrics(finalThreeOptRows)
+
+	var builder strings.Builder
+	builder.WriteString("# Reduced 3-Opt Impact\n\n")
+	builder.WriteString("This report compares the final MMAS experiments without local search against the final MMAS experiments with reduced 3-opt enabled.\n\n")
+	writeFinalThreeOptComparisonFindings(&builder, finalAverages, finalThreeOptAverages)
+	builder.WriteString("\n")
+	writeFinalThreeOptImpactTable(&builder, finalAverages, finalThreeOptAverages)
+	builder.WriteString("\n")
+	writeFinalThreeOptSignalTable(&builder, finalAverages, finalThreeOptAverages)
+	builder.WriteString("\n")
+	builder.WriteString("Deviation gain vs baseline is `baseline average best deviation - heuristic average best deviation`, so positive values mean that the heuristic improved over the baseline. Signal remaining is the share of this deviation gain still visible after enabling reduced 3-opt.\n")
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+func writeFinalThreeOptComparisonFindings(builder *strings.Builder, finalAverages, finalThreeOptAverages map[string]finalResultsSummaryMetric) {
+	builder.WriteString("## Findings\n\n")
+	fmt.Fprintf(builder,
+		"- **Reduced 3-opt lowers average best deviation for every variant: Baseline %s pp, MSA support %s pp, cycle cover %s pp.**\n",
+		formatSignedFloat(finalAverages[heuristicBaseline].averageMinDeviation-finalThreeOptAverages[heuristicBaseline].averageMinDeviation),
+		formatSignedFloat(finalAverages[heuristicMsaSupport].averageMinDeviation-finalThreeOptAverages[heuristicMsaSupport].averageMinDeviation),
+		formatSignedFloat(finalAverages[heuristicCycleCover].averageMinDeviation-finalThreeOptAverages[heuristicCycleCover].averageMinDeviation))
+	fmt.Fprintf(builder,
+		"- **Reduced 3-opt increases success rate for every variant: Baseline %s pp, MSA support %s pp, cycle cover %s pp.**\n",
+		formatSignedFloat(finalThreeOptAverages[heuristicBaseline].successRate-finalAverages[heuristicBaseline].successRate),
+		formatSignedFloat(finalThreeOptAverages[heuristicMsaSupport].successRate-finalAverages[heuristicMsaSupport].successRate),
+		formatSignedFloat(finalThreeOptAverages[heuristicCycleCover].successRate-finalAverages[heuristicCycleCover].successRate))
+
+	msaGainWithout := deviationGainVsBaseline(finalAverages, heuristicMsaSupport)
+	msaGainWith := deviationGainVsBaseline(finalThreeOptAverages, heuristicMsaSupport)
+	cycleGainWithout := deviationGainVsBaseline(finalAverages, heuristicCycleCover)
+	cycleGainWith := deviationGainVsBaseline(finalThreeOptAverages, heuristicCycleCover)
+	fmt.Fprintf(builder,
+		"- **Deviation gain over baseline shrinks with 3-opt: MSA support %s -> %s pp, cycle cover %s -> %s pp.**\n",
+		formatSignedFloat(msaGainWithout),
+		formatSignedFloat(msaGainWith),
+		formatSignedFloat(cycleGainWithout),
+		formatSignedFloat(cycleGainWith))
+	fmt.Fprintf(builder,
+		"- **Only %.2f%% of the MSA-support deviation gain and %.2f%% of the cycle-cover deviation gain remains visible after enabling 3-opt.**\n",
+		signalRemainingPercent(msaGainWithout, msaGainWith),
+		signalRemainingPercent(cycleGainWithout, cycleGainWith))
+	builder.WriteString("- **This supports treating reduced 3-opt as a strong local-search layer that partially hides the construction heuristic effect.**\n")
+}
+
+func writeFinalThreeOptImpactTable(builder *strings.Builder, finalAverages, finalThreeOptAverages map[string]finalResultsSummaryMetric) {
+	builder.WriteString("## Overall Effect\n\n")
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Heuristic</th><th>Avg best dev. without 3-opt [%]</th><th>Avg best dev. with 3-opt [%]</th><th>Success without 3-opt [%]</th><th>Success with 3-opt [%]</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	for _, heuristic := range finalResultsSummaryHeuristics {
+		without := finalAverages[heuristic]
+		with := finalThreeOptAverages[heuristic]
+		fmt.Fprintf(builder,
+			"<tr><td>%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
+			html.EscapeString(heuristicDisplayName(heuristic)),
+			without.averageMinDeviation,
+			with.averageMinDeviation,
+			without.successRate,
+			with.successRate)
+	}
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+}
+
+func writeFinalThreeOptSignalTable(builder *strings.Builder, finalAverages, finalThreeOptAverages map[string]finalResultsSummaryMetric) {
+	builder.WriteString("## Heuristic Signal\n\n")
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Heuristic</th><th>Dev. gain vs baseline without 3-opt [pp]</th><th>Dev. gain vs baseline with 3-opt [pp]</th><th>Signal remaining [%]</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	for _, heuristic := range []string{heuristicMsaSupport, heuristicCycleCover} {
+		gainWithout := deviationGainVsBaseline(finalAverages, heuristic)
+		gainWith := deviationGainVsBaseline(finalThreeOptAverages, heuristic)
+
+		fmt.Fprintf(builder,
+			"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td></tr>\n",
+			html.EscapeString(heuristicDisplayName(heuristic)),
+			formatSignedFloat(gainWithout),
+			formatSignedFloat(gainWith),
+			signalRemainingPercent(gainWithout, gainWith))
+	}
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+}
+
+func deviationGainVsBaseline(averages map[string]finalResultsSummaryMetric, heuristic string) float64 {
+	return averages[heuristicBaseline].averageMinDeviation - averages[heuristic].averageMinDeviation
+}
+
+func signalRemainingPercent(without, with float64) float64 {
+	if math.Abs(without) < 1e-9 {
+		return 0
+	}
+
+	return 100.0 * math.Abs(with) / math.Abs(without)
 }
 
 func saveStructuralPerformanceLinkReport(path string, rows []finalResultsSummaryRow, analyses []cycleCover.InstanceAnalysis) error {
@@ -2776,12 +2889,12 @@ func runAnalysisMode(atspsData []AtspData) error {
 		return err
 	}
 
-	finalResultsSummaryPath, finalSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses, finalResultsDirectoryName)
+	finalResultsSummaryPath, finalRows, finalSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses, finalResultsDirectoryName)
 	if err != nil {
 		return err
 	}
 
-	finalThreeOptResultsSummaryPath, finalThreeOptSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses, finalThreeOptResultsDirectoryName)
+	finalThreeOptResultsSummaryPath, finalThreeOptRows, finalThreeOptSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses, finalThreeOptResultsDirectoryName)
 	if err != nil {
 		return err
 	}
@@ -2806,10 +2919,17 @@ func runAnalysisMode(atspsData []AtspData) error {
 		fmt.Printf("Final+3opt convergence summary report saved to %s\n", filepath.Join(finalThreeOptResultsDirectoryName, "convergence_summary.md"))
 		fmt.Printf("Final+3opt structural/performance link report saved to %s\n", filepath.Join(finalThreeOptResultsDirectoryName, "structural_performance_link.md"))
 	}
+	if finalSummarySaved && finalThreeOptSummarySaved {
+		threeOptComparisonPath := filepath.Join(finalThreeOptResultsDirectoryName, "comparison_to_final.md")
+		if err := saveFinalThreeOptComparisonReport(threeOptComparisonPath, finalRows, finalThreeOptRows); err != nil {
+			return err
+		}
+		fmt.Printf("Final+3opt comparison report saved to %s\n", threeOptComparisonPath)
+	}
 	return nil
 }
 
-func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCover.InstanceAnalysis, resultsRootPath string) (string, bool, error) {
+func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCover.InstanceAnalysis, resultsRootPath string) (string, []finalResultsSummaryRow, bool, error) {
 	finalAtspsData := make([]AtspData, 0, len(atspsData))
 	missingInstances := make([]string, 0)
 
@@ -2821,7 +2941,7 @@ func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCov
 				continue
 			}
 
-			return "", false, err
+			return "", nil, false, err
 		}
 
 		finalAtspsData = append(finalAtspsData, finalAtspData)
@@ -2829,38 +2949,38 @@ func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCov
 
 	if len(finalAtspsData) == 0 {
 		fmt.Printf("Final results summary skipped: no final result files found in %s\n", resultsRootPath)
-		return "", false, nil
+		return "", nil, false, nil
 	}
 
 	if len(missingInstances) != 0 {
-		return "", false, fmt.Errorf("cannot create final results summary; missing final result.csv for: %s", strings.Join(missingInstances, ", "))
+		return "", nil, false, fmt.Errorf("cannot create final results summary; missing final result.csv for: %s", strings.Join(missingInstances, ", "))
 	}
 
 	finalRows, err := readFinalResultsSummaryRows(finalAtspsData)
 	if err != nil {
-		return "", false, err
+		return "", nil, false, err
 	}
 
 	finalResultsSummaryPath := filepath.Join(resultsRootPath, "summary.md")
 	if err := saveFinalResultsSummaryRows(finalRows, finalResultsSummaryPath); err != nil {
-		return "", false, err
+		return "", nil, false, err
 	}
 	if err := saveFinalPairwisePerformanceReport(filepath.Join(resultsRootPath, "pairwise_performance.md"), finalRows); err != nil {
-		return "", false, err
+		return "", nil, false, err
 	}
 	if err := saveFinalConvergenceSummaryReport(filepath.Join(resultsRootPath, "convergence_summary.md"), finalRows); err != nil {
-		return "", false, err
+		return "", nil, false, err
 	}
 	if len(cycleCoverAnalyses) != 0 {
 		if err := saveStructuralPerformanceLinkReport(filepath.Join(resultsRootPath, "structural_performance_link.md"), finalRows, cycleCoverAnalyses); err != nil {
-			return "", false, err
+			return "", nil, false, err
 		}
 	}
 	if err := removeFileIfExists(filepath.Join(resultsRootPath, "summary.csv")); err != nil {
-		return "", false, err
+		return "", nil, false, err
 	}
 
-	return finalResultsSummaryPath, true, nil
+	return finalResultsSummaryPath, finalRows, true, nil
 }
 
 type heuristicBoostSummaryRow struct {
