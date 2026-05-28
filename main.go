@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/pprof"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -102,6 +103,8 @@ const (
 	heuristicMsaSupport = "msa-support"
 	heuristicCycleCover = "cycle-cover"
 )
+
+const finalHeuristicAll = "all"
 
 var finalResultsSummaryHeuristics = []string{
 	heuristicBaseline,
@@ -359,46 +362,102 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 			return nil, fmt.Errorf("invalid record length: %d", len(record))
 		}
 
-		alpha, _ := strconv.ParseFloat(record[0], 64)
-		beta, _ := strconv.ParseFloat(record[1], 64)
-		rho, _ := strconv.ParseFloat(record[2], 64)
-		heuristicWeight, _ := strconv.ParseFloat(record[3], 64)
-		iterations, _ := strconv.Atoi(record[4])
-		minBestAtIteration, _ := strconv.Atoi(record[5])
-		averageBestAtIteration, _ := strconv.ParseFloat(record[6], 64)
-		maxBestAtIteration, _ := strconv.Atoi(record[7])
-		minThreeOptImprovementsCount, _ := strconv.Atoi(record[8])
-		averageThreeOptImprovementsCount, _ := strconv.ParseFloat(record[9], 64)
-		maxThreeOptImprovementsCount, _ := strconv.Atoi(record[10])
-		minBestDeviation, _ := strconv.ParseFloat(record[11], 64)
-		averageBestDeviation, _ := strconv.ParseFloat(record[12], 64)
-		maxBestDeviation, _ := strconv.ParseFloat(record[13], 64)
-		successRate, _ := strconv.ParseFloat(record[14], 64)
-
-		statistic := ExperimentsDataStatistics{
-			ExperimentParameters: ExperimentParameters{
-				alpha:           alpha,
-				beta:            beta,
-				rho:             rho,
-				heuristicWeight: heuristicWeight,
-				iterations:      iterations,
-			},
-			minBestAtIteration:               minBestAtIteration,
-			averageBestAtIteration:           averageBestAtIteration,
-			maxBestAtIteration:               maxBestAtIteration,
-			minThreeOptImprovementsCount:     minThreeOptImprovementsCount,
-			averageThreeOptImprovementsCount: averageThreeOptImprovementsCount,
-			maxThreeOptImprovementsCount:     maxThreeOptImprovementsCount,
-			minBestDeviation:                 minBestDeviation,
-			averageBestDeviation:             averageBestDeviation,
-			maxBestDeviation:                 maxBestDeviation,
-			successRate:                      successRate,
+		statistic, err := parseStatisticsRecord(record)
+		if err != nil {
+			return nil, err
 		}
 
 		statistics = append(statistics, statistic)
 	}
 
 	return statistics, nil
+}
+
+func parseStatisticsRecord(record []string) (ExperimentsDataStatistics, error) {
+	if len(record) != len(statisticsCsvHeader) {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid record length: %d", len(record))
+	}
+
+	alpha, err := strconv.ParseFloat(record[0], 64)
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid alpha: %w", err)
+	}
+	beta, err := strconv.ParseFloat(record[1], 64)
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid beta: %w", err)
+	}
+	rho, err := strconv.ParseFloat(record[2], 64)
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid rho: %w", err)
+	}
+	heuristicWeight, err := strconv.ParseFloat(record[3], 64)
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid heuristic weight: %w", err)
+	}
+	iterations, err := strconv.Atoi(record[4])
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid iterations: %w", err)
+	}
+	minBestAtIteration, err := strconv.Atoi(record[5])
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid min best at iteration: %w", err)
+	}
+	averageBestAtIteration, err := strconv.ParseFloat(record[6], 64)
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid avg best at iteration: %w", err)
+	}
+	maxBestAtIteration, err := strconv.Atoi(record[7])
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid max best at iteration: %w", err)
+	}
+	minThreeOptImprovementsCount, err := strconv.Atoi(record[8])
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid min local search improvements: %w", err)
+	}
+	averageThreeOptImprovementsCount, err := strconv.ParseFloat(record[9], 64)
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid avg local search improvements: %w", err)
+	}
+	maxThreeOptImprovementsCount, err := strconv.Atoi(record[10])
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid max local search improvements: %w", err)
+	}
+	minBestDeviation, err := strconv.ParseFloat(record[11], 64)
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid min best deviation: %w", err)
+	}
+	averageBestDeviation, err := strconv.ParseFloat(record[12], 64)
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid avg best deviation: %w", err)
+	}
+	maxBestDeviation, err := strconv.ParseFloat(record[13], 64)
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid max best deviation: %w", err)
+	}
+	successRate, err := strconv.ParseFloat(record[14], 64)
+	if err != nil {
+		return ExperimentsDataStatistics{}, fmt.Errorf("invalid success rate: %w", err)
+	}
+
+	return ExperimentsDataStatistics{
+		ExperimentParameters: ExperimentParameters{
+			alpha:           alpha,
+			beta:            beta,
+			rho:             rho,
+			heuristicWeight: heuristicWeight,
+			iterations:      iterations,
+		},
+		minBestAtIteration:               minBestAtIteration,
+		averageBestAtIteration:           averageBestAtIteration,
+		maxBestAtIteration:               maxBestAtIteration,
+		minThreeOptImprovementsCount:     minThreeOptImprovementsCount,
+		averageThreeOptImprovementsCount: averageThreeOptImprovementsCount,
+		maxThreeOptImprovementsCount:     maxThreeOptImprovementsCount,
+		minBestDeviation:                 minBestDeviation,
+		averageBestDeviation:             averageBestDeviation,
+		maxBestDeviation:                 maxBestDeviation,
+		successRate:                      successRate,
+	}, nil
 }
 
 func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics) {
@@ -463,6 +522,92 @@ func saveHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperim
 
 	writer.Flush()
 	return writer.Error()
+}
+
+func saveFinalHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperimentStatistics, configurations []finalExperimentConfiguration) error {
+	if len(configurations) == len(finalExperimentConfigurations()) {
+		return saveHeuristicStatistics(resultCsvPath, statistics)
+	}
+
+	existingStatistics, err := readHeuristicStatistics(resultCsvPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			existingStatistics = nil
+		} else {
+			return err
+		}
+	}
+
+	mergedStatistics := mergeHeuristicStatistics(existingStatistics, statistics, configurations)
+	return saveHeuristicStatistics(resultCsvPath, mergedStatistics)
+}
+
+func readHeuristicStatistics(resultCsvPath string) ([]HeuristicExperimentStatistics, error) {
+	file, err := os.Open(resultCsvPath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	header, err := reader.Read()
+	if err != nil {
+		return nil, err
+	}
+
+	expectedHeader := append([]string{"Heuristic"}, statisticsCsvHeader...)
+	if !slices.Equal(header, expectedHeader) {
+		return nil, fmt.Errorf("invalid heuristic statistics header")
+	}
+
+	records, err := reader.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	statistics := make([]HeuristicExperimentStatistics, 0, len(records))
+	for _, record := range records {
+		if len(record) != len(expectedHeader) {
+			return nil, fmt.Errorf("invalid heuristic statistics record length: got %d want %d", len(record), len(expectedHeader))
+		}
+
+		parsed, err := parseStatisticsRecord(record[1:])
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", record[0], err)
+		}
+
+		statistics = append(statistics, HeuristicExperimentStatistics{
+			heuristic:  record[0],
+			statistics: parsed,
+		})
+	}
+
+	return statistics, nil
+}
+
+func mergeHeuristicStatistics(existingStatistics, newStatistics []HeuristicExperimentStatistics, configurations []finalExperimentConfiguration) []HeuristicExperimentStatistics {
+	replaceSet := make(map[string]struct{}, len(configurations))
+	for _, configuration := range configurations {
+		replaceSet[configuration.heuristic] = struct{}{}
+	}
+
+	knownFinalHeuristics := make(map[string]struct{}, len(finalExperimentConfigurations()))
+	for _, configuration := range finalExperimentConfigurations() {
+		knownFinalHeuristics[configuration.heuristic] = struct{}{}
+	}
+
+	merged := make([]HeuristicExperimentStatistics, 0, len(existingStatistics)+len(newStatistics))
+	for _, statistic := range existingStatistics {
+		if _, known := knownFinalHeuristics[statistic.heuristic]; !known {
+			continue
+		}
+		if _, replace := replaceSet[statistic.heuristic]; !replace {
+			merged = append(merged, statistic)
+		}
+	}
+
+	merged = append(merged, newStatistics...)
+	return merged
 }
 
 func saveFinalResultsSummary(atspsData []AtspData, summaryPath string) error {
@@ -1810,14 +1955,24 @@ func heuristicDisplayName(heuristic string) string {
 func buildHeuristicModifiers(heuristic string, matrix, msaSupport, cycleCover [][]float64, strength float64) [][]float64 {
 	switch heuristic {
 	case heuristicBaseline:
-		return heuristics.BuildNeutralModifiers(len(msaSupport))
+		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaSupport, cycleCover))
 	case heuristicMsaSupport:
 		return heuristics.BuildMsaSupportModifiers(msaSupport, strength)
 	case heuristicCycleCover:
 		return heuristics.BuildCycleCoverModifiers(cycleCover, strength)
 	default:
-		return heuristics.BuildNeutralModifiers(len(msaSupport))
+		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaSupport, cycleCover))
 	}
+}
+
+func heuristicMatrixDimension(matrices ...[][]float64) int {
+	for _, matrix := range matrices {
+		if len(matrix) != 0 {
+			return len(matrix)
+		}
+	}
+
+	return 0
 }
 
 func statisticsCsvRecord(statistic ExperimentsDataStatistics) []string {
@@ -2040,6 +2195,21 @@ func finalExperimentConfigurations() []finalExperimentConfiguration {
 	}
 }
 
+func selectFinalExperimentConfigurations(finalHeuristic string) ([]finalExperimentConfiguration, error) {
+	configurations := finalExperimentConfigurations()
+	if finalHeuristic == finalHeuristicAll {
+		return configurations, nil
+	}
+
+	for _, configuration := range configurations {
+		if configuration.heuristic == finalHeuristic {
+			return []finalExperimentConfiguration{configuration}, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unsupported final heuristic %q", finalHeuristic)
+}
+
 func newDefaultExperimentParameters(heuristicWeight float64) ExperimentParameters {
 	return ExperimentParameters{
 		alpha:           defaultExperimentAlpha,
@@ -2217,6 +2387,20 @@ func heuristicUsesCycleCover(heuristic string) bool {
 	return heuristic == heuristicCycleCover
 }
 
+func heuristicUsesMsaSupport(heuristic string) bool {
+	return heuristic == heuristicMsaSupport
+}
+
+func finalConfigurationsUseMsaSupport(configurations []finalExperimentConfiguration) bool {
+	for _, configuration := range configurations {
+		if heuristicUsesMsaSupport(configuration.heuristic) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func heuristicFileSuffix(heuristic string) string {
 	switch heuristic {
 	case heuristicBaseline:
@@ -2283,6 +2467,7 @@ func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, tiny, balanced, large, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, or final+3opt")
 	heuristic := flag.String("heuristic", heuristicMsaSupport, "ACO heuristic modifier to use in experiment mode: baseline, msa-support, or cycle-cover")
+	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, baseline, msa-support, or cycle-cover")
 	flag.Parse()
 
 	if !isValidRunMode(*mode) {
@@ -2296,8 +2481,15 @@ func main() {
 	}
 
 	selectedInstances := *instances
+	var finalConfigurations []finalExperimentConfiguration
 	if shouldRunFinalExperiments(*mode) {
 		selectedInstances = instanceSetBalanced
+		configurations, err := selectFinalExperimentConfigurations(*finalHeuristic)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		finalConfigurations = configurations
 	}
 
 	atspsData, err := loadSelectedAtspData(selectedInstances)
@@ -2329,7 +2521,7 @@ func main() {
 			return
 		}
 
-		err = runFinalExperimentMode(atspsData, finalExperimentOutputRoot(*mode), finalExperimentUsesThreeOpt(*mode))
+		err = runFinalExperimentMode(atspsData, finalExperimentOutputRoot(*mode), finalExperimentUsesThreeOpt(*mode), finalConfigurations)
 		stopProfiling()
 		if err != nil {
 			fmt.Println(err)
@@ -2398,9 +2590,12 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 	return runExperimentSet(atspsData, resultsDirectoryName, heuristic, generateParameters(), defaultExperimentRunCount)
 }
 
-func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool) error {
-	if err := ensureMsaSupportCache(atspsData); err != nil {
-		return err
+func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration) error {
+	needsMsaSupport := finalConfigurationsUseMsaSupport(configurations)
+	if needsMsaSupport {
+		if err := ensureMsaSupportCache(atspsData); err != nil {
+			return err
+		}
 	}
 
 	if err := removeLegacyFinalReports(resultsRootPath); err != nil {
@@ -2409,7 +2604,7 @@ func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThr
 
 	for _, atspData := range atspsData {
 		finalAtspData := withExperimentOutputRoot(atspData, resultsRootPath)
-		if err := runFinalExperimentForInstance(finalAtspData, useThreeOpt); err != nil {
+		if err := runFinalExperimentForInstance(finalAtspData, useThreeOpt, configurations, needsMsaSupport); err != nil {
 			return err
 		}
 	}
@@ -2417,7 +2612,7 @@ func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThr
 	return nil
 }
 
-func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool) error {
+func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configurations []finalExperimentConfiguration, needsMsaSupport bool) error {
 	matrix := atspData.matrix
 	knownOptimal := atspData.knownOptimal
 	dimension := len(matrix)
@@ -2427,28 +2622,36 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool) error {
 		finalRunName = "final+3opt"
 	}
 
+	if len(configurations) == 0 {
+		return fmt.Errorf("no final experiment configurations selected")
+	}
+
 	if err := removeLegacyFinalResultFiles(atspData); err != nil {
 		return err
 	}
 
-	heuristicMatrix, err := readMsaSupportMatrixForHeuristic(atspData, heuristicMsaSupport)
-	if err != nil {
-		return err
+	var heuristicMatrix [][]float64
+	if needsMsaSupport {
+		var err error
+		heuristicMatrix, err = readMsaSupportMatrixForHeuristic(atspData, heuristicMsaSupport)
+		if err != nil {
+			return err
+		}
 	}
 
 	fmt.Printf("Starting %s %s (dimension=%d, heuristics=%d, runs/heuristic=%d)\n",
 		finalRunName,
 		atspData.name,
 		dimension,
-		len(finalExperimentConfigurations()),
+		len(configurations),
 		finalNumberOfExperiments)
 
 	var cycleCover [][]float64
 	var cycleCoverErr error
 	cycleCoverReady := false
-	finalStatistics := make([]HeuristicExperimentStatistics, 0, len(finalExperimentConfigurations()))
+	finalStatistics := make([]HeuristicExperimentStatistics, 0, len(configurations))
 
-	for _, config := range finalExperimentConfigurations() {
+	for _, config := range configurations {
 		if heuristicUsesCycleCover(config.heuristic) && !cycleCoverReady {
 			var cycleCoverCost float64
 			cycleCover, cycleCoverCost, cycleCoverErr = buildMinimumCycleCoverMatrix(matrix)
@@ -2500,7 +2703,7 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool) error {
 		saveExperimentPlots(statistics, "MMAS deviation per iteration", resultPlotFilePrefixForHeuristic(atspData, config.heuristic))
 	}
 
-	if err := saveHeuristicStatistics(atspData.resultFilePath, finalStatistics); err != nil {
+	if err := saveFinalHeuristicStatistics(atspData.resultFilePath, finalStatistics, configurations); err != nil {
 		return err
 	}
 

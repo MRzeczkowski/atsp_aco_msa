@@ -545,6 +545,23 @@ func TestBuildHeuristicModifiersReturnsNeutralMatrixForBaseline(t *testing.T) {
 	}
 }
 
+func TestBuildHeuristicModifiersBaselineCanUseDistanceMatrixDimension(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1},
+		{2, 0},
+	}
+
+	modifiers := buildHeuristicModifiers(heuristicBaseline, matrix, nil, nil, 1.0)
+	expected := [][]float64{
+		{1, 1},
+		{1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected baseline modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
 func TestAnalyzeHeuristicBoostsSummarizesModifierMatrix(t *testing.T) {
 	modifiers := [][]float64{
 		{1, 2, 1.5},
@@ -676,6 +693,120 @@ func TestFinalExperimentConfigurationsUseFixedBalancedComparison(t *testing.T) {
 			parameters.heuristicWeight != expected[i].weight {
 			t.Fatalf("unexpected final parameters for %s: %+v", config.heuristic, parameters)
 		}
+	}
+}
+
+func TestSelectFinalExperimentConfigurations(t *testing.T) {
+	allConfigurations, err := selectFinalExperimentConfigurations(finalHeuristicAll)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(all) returned error: %v", err)
+	}
+	if len(allConfigurations) != len(finalExperimentConfigurations()) {
+		t.Fatalf("expected all final configurations, got %d", len(allConfigurations))
+	}
+
+	cycleCoverConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCover)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover) returned error: %v", err)
+	}
+	if len(cycleCoverConfigurations) != 1 || cycleCoverConfigurations[0].heuristic != heuristicCycleCover {
+		t.Fatalf("expected only cycle-cover configuration, got %+v", cycleCoverConfigurations)
+	}
+
+	if _, err := selectFinalExperimentConfigurations("unknown"); err == nil {
+		t.Fatal("expected invalid final heuristic to be rejected")
+	}
+}
+
+func TestFinalConfigurationsUseMsaSupportOnlyWhenNeeded(t *testing.T) {
+	baselineConfigurations, err := selectFinalExperimentConfigurations(heuristicBaseline)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(baseline) returned error: %v", err)
+	}
+	if finalConfigurationsUseMsaSupport(baselineConfigurations) {
+		t.Fatal("baseline-only final run should not require MSA support")
+	}
+
+	cycleCoverConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCover)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover) returned error: %v", err)
+	}
+	if finalConfigurationsUseMsaSupport(cycleCoverConfigurations) {
+		t.Fatal("cycle-cover-only final run should not require MSA support")
+	}
+
+	msaSupportConfigurations, err := selectFinalExperimentConfigurations(heuristicMsaSupport)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(msa-support) returned error: %v", err)
+	}
+	if !finalConfigurationsUseMsaSupport(msaSupportConfigurations) {
+		t.Fatal("MSA-support final run should require MSA support")
+	}
+}
+
+func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCsv(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "result.csv")
+	existing := []HeuristicExperimentStatistics{
+		{
+			heuristic:  heuristicBaseline,
+			statistics: makeTestExperimentStatistics(0.0, 5.0, 10.0),
+		},
+		{
+			heuristic:  heuristicMsaSupport,
+			statistics: makeTestExperimentStatistics(finalMsaSupportWeight, 3.0, 20.0),
+		},
+		{
+			heuristic:  heuristicCycleCover,
+			statistics: makeTestExperimentStatistics(finalCycleCoverWeight, 7.0, 0.0),
+		},
+		{
+			heuristic:  "obsolete",
+			statistics: makeTestExperimentStatistics(1.0, 0.5, 100.0),
+		},
+	}
+	if err := saveHeuristicStatistics(path, existing); err != nil {
+		t.Fatalf("failed to seed final result CSV: %v", err)
+	}
+
+	replacement := []HeuristicExperimentStatistics{
+		{
+			heuristic:  heuristicCycleCover,
+			statistics: makeTestExperimentStatistics(finalCycleCoverWeight, 1.5, 40.0),
+		},
+	}
+	cycleCoverConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCover)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover) returned error: %v", err)
+	}
+	if err := saveFinalHeuristicStatistics(path, replacement, cycleCoverConfigurations); err != nil {
+		t.Fatalf("saveFinalHeuristicStatistics returned error: %v", err)
+	}
+
+	statistics, err := readHeuristicStatistics(path)
+	if err != nil {
+		t.Fatalf("failed to read merged final result CSV: %v", err)
+	}
+	if len(statistics) != 3 {
+		t.Fatalf("expected three heuristic rows after merge, got %d", len(statistics))
+	}
+
+	byHeuristic := make(map[string]HeuristicExperimentStatistics, len(statistics))
+	for _, statistic := range statistics {
+		byHeuristic[statistic.heuristic] = statistic
+	}
+
+	if byHeuristic[heuristicBaseline].statistics.averageBestDeviation != 5.0 {
+		t.Fatalf("baseline row was not preserved: %+v", byHeuristic[heuristicBaseline])
+	}
+	if byHeuristic[heuristicMsaSupport].statistics.averageBestDeviation != 3.0 {
+		t.Fatalf("MSA support row was not preserved: %+v", byHeuristic[heuristicMsaSupport])
+	}
+	if byHeuristic[heuristicCycleCover].statistics.averageBestDeviation != 1.5 ||
+		byHeuristic[heuristicCycleCover].statistics.successRate != 40.0 {
+		t.Fatalf("cycle-cover row was not replaced: %+v", byHeuristic[heuristicCycleCover])
+	}
+	if _, ok := byHeuristic["obsolete"]; ok {
+		t.Fatal("obsolete heuristic row should not be preserved in final result CSV")
 	}
 }
 
@@ -920,6 +1051,28 @@ func sampleFinalSummaryRows() []finalResultsSummaryRow {
 				},
 			},
 		},
+	}
+}
+
+func makeTestExperimentStatistics(heuristicWeight, averageBestDeviation, successRate float64) ExperimentsDataStatistics {
+	return ExperimentsDataStatistics{
+		ExperimentParameters: ExperimentParameters{
+			alpha:           defaultExperimentAlpha,
+			beta:            defaultExperimentBeta,
+			rho:             defaultExperimentRho,
+			heuristicWeight: heuristicWeight,
+			iterations:      500,
+		},
+		minBestAtIteration:               1,
+		averageBestAtIteration:           2.0,
+		maxBestAtIteration:               3,
+		minThreeOptImprovementsCount:     0,
+		averageThreeOptImprovementsCount: 0.0,
+		maxThreeOptImprovementsCount:     0,
+		minBestDeviation:                 averageBestDeviation,
+		averageBestDeviation:             averageBestDeviation,
+		maxBestDeviation:                 averageBestDeviation,
+		successRate:                      successRate,
 	}
 }
 
