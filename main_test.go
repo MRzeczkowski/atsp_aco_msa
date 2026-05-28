@@ -626,14 +626,6 @@ func TestHeuristicSpecificPathsKeepMsaSupportBaselinePaths(t *testing.T) {
 	if resultFilePathForHeuristic(atspData, heuristicCycleCover) != filepath.Join(resultsDirectoryName, "test", "result_cycle_cover.csv") {
 		t.Fatalf("unexpected cycle-cover result path: %s", resultFilePathForHeuristic(atspData, heuristicCycleCover))
 	}
-
-	if resultFilePathForHeuristic(atspData, heuristicMsaSupportOverlap) != filepath.Join(resultsDirectoryName, "test", "result_msa_support_overlap.csv") {
-		t.Fatalf("unexpected MSA support-overlap result path: %s", resultFilePathForHeuristic(atspData, heuristicMsaSupportOverlap))
-	}
-
-	if resultFilePathForHeuristic(atspData, heuristicMsaSupportDifference) != filepath.Join(resultsDirectoryName, "test", "result_msa_support_difference.csv") {
-		t.Fatalf("unexpected MSA support-difference result path: %s", resultFilePathForHeuristic(atspData, heuristicMsaSupportDifference))
-	}
 }
 
 func TestWithExperimentOutputRootMovesOutputsButKeepsMsaSupportCache(t *testing.T) {
@@ -711,16 +703,6 @@ func TestFinal3OptModeUsesSeparateOutputRootAndThreeOpt(t *testing.T) {
 	}
 	if finalExperimentUsesThreeOpt(runModeFinal) {
 		t.Fatal("final should not enable reduced 3-opt")
-	}
-}
-
-func TestMsaSupportOverlapAndDifferenceHeuristicsUseCycleCover(t *testing.T) {
-	if !isValidHeuristic(heuristicMsaSupportOverlap) || !isValidHeuristic(heuristicMsaSupportDifference) {
-		t.Fatal("MSA support-overlap and MSA support-difference should be valid heuristics")
-	}
-
-	if !heuristicUsesCycleCover(heuristicMsaSupportOverlap) || !heuristicUsesCycleCover(heuristicMsaSupportDifference) {
-		t.Fatal("MSA support-overlap and MSA support-difference should require cycle cover")
 	}
 }
 

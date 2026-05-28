@@ -43,45 +43,6 @@ func TestBuildMsaSupportModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testi
 	}
 }
 
-func TestBuildMsaSupportCycleCoverMembershipModifiersSplitsOverlapAndDifference(t *testing.T) {
-	msaSupport := [][]float64{
-		{0, 3, 3, 0},
-		{2, 0, 0, 0},
-		{0, 0, 0, 3},
-		{3, 0, 2, 0},
-	}
-	cycleCover := [][]float64{
-		{0, 1, 0, 0},
-		{1, 0, 0, 0},
-		{0, 0, 0, 1},
-		{0, 0, 1, 0},
-	}
-
-	overlapModifiers := BuildMsaSupportCycleCoverMembershipModifiers(msaSupport, cycleCover, 0.5, true)
-	expectedOverlap := [][]float64{
-		{1, 1.5, 1, 1},
-		{1, 1, 1, 1},
-		{1, 1, 1, 1.5},
-		{1, 1, 1, 1},
-	}
-
-	if !reflect.DeepEqual(overlapModifiers, expectedOverlap) {
-		t.Fatalf("unexpected MSA support-overlap modifiers\nwant: %v\n got: %v", expectedOverlap, overlapModifiers)
-	}
-
-	differenceModifiers := BuildMsaSupportCycleCoverMembershipModifiers(msaSupport, cycleCover, 0.5, false)
-	expectedDifference := [][]float64{
-		{1, 1, 1.5, 1},
-		{1, 1, 1, 1},
-		{1, 1, 1, 1},
-		{1.5, 1, 1, 1},
-	}
-
-	if !reflect.DeepEqual(differenceModifiers, expectedDifference) {
-		t.Fatalf("unexpected MSA support-difference modifiers\nwant: %v\n got: %v", expectedDifference, differenceModifiers)
-	}
-}
-
 func TestBuildCycleCoverModifiersBoostsOnlyCycleCoverEdges(t *testing.T) {
 	cycleCover := [][]float64{
 		{0, 1, 0},

@@ -98,11 +98,9 @@ const (
 )
 
 const (
-	heuristicBaseline             = "baseline"
-	heuristicMsaSupport           = "msa-support"
-	heuristicCycleCover           = "cycle-cover"
-	heuristicMsaSupportOverlap    = "msa-support-overlap"
-	heuristicMsaSupportDifference = "msa-support-difference"
+	heuristicBaseline   = "baseline"
+	heuristicMsaSupport = "msa-support"
+	heuristicCycleCover = "cycle-cover"
 )
 
 var finalResultsSummaryHeuristics = []string{
@@ -1817,10 +1815,6 @@ func buildHeuristicModifiers(heuristic string, matrix, msaSupport, cycleCover []
 		return heuristics.BuildMsaSupportModifiers(msaSupport, strength)
 	case heuristicCycleCover:
 		return heuristics.BuildCycleCoverModifiers(cycleCover, strength)
-	case heuristicMsaSupportOverlap:
-		return heuristics.BuildMsaSupportCycleCoverMembershipModifiers(msaSupport, cycleCover, strength, true)
-	case heuristicMsaSupportDifference:
-		return heuristics.BuildMsaSupportCycleCoverMembershipModifiers(msaSupport, cycleCover, strength, false)
 	default:
 		return heuristics.BuildNeutralModifiers(len(msaSupport))
 	}
@@ -2216,15 +2210,11 @@ func isValidRunMode(mode string) bool {
 func isValidHeuristic(heuristic string) bool {
 	return heuristic == heuristicBaseline ||
 		heuristic == heuristicMsaSupport ||
-		heuristic == heuristicCycleCover ||
-		heuristic == heuristicMsaSupportOverlap ||
-		heuristic == heuristicMsaSupportDifference
+		heuristic == heuristicCycleCover
 }
 
 func heuristicUsesCycleCover(heuristic string) bool {
-	return heuristic == heuristicCycleCover ||
-		heuristic == heuristicMsaSupportOverlap ||
-		heuristic == heuristicMsaSupportDifference
+	return heuristic == heuristicCycleCover
 }
 
 func heuristicFileSuffix(heuristic string) string {
@@ -2235,10 +2225,6 @@ func heuristicFileSuffix(heuristic string) string {
 		return ""
 	case heuristicCycleCover:
 		return "_cycle_cover"
-	case heuristicMsaSupportOverlap:
-		return "_msa_support_overlap"
-	case heuristicMsaSupportDifference:
-		return "_msa_support_difference"
 	default:
 		return "_" + strings.ReplaceAll(heuristic, "-", "_")
 	}
@@ -2296,7 +2282,7 @@ func finalExperimentUsesThreeOpt(mode string) bool {
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, tiny, balanced, large, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, or final+3opt")
-	heuristic := flag.String("heuristic", heuristicMsaSupport, "ACO heuristic modifier to use in experiment mode: baseline, msa-support, cycle-cover, msa-support-overlap, or msa-support-difference")
+	heuristic := flag.String("heuristic", heuristicMsaSupport, "ACO heuristic modifier to use in experiment mode: baseline, msa-support, or cycle-cover")
 	flag.Parse()
 
 	if !isValidRunMode(*mode) {
@@ -2305,7 +2291,7 @@ func main() {
 	}
 
 	if !isValidHeuristic(*heuristic) {
-		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, %q, or %q\n", *heuristic, heuristicBaseline, heuristicMsaSupport, heuristicCycleCover, heuristicMsaSupportOverlap, heuristicMsaSupportDifference)
+		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, or %q\n", *heuristic, heuristicBaseline, heuristicMsaSupport, heuristicCycleCover)
 		return
 	}
 
@@ -2909,8 +2895,6 @@ func buildHeuristicBoostSummary(atspsData []AtspData) ([]heuristicBoostSummaryRo
 	heuristicNames := []string{
 		heuristicMsaSupport,
 		heuristicCycleCover,
-		heuristicMsaSupportOverlap,
-		heuristicMsaSupportDifference,
 	}
 
 	instances := append([]AtspData(nil), atspsData...)
