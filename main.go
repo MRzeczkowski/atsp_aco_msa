@@ -2,6 +2,7 @@ package main
 
 import (
 	"atsp_aco_msa/modules/algorithms/aco"
+	"atsp_aco_msa/modules/algorithms/heuristics"
 	"atsp_aco_msa/modules/algorithms/hungarian"
 	"atsp_aco_msa/modules/algorithms/msaSupport"
 	"atsp_aco_msa/modules/analysis/cycleCover"
@@ -83,10 +84,6 @@ const (
 	runModeAll        = "all"
 	runModeFinal      = "final"
 	runModeFinal3Opt  = "final+3opt"
-)
-
-const (
-	msaSupportHighSignalThreshold = 1.0
 )
 
 const (
@@ -1812,6 +1809,23 @@ func heuristicDisplayName(heuristic string) string {
 	}
 }
 
+func buildHeuristicModifiers(heuristic string, matrix, msaSupport, cycleCover [][]float64, strength float64) [][]float64 {
+	switch heuristic {
+	case heuristicBaseline:
+		return heuristics.BuildNeutralModifiers(len(msaSupport))
+	case heuristicMsaSupport:
+		return heuristics.BuildMsaSupportModifiers(msaSupport, strength)
+	case heuristicCycleCover:
+		return heuristics.BuildCycleCoverModifiers(cycleCover, strength)
+	case heuristicMsaSupportOverlap:
+		return heuristics.BuildMsaSupportCycleCoverMembershipModifiers(msaSupport, cycleCover, strength, true)
+	case heuristicMsaSupportDifference:
+		return heuristics.BuildMsaSupportCycleCoverMembershipModifiers(msaSupport, cycleCover, strength, false)
+	default:
+		return heuristics.BuildNeutralModifiers(len(msaSupport))
+	}
+}
+
 func statisticsCsvRecord(statistic ExperimentsDataStatistics) []string {
 	floatFormat := "%.2f"
 	return []string{
@@ -1962,110 +1976,6 @@ func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOpti
 	}
 
 	return results
-}
-
-func buildHeuristicModifiers(heuristic string, matrix, msaSupport, cycleCover [][]float64, strength float64) [][]float64 {
-	switch heuristic {
-	case heuristicBaseline:
-		return buildNeutralHeuristicModifiers(len(msaSupport))
-	case heuristicMsaSupport:
-		return buildMsaSupportHeuristicModifiers(msaSupport, strength)
-	case heuristicCycleCover:
-		return buildCycleCoverHeuristicModifiers(cycleCover, strength)
-	case heuristicMsaSupportOverlap:
-		return buildMsaSupportCycleCoverMembershipHeuristicModifiers(msaSupport, cycleCover, strength, true)
-	case heuristicMsaSupportDifference:
-		return buildMsaSupportCycleCoverMembershipHeuristicModifiers(msaSupport, cycleCover, strength, false)
-	default:
-		return buildNeutralHeuristicModifiers(len(msaSupport))
-	}
-}
-
-func buildMsaSupportHeuristicModifiers(msaSupport [][]float64, strength float64) [][]float64 {
-	dimension := len(msaSupport)
-	modifiers := buildNeutralHeuristicModifiers(dimension)
-	if dimension <= 1 || strength == 0 {
-		return modifiers
-	}
-
-	maxMsaSupportSelections := float64(dimension - 1)
-	for i := 0; i < dimension; i++ {
-		for j := 0; j < dimension; j++ {
-			if i == j {
-				continue
-			}
-
-			msaSupportSignal := msaSupport[i][j] / maxMsaSupportSelections
-			if msaSupportSignal >= msaSupportHighSignalThreshold {
-				modifiers[i][j] = 1.0 + msaSupportSignal*strength
-			}
-		}
-	}
-
-	return modifiers
-}
-
-func buildMsaSupportCycleCoverMembershipHeuristicModifiers(msaSupport, cycleCover [][]float64, strength float64, requireCycleCoverEdge bool) [][]float64 {
-	dimension := len(msaSupport)
-	modifiers := buildNeutralHeuristicModifiers(dimension)
-	if dimension <= 1 || strength == 0 {
-		return modifiers
-	}
-
-	maxMsaSupportSelections := float64(dimension - 1)
-	for i := 0; i < dimension; i++ {
-		for j := 0; j < dimension; j++ {
-			if i == j {
-				continue
-			}
-
-			msaSupportSignal := msaSupport[i][j] / maxMsaSupportSelections
-			if msaSupportSignal < msaSupportHighSignalThreshold {
-				continue
-			}
-
-			if matrixContainsEdge(cycleCover, i, j) != requireCycleCoverEdge {
-				continue
-			}
-
-			modifiers[i][j] = 1.0 + msaSupportSignal*strength
-		}
-	}
-
-	return modifiers
-}
-
-func matrixContainsEdge(matrix [][]float64, from, to int) bool {
-	return from >= 0 && from < len(matrix) && to >= 0 && to < len(matrix[from]) && matrix[from][to] != 0
-}
-
-func buildCycleCoverHeuristicModifiers(cycleCover [][]float64, strength float64) [][]float64 {
-	dimension := len(cycleCover)
-	modifiers := buildNeutralHeuristicModifiers(dimension)
-	if dimension == 0 || strength == 0 {
-		return modifiers
-	}
-
-	for i := 0; i < dimension; i++ {
-		for j := 0; j < dimension; j++ {
-			if i != j && cycleCover[i][j] != 0 {
-				modifiers[i][j] = 1.0 + strength
-			}
-		}
-	}
-
-	return modifiers
-}
-
-func buildNeutralHeuristicModifiers(dimension int) [][]float64 {
-	modifiers := make([][]float64, dimension)
-	for i := range modifiers {
-		modifiers[i] = make([]float64, dimension)
-		for j := range modifiers[i] {
-			modifiers[i][j] = 1.0
-		}
-	}
-	return modifiers
 }
 
 func setDimensionDependantParameters(dimension int, parameters *ExperimentParameters) {
@@ -2996,7 +2906,7 @@ type heuristicBoostSummaryRow struct {
 
 func buildHeuristicBoostSummary(atspsData []AtspData) ([]heuristicBoostSummaryRow, error) {
 	const referenceStrength = 1.0
-	heuristics := []string{
+	heuristicNames := []string{
 		heuristicMsaSupport,
 		heuristicCycleCover,
 		heuristicMsaSupportOverlap,
@@ -3008,13 +2918,13 @@ func buildHeuristicBoostSummary(atspsData []AtspData) ([]heuristicBoostSummaryRo
 		return instances[i].name < instances[j].name
 	})
 
-	rows := make([]heuristicBoostSummaryRow, 0, len(instances)*len(heuristics))
+	rows := make([]heuristicBoostSummaryRow, 0, len(instances)*len(heuristicNames))
 	for _, atspData := range instances {
 		var cycleCover [][]float64
 		var cycleCoverErr error
 		cycleCoverReady := false
 
-		for _, heuristic := range heuristics {
+		for _, heuristic := range heuristicNames {
 			heuristicMatrix, err := readMsaSupportMatrixForHeuristic(atspData, heuristic)
 			if err != nil {
 				return nil, fmt.Errorf("%s/%s: failed to read heuristic matrix: %w", atspData.name, heuristic, err)

@@ -1,0 +1,115 @@
+package heuristics
+
+import (
+	"reflect"
+	"testing"
+)
+
+func TestBuildMsaSupportModifiersBoostsOnlyHighSupportEdges(t *testing.T) {
+	msaSupport := [][]float64{
+		{0, 3, 2, 0},
+		{0, 0, 3, 1},
+		{1, 0, 0, 2},
+		{0, 0, 0, 0},
+	}
+
+	modifiers := BuildMsaSupportModifiers(msaSupport, 0.5)
+	expected := [][]float64{
+		{1, 1.5, 1, 1},
+		{1, 1, 1.5, 1},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected MSA support modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildMsaSupportModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testing.T) {
+	msaSupport := [][]float64{
+		{0, 3},
+		{3, 0},
+	}
+
+	modifiers := BuildMsaSupportModifiers(msaSupport, 0)
+	expected := [][]float64{
+		{1, 1},
+		{1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected neutral modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildMsaSupportCycleCoverMembershipModifiersSplitsOverlapAndDifference(t *testing.T) {
+	msaSupport := [][]float64{
+		{0, 3, 3, 0},
+		{2, 0, 0, 0},
+		{0, 0, 0, 3},
+		{3, 0, 2, 0},
+	}
+	cycleCover := [][]float64{
+		{0, 1, 0, 0},
+		{1, 0, 0, 0},
+		{0, 0, 0, 1},
+		{0, 0, 1, 0},
+	}
+
+	overlapModifiers := BuildMsaSupportCycleCoverMembershipModifiers(msaSupport, cycleCover, 0.5, true)
+	expectedOverlap := [][]float64{
+		{1, 1.5, 1, 1},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1.5},
+		{1, 1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(overlapModifiers, expectedOverlap) {
+		t.Fatalf("unexpected MSA support-overlap modifiers\nwant: %v\n got: %v", expectedOverlap, overlapModifiers)
+	}
+
+	differenceModifiers := BuildMsaSupportCycleCoverMembershipModifiers(msaSupport, cycleCover, 0.5, false)
+	expectedDifference := [][]float64{
+		{1, 1, 1.5, 1},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1},
+		{1.5, 1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(differenceModifiers, expectedDifference) {
+		t.Fatalf("unexpected MSA support-difference modifiers\nwant: %v\n got: %v", expectedDifference, differenceModifiers)
+	}
+}
+
+func TestBuildCycleCoverModifiersBoostsOnlyCycleCoverEdges(t *testing.T) {
+	cycleCover := [][]float64{
+		{0, 1, 0},
+		{0, 0, 1},
+		{1, 0, 0},
+	}
+
+	modifiers := BuildCycleCoverModifiers(cycleCover, 0.4)
+	expected := [][]float64{
+		{1, 1.4, 1},
+		{1, 1, 1.4},
+		{1.4, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected cycle-cover modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildNeutralModifiers(t *testing.T) {
+	modifiers := BuildNeutralModifiers(3)
+	expected := [][]float64{
+		{1, 1, 1},
+		{1, 1, 1},
+		{1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected baseline modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
