@@ -4,10 +4,10 @@ This report compares the final MMAS experiments without local search against the
 
 ## Findings
 
-- **Reduced 3-opt lowers average best deviation for every variant: Baseline +3.16 pp, MSA heuristic +2.77 pp, cycle cover +2.53 pp.**
-- **Reduced 3-opt increases success rate for every variant: Baseline +34.07 pp, MSA heuristic +33.36 pp, cycle cover +35.79 pp.**
-- **Deviation gain over baseline shrinks with 3-opt: MSA heuristic +0.41 -> +0.02 pp, cycle cover +0.74 -> +0.11 pp.**
-- **Only 5.49% of the MSA heuristic deviation gain and 15.18% of the cycle-cover deviation gain remains visible after enabling 3-opt.**
+- **Reduced 3-opt average-best-deviation deltas: Baseline +3.16 pp, MSA heuristic +2.77 pp, Cycle cover +2.53 pp.**
+- **Reduced 3-opt success-rate deltas: Baseline +34.07 pp, MSA heuristic +33.36 pp, Cycle cover +35.79 pp.**
+- **Deviation gain over baseline with and without 3-opt: MSA heuristic +0.41 -> +0.02 pp, Cycle cover +0.74 -> +0.11 pp.**
+- **Signal remaining after enabling 3-opt: MSA heuristic 5.49%, Cycle cover 15.18%.**
 - **This supports treating reduced 3-opt as a strong local-search layer that partially hides the construction heuristic effect.**
 
 ## Overall Effect

@@ -20,13 +20,22 @@ func TestCalculateAnalysisStructuralMetrics(t *testing.T) {
 		{From: 3, To: 0},
 	}
 
-	analysis := calculateAnalysis("test", 4, msaHeuristic, tours, cycleCoverEdges, 1.0)
+	matrix := [][]float64{
+		{0, 1, 2, 3},
+		{1, 0, 1, 2},
+		{2, 1, 0, 1},
+		{1, 2, 1, 0},
+	}
+
+	analysis := calculateAnalysis("test", 4, matrix, msaHeuristic, tours, cycleCoverEdges, 1.0)
 	metrics := analysis.Metrics
 
 	assertFloat(t, "cycle-cover precision", metrics.CycleCoverMetrics.Precision, 1)
 	assertFloat(t, "cycle-cover recall", metrics.CycleCoverMetrics.Recall, 1)
 	assertFloat(t, "high-MSA heuristic precision", metrics.HighMsaHeuristicMetrics.Precision, 0.5)
 	assertFloat(t, "high-MSA heuristic recall", metrics.HighMsaHeuristicMetrics.Recall, 0.25)
+	assertFloat(t, "cycle-cover MSA-patching precision", metrics.CycleCoverMsaPatchingMetrics.Precision, 1)
+	assertFloat(t, "cycle-cover MSA-patching recall", metrics.CycleCoverMsaPatchingMetrics.Recall, 1)
 
 	if metrics.CycleCoverHighMsaHeuristicEdges != 1 {
 		t.Fatalf("expected one shared cycle-cover/MSA edge, got %d", metrics.CycleCoverHighMsaHeuristicEdges)
@@ -52,7 +61,14 @@ func TestCalculateAnalysisOptimalEdgePartition(t *testing.T) {
 		{From: 3, To: 2},
 	}
 
-	analysis := calculateAnalysis("test", 4, msaHeuristic, tours, cycleCoverEdges, 1.0)
+	matrix := [][]float64{
+		{0, 1, 2, 3},
+		{1, 0, 1, 2},
+		{1, 2, 0, 1},
+		{2, 3, 1, 0},
+	}
+
+	analysis := calculateAnalysis("test", 4, matrix, msaHeuristic, tours, cycleCoverEdges, 1.0)
 	metrics := analysis.Metrics
 
 	if metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic != 1 {

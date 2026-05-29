@@ -1,6 +1,19 @@
 package heuristics
 
+import "math"
+
 const msaHeuristicHighSignalThreshold = 1.0
+
+type patchEdge struct {
+	from, to int
+}
+
+type patchCandidate struct {
+	edge     patchEdge
+	signal   float64
+	distance float64
+	valid    bool
+}
 
 func BuildMsaHeuristicModifiers(msaHeuristic [][]float64, strength float64) [][]float64 {
 	dimension := len(msaHeuristic)
@@ -24,6 +37,56 @@ func BuildMsaHeuristicModifiers(msaHeuristic [][]float64, strength float64) [][]
 	}
 
 	return modifiers
+}
+
+func BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover [][]float64, strength float64) [][]float64 {
+	patchingMatrix := BuildCycleCoverMsaPatchingMatrix(matrix, msaHeuristic, cycleCover)
+	modifiers := BuildNeutralModifiers(len(patchingMatrix))
+	if strength == 0 {
+		return modifiers
+	}
+
+	for i := 0; i < len(patchingMatrix); i++ {
+		for j := 0; j < len(patchingMatrix[i]); j++ {
+			if i != j && patchingMatrix[i][j] > 0 {
+				modifiers[i][j] = 1.0 + patchingMatrix[i][j]*strength
+			}
+		}
+	}
+
+	return modifiers
+}
+
+func BuildCycleCoverMsaPatchingMatrix(matrix, msaHeuristic, cycleCover [][]float64) [][]float64 {
+	dimension := heuristicDimension(matrix, msaHeuristic, cycleCover)
+	patchingMatrix := make([][]float64, dimension)
+	for i := range patchingMatrix {
+		patchingMatrix[i] = make([]float64, dimension)
+	}
+	if dimension == 0 {
+		return patchingMatrix
+	}
+
+	for i := 0; i < dimension && i < len(cycleCover); i++ {
+		for j := 0; j < dimension && j < len(cycleCover[i]); j++ {
+			if i != j && cycleCover[i][j] != 0 {
+				patchingMatrix[i][j] = 1.0
+			}
+		}
+	}
+
+	components := buildCycleCoverComponents(cycleCover, dimension)
+	componentCount := countComponents(components)
+	if componentCount <= 1 || len(msaHeuristic) == 0 {
+		return patchingMatrix
+	}
+
+	connectors := selectMsaPatchConnectors(matrix, msaHeuristic, components, componentCount)
+	for edge, signal := range connectors {
+		patchingMatrix[edge.from][edge.to] = signal
+	}
+
+	return patchingMatrix
 }
 
 func BuildCycleCoverModifiers(cycleCover [][]float64, strength float64) [][]float64 {
@@ -53,4 +116,135 @@ func BuildNeutralModifiers(dimension int) [][]float64 {
 		}
 	}
 	return modifiers
+}
+
+func heuristicDimension(matrices ...[][]float64) int {
+	for _, matrix := range matrices {
+		if len(matrix) != 0 {
+			return len(matrix)
+		}
+	}
+
+	return 0
+}
+
+func buildCycleCoverComponents(cycleCover [][]float64, dimension int) []int {
+	components := make([]int, dimension)
+	for i := range components {
+		components[i] = -1
+	}
+
+	component := 0
+	for start := 0; start < dimension; start++ {
+		if components[start] != -1 {
+			continue
+		}
+
+		current := start
+		for current >= 0 && current < dimension && components[current] == -1 {
+			components[current] = component
+			current = cycleCoverSuccessor(cycleCover, current)
+		}
+		component++
+	}
+
+	return components
+}
+
+func cycleCoverSuccessor(cycleCover [][]float64, vertex int) int {
+	if vertex < 0 || vertex >= len(cycleCover) {
+		return -1
+	}
+
+	for to, value := range cycleCover[vertex] {
+		if vertex != to && value != 0 {
+			return to
+		}
+	}
+
+	return -1
+}
+
+func countComponents(components []int) int {
+	count := 0
+	for _, component := range components {
+		if component+1 > count {
+			count = component + 1
+		}
+	}
+	return count
+}
+
+func selectMsaPatchConnectors(matrix, msaHeuristic [][]float64, components []int, componentCount int) map[patchEdge]float64 {
+	outgoing := make([]patchCandidate, componentCount)
+	incoming := make([]patchCandidate, componentCount)
+	dimension := len(components)
+	maxMsaHeuristicSelections := float64(dimension - 1)
+	if maxMsaHeuristicSelections <= 0 {
+		return nil
+	}
+
+	for from := 0; from < dimension && from < len(msaHeuristic); from++ {
+		for to := 0; to < dimension && to < len(msaHeuristic[from]); to++ {
+			if from == to || components[from] == components[to] {
+				continue
+			}
+
+			signal := msaHeuristic[from][to] / maxMsaHeuristicSelections
+			if signal < msaHeuristicHighSignalThreshold {
+				continue
+			}
+
+			candidate := patchCandidate{
+				edge:     patchEdge{from: from, to: to},
+				signal:   signal,
+				distance: matrixDistance(matrix, from, to),
+				valid:    true,
+			}
+			if betterPatchCandidate(candidate, outgoing[components[from]]) {
+				outgoing[components[from]] = candidate
+			}
+			if betterPatchCandidate(candidate, incoming[components[to]]) {
+				incoming[components[to]] = candidate
+			}
+		}
+	}
+
+	connectors := make(map[patchEdge]float64)
+	for _, candidate := range outgoing {
+		if candidate.valid {
+			connectors[candidate.edge] = candidate.signal
+		}
+	}
+	for _, candidate := range incoming {
+		if candidate.valid {
+			connectors[candidate.edge] = candidate.signal
+		}
+	}
+
+	return connectors
+}
+
+func matrixDistance(matrix [][]float64, from, to int) float64 {
+	if from >= 0 && from < len(matrix) && to >= 0 && to < len(matrix[from]) {
+		return matrix[from][to]
+	}
+
+	return math.Inf(1)
+}
+
+func betterPatchCandidate(candidate, current patchCandidate) bool {
+	if !current.valid {
+		return true
+	}
+	if candidate.signal != current.signal {
+		return candidate.signal > current.signal
+	}
+	if candidate.distance != current.distance {
+		return candidate.distance < current.distance
+	}
+	if candidate.edge.from != current.edge.from {
+		return candidate.edge.from < current.edge.from
+	}
+	return candidate.edge.to < current.edge.to
 }

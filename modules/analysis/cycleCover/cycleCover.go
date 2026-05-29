@@ -1,6 +1,7 @@
 package cycleCover
 
 import (
+	"atsp_aco_msa/modules/algorithms/heuristics"
 	"atsp_aco_msa/modules/algorithms/hungarian"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
 	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
@@ -36,6 +37,7 @@ type InstanceMetrics struct {
 
 	CycleCoverMetrics               EdgeSetMetrics
 	HighMsaHeuristicMetrics         EdgeSetMetrics
+	CycleCoverMsaPatchingMetrics    EdgeSetMetrics
 	CycleCoverHighMsaHeuristicEdges int
 
 	OptimalEdgesInCycleCoverAndHighMsaHeuristic int
@@ -113,21 +115,24 @@ func AnalyzeInstance(config InstanceConfig, highThreshold float64) (InstanceAnal
 		return InstanceAnalysis{}, fmt.Errorf("%s: invalid minimum cycle cover: %w", config.Name, err)
 	}
 
-	analysis := calculateAnalysis(config.Name, len(config.Matrix), msaHeuristicMatrix, uniqueOptimalTours, cycleCoverEdges, highThreshold)
+	analysis := calculateAnalysis(config.Name, len(config.Matrix), config.Matrix, msaHeuristicMatrix, uniqueOptimalTours, cycleCoverEdges, highThreshold)
 	return analysis, nil
 }
 
-func calculateAnalysis(instance string, dimension int, msaHeuristic [][]float64, uniqueOptimalTours map[string][]int, cycleCoverEdges []Edge, highThreshold float64) InstanceAnalysis {
+func calculateAnalysis(instance string, dimension int, matrix, msaHeuristic [][]float64, uniqueOptimalTours map[string][]int, cycleCoverEdges []Edge, highThreshold float64) InstanceAnalysis {
 	optimalEdges := buildTourEdgeSet(uniqueOptimalTours)
 	cycleCoverSet := buildEdgeSet(cycleCoverEdges)
 	highMsaHeuristicSet := buildMsaHeuristicThresholdSet(msaHeuristic, highThreshold, true)
 	cycleCoverHighMsaHeuristicSet := intersectEdgeSets(cycleCoverSet, highMsaHeuristicSet)
+	cycleCoverMatrix := buildEdgeMatrix(dimension, cycleCoverEdges)
+	cycleCoverMsaPatchingSet := buildMatrixEdgeSet(heuristics.BuildCycleCoverMsaPatchingMatrix(matrix, msaHeuristic, cycleCoverMatrix))
 
 	metrics := InstanceMetrics{
 		FoundOptimalTourCount:           len(uniqueOptimalTours),
 		UniqueFoundOptimalEdgeCount:     len(optimalEdges),
 		CycleCoverMetrics:               calculateEdgeSetMetrics(cycleCoverSet, optimalEdges),
 		HighMsaHeuristicMetrics:         calculateEdgeSetMetrics(highMsaHeuristicSet, optimalEdges),
+		CycleCoverMsaPatchingMetrics:    calculateEdgeSetMetrics(cycleCoverMsaPatchingSet, optimalEdges),
 		CycleCoverHighMsaHeuristicEdges: len(cycleCoverHighMsaHeuristicSet),
 	}
 
@@ -177,6 +182,31 @@ func buildEdgeSet(edges []Edge) map[Edge]struct{} {
 		set[edge] = struct{}{}
 	}
 	return set
+}
+
+func buildMatrixEdgeSet(matrix [][]float64) map[Edge]struct{} {
+	set := make(map[Edge]struct{})
+	for from := 0; from < len(matrix); from++ {
+		for to, value := range matrix[from] {
+			if from != to && value != 0 {
+				set[Edge{From: from, To: to}] = struct{}{}
+			}
+		}
+	}
+	return set
+}
+
+func buildEdgeMatrix(dimension int, edges []Edge) [][]float64 {
+	matrix := make([][]float64, dimension)
+	for i := range matrix {
+		matrix[i] = make([]float64, dimension)
+	}
+	for _, edge := range edges {
+		if edge.From >= 0 && edge.From < dimension && edge.To >= 0 && edge.To < dimension {
+			matrix[edge.From][edge.To] = 1.0
+		}
+	}
+	return matrix
 }
 
 func buildMsaHeuristicThresholdSet(msaHeuristic [][]float64, threshold float64, includeEqual bool) map[Edge]struct{} {
