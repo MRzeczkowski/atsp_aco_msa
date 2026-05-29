@@ -527,13 +527,13 @@ func emptyMatrix(size int) [][]float64 {
 }
 
 func TestBuildHeuristicModifiersReturnsNeutralMatrixForBaseline(t *testing.T) {
-	msaSupport := [][]float64{
+	msaHeuristic := [][]float64{
 		{0, 1, 1},
 		{1, 0, 1},
 		{1, 1, 0},
 	}
 
-	modifiers := buildHeuristicModifiers(heuristicBaseline, nil, msaSupport, nil, 1.0)
+	modifiers := buildHeuristicModifiers(heuristicBaseline, nil, msaHeuristic, nil, 1.0)
 	expected := [][]float64{
 		{1, 1, 1},
 		{1, 1, 1},
@@ -607,8 +607,8 @@ func TestWithExperimentOutputRootMovesOutputsButKeepsMsaHeuristicCache(t *testin
 	atspData := makeAtspData("test.atsp", [][]float64{{0, 1}, {1, 0}}, 2)
 	output := withExperimentOutputRoot(atspData, finalResultsDirectoryName)
 
-	if output.msaSupportDirectoryPath != atspData.msaSupportDirectoryPath {
-		t.Fatalf("expected MSA heuristic cache path to stay %s, got %s", atspData.msaSupportDirectoryPath, output.msaSupportDirectoryPath)
+	if output.msaHeuristicDirectoryPath != atspData.msaHeuristicDirectoryPath {
+		t.Fatalf("expected MSA heuristic cache path to stay %s, got %s", atspData.msaHeuristicDirectoryPath, output.msaHeuristicDirectoryPath)
 	}
 
 	expectedResultPath := filepath.Join(finalResultsDirectoryName, "test", resultFileName)
@@ -693,11 +693,11 @@ func TestFinalConfigurationsUseMsaHeuristicOnlyWhenNeeded(t *testing.T) {
 		t.Fatal("cycle-cover-only final run should not require MSA heuristic")
 	}
 
-	msaSupportConfigurations, err := selectFinalExperimentConfigurations(heuristicMsaHeuristic)
+	msaHeuristicConfigurations, err := selectFinalExperimentConfigurations(heuristicMsaHeuristic)
 	if err != nil {
 		t.Fatalf("selectFinalExperimentConfigurations(msa-heuristic) returned error: %v", err)
 	}
-	if !finalConfigurationsUseMsaHeuristic(msaSupportConfigurations) {
+	if !finalConfigurationsUseMsaHeuristic(msaHeuristicConfigurations) {
 		t.Fatal("MSA heuristic final run should require MSA heuristic")
 	}
 }
@@ -768,7 +768,7 @@ func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCs
 	}
 }
 
-func TestLegacyMsaSupportHeuristicNameIsNormalized(t *testing.T) {
+func TestLegacyMsaHeuristicHeuristicNameIsNormalized(t *testing.T) {
 	if normalizeHeuristicName(legacyMsaHeuristicName) != heuristicMsaHeuristic {
 		t.Fatal("legacy heuristic name should normalize to MSA heuristic")
 	}
@@ -923,7 +923,7 @@ func sampleCycleCoverAnalyses() []cycleCover.InstanceAnalysis {
 			Metrics: cycleCover.InstanceMetrics{
 				FoundOptimalTourCount:       2,
 				UniqueFoundOptimalEdgeCount: 10,
-				HighMsaSupportMetrics: cycleCover.EdgeSetMetrics{
+				HighMsaHeuristicMetrics: cycleCover.EdgeSetMetrics{
 					EdgeCount:        5,
 					OptimalEdgeCount: 4,
 					Precision:        0.8,
@@ -935,11 +935,11 @@ func sampleCycleCoverAnalyses() []cycleCover.InstanceAnalysis {
 					Precision:        0.6,
 					Recall:           0.3,
 				},
-				CycleCoverHighMsaEdges:                    2,
-				OptimalEdgesInCycleCoverAndHighMsaSupport: 2,
-				OptimalEdgesInHighMsaSupportNotCycleCover: 2,
-				OptimalEdgesInCycleCoverNotHighMsaSupport: 1,
-				OptimalEdgesInNeitherCycleCoverNorHigh:    5,
+				CycleCoverHighMsaEdges:                      2,
+				OptimalEdgesInCycleCoverAndHighMsaHeuristic: 2,
+				OptimalEdgesInHighMsaHeuristicNotCycleCover: 2,
+				OptimalEdgesInCycleCoverNotHighMsaHeuristic: 1,
+				OptimalEdgesInNeitherCycleCoverNorHigh:      5,
 			},
 		},
 		{
@@ -948,7 +948,7 @@ func sampleCycleCoverAnalyses() []cycleCover.InstanceAnalysis {
 			Metrics: cycleCover.InstanceMetrics{
 				FoundOptimalTourCount:       1,
 				UniqueFoundOptimalEdgeCount: 4,
-				HighMsaSupportMetrics: cycleCover.EdgeSetMetrics{
+				HighMsaHeuristicMetrics: cycleCover.EdgeSetMetrics{
 					EdgeCount:        2,
 					OptimalEdgeCount: 1,
 					Precision:        0.5,
@@ -960,11 +960,11 @@ func sampleCycleCoverAnalyses() []cycleCover.InstanceAnalysis {
 					Precision:        0.75,
 					Recall:           0.75,
 				},
-				CycleCoverHighMsaEdges:                    1,
-				OptimalEdgesInCycleCoverAndHighMsaSupport: 1,
-				OptimalEdgesInHighMsaSupportNotCycleCover: 0,
-				OptimalEdgesInCycleCoverNotHighMsaSupport: 2,
-				OptimalEdgesInNeitherCycleCoverNorHigh:    1,
+				CycleCoverHighMsaEdges:                      1,
+				OptimalEdgesInCycleCoverAndHighMsaHeuristic: 1,
+				OptimalEdgesInHighMsaHeuristicNotCycleCover: 0,
+				OptimalEdgesInCycleCoverNotHighMsaHeuristic: 2,
+				OptimalEdgesInNeitherCycleCoverNorHigh:      1,
 			},
 		},
 	}

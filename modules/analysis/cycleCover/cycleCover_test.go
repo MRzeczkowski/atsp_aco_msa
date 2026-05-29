@@ -8,9 +8,9 @@ import (
 )
 
 func TestCalculateAnalysisStructuralMetrics(t *testing.T) {
-	msaSupport := newTestMatrix(4)
-	msaSupport[0][1] = 3
-	msaSupport[0][2] = 3
+	msaHeuristic := newTestMatrix(4)
+	msaHeuristic[0][1] = 3
+	msaHeuristic[0][2] = 3
 
 	tours := map[string][]int{"tour": {0, 1, 2, 3}}
 	cycleCoverEdges := []Edge{
@@ -20,29 +20,29 @@ func TestCalculateAnalysisStructuralMetrics(t *testing.T) {
 		{From: 3, To: 0},
 	}
 
-	analysis := calculateAnalysis("test", 4, msaSupport, tours, cycleCoverEdges, 1.0)
+	analysis := calculateAnalysis("test", 4, msaHeuristic, tours, cycleCoverEdges, 1.0)
 	metrics := analysis.Metrics
 
 	assertFloat(t, "cycle-cover precision", metrics.CycleCoverMetrics.Precision, 1)
 	assertFloat(t, "cycle-cover recall", metrics.CycleCoverMetrics.Recall, 1)
-	assertFloat(t, "high-MSA heuristic precision", metrics.HighMsaSupportMetrics.Precision, 0.5)
-	assertFloat(t, "high-MSA heuristic recall", metrics.HighMsaSupportMetrics.Recall, 0.25)
+	assertFloat(t, "high-MSA heuristic precision", metrics.HighMsaHeuristicMetrics.Precision, 0.5)
+	assertFloat(t, "high-MSA heuristic recall", metrics.HighMsaHeuristicMetrics.Recall, 0.25)
 
 	if metrics.CycleCoverHighMsaEdges != 1 {
 		t.Fatalf("expected one shared cycle-cover/MSA edge, got %d", metrics.CycleCoverHighMsaEdges)
 	}
-	if metrics.OptimalEdgesInCycleCoverAndHighMsaSupport != 1 {
-		t.Fatalf("expected one optimal edge in both sets, got %d", metrics.OptimalEdgesInCycleCoverAndHighMsaSupport)
+	if metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic != 1 {
+		t.Fatalf("expected one optimal edge in both sets, got %d", metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic)
 	}
-	if metrics.OptimalEdgesInCycleCoverNotHighMsaSupport != 3 {
-		t.Fatalf("expected three optimal edges only in cycle cover, got %d", metrics.OptimalEdgesInCycleCoverNotHighMsaSupport)
+	if metrics.OptimalEdgesInCycleCoverNotHighMsaHeuristic != 3 {
+		t.Fatalf("expected three optimal edges only in cycle cover, got %d", metrics.OptimalEdgesInCycleCoverNotHighMsaHeuristic)
 	}
 }
 
 func TestCalculateAnalysisOptimalEdgePartition(t *testing.T) {
-	msaSupport := newTestMatrix(4)
-	msaSupport[0][1] = 3
-	msaSupport[1][2] = 3
+	msaHeuristic := newTestMatrix(4)
+	msaHeuristic[0][1] = 3
+	msaHeuristic[1][2] = 3
 
 	tours := map[string][]int{"tour": {0, 1, 2, 3}}
 	cycleCoverEdges := []Edge{
@@ -52,17 +52,17 @@ func TestCalculateAnalysisOptimalEdgePartition(t *testing.T) {
 		{From: 3, To: 2},
 	}
 
-	analysis := calculateAnalysis("test", 4, msaSupport, tours, cycleCoverEdges, 1.0)
+	analysis := calculateAnalysis("test", 4, msaHeuristic, tours, cycleCoverEdges, 1.0)
 	metrics := analysis.Metrics
 
-	if metrics.OptimalEdgesInCycleCoverAndHighMsaSupport != 1 {
-		t.Fatalf("expected one optimal edge in both sets, got %d", metrics.OptimalEdgesInCycleCoverAndHighMsaSupport)
+	if metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic != 1 {
+		t.Fatalf("expected one optimal edge in both sets, got %d", metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic)
 	}
-	if metrics.OptimalEdgesInHighMsaSupportNotCycleCover != 1 {
-		t.Fatalf("expected one optimal edge only in MSA heuristic, got %d", metrics.OptimalEdgesInHighMsaSupportNotCycleCover)
+	if metrics.OptimalEdgesInHighMsaHeuristicNotCycleCover != 1 {
+		t.Fatalf("expected one optimal edge only in MSA heuristic, got %d", metrics.OptimalEdgesInHighMsaHeuristicNotCycleCover)
 	}
-	if metrics.OptimalEdgesInCycleCoverNotHighMsaSupport != 0 {
-		t.Fatalf("expected no optimal edge only in cycle cover, got %d", metrics.OptimalEdgesInCycleCoverNotHighMsaSupport)
+	if metrics.OptimalEdgesInCycleCoverNotHighMsaHeuristic != 0 {
+		t.Fatalf("expected no optimal edge only in cycle cover, got %d", metrics.OptimalEdgesInCycleCoverNotHighMsaHeuristic)
 	}
 	if metrics.OptimalEdgesInNeitherCycleCoverNorHigh != 2 {
 		t.Fatalf("expected two optimal edges in neither set, got %d", metrics.OptimalEdgesInNeitherCycleCoverNorHigh)
@@ -86,12 +86,12 @@ func TestEdgeSetMetricsWithoutFoundOptimalTours(t *testing.T) {
 
 func TestAnalyzeInstanceCalculatesExpectedMetrics(t *testing.T) {
 	dir := t.TempDir()
-	msaSupportDir := filepath.Join(dir, "msa_support")
-	if err := os.MkdirAll(msaSupportDir, 0700); err != nil {
+	msaHeuristicDir := filepath.Join(dir, "msa_heuristic")
+	if err := os.MkdirAll(msaHeuristicDir, 0700); err != nil {
 		t.Fatal(err)
 	}
 
-	writeFile(t, filepath.Join(msaSupportDir, "msa_support.csv"), strings.Join([]string{
+	writeFile(t, filepath.Join(msaHeuristicDir, "msa_heuristic.csv"), strings.Join([]string{
 		"0,2,0",
 		"0,0,2",
 		"2,0,0",
@@ -102,11 +102,11 @@ func TestAnalyzeInstanceCalculatesExpectedMetrics(t *testing.T) {
 	}, "\n"))
 
 	config := InstanceConfig{
-		Name:                    "test",
-		Dimension:               3,
-		Matrix:                  [][]float64{{0, 1, 5}, {5, 0, 1}, {1, 5, 0}},
-		MsaSupportDirectoryPath: msaSupportDir,
-		OptimalToursCsvPath:     filepath.Join(dir, "solutions.csv"),
+		Name:                      "test",
+		Dimension:                 3,
+		Matrix:                    [][]float64{{0, 1, 5}, {5, 0, 1}, {1, 5, 0}},
+		MsaHeuristicDirectoryPath: msaHeuristicDir,
+		OptimalToursCsvPath:       filepath.Join(dir, "solutions.csv"),
 	}
 
 	analysis, err := AnalyzeInstance(config, 1.0)

@@ -6,14 +6,14 @@ import (
 )
 
 func TestBuildMsaHeuristicModifiersBoostsOnlyHighSupportEdges(t *testing.T) {
-	msaSupport := [][]float64{
+	msaHeuristic := [][]float64{
 		{0, 3, 2, 0},
 		{0, 0, 3, 1},
 		{1, 0, 0, 2},
 		{0, 0, 0, 0},
 	}
 
-	modifiers := BuildMsaHeuristicModifiers(msaSupport, 0.5)
+	modifiers := BuildMsaHeuristicModifiers(msaHeuristic, 0.5)
 	expected := [][]float64{
 		{1, 1.5, 1, 1},
 		{1, 1, 1.5, 1},
@@ -27,12 +27,12 @@ func TestBuildMsaHeuristicModifiersBoostsOnlyHighSupportEdges(t *testing.T) {
 }
 
 func TestBuildMsaHeuristicModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testing.T) {
-	msaSupport := [][]float64{
+	msaHeuristic := [][]float64{
 		{0, 3},
 		{3, 0},
 	}
 
-	modifiers := BuildMsaHeuristicModifiers(msaSupport, 0)
+	modifiers := BuildMsaHeuristicModifiers(msaHeuristic, 0)
 	expected := [][]float64{
 		{1, 1},
 		{1, 1},

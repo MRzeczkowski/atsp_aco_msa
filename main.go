@@ -4,9 +4,9 @@ import (
 	"atsp_aco_msa/modules/algorithms/aco"
 	"atsp_aco_msa/modules/algorithms/heuristics"
 	"atsp_aco_msa/modules/algorithms/hungarian"
-	"atsp_aco_msa/modules/algorithms/msaSupport"
+	"atsp_aco_msa/modules/algorithms/msaHeuristic"
 	"atsp_aco_msa/modules/analysis/cycleCover"
-	"atsp_aco_msa/modules/analysis/msaSupportTours"
+	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
 	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/parsing"
 	"atsp_aco_msa/modules/utilities"
@@ -1385,7 +1385,7 @@ func writeStructuralSimilarityTable(builder *strings.Builder, rows []cycleCover.
 
 func writeStructuralSimilarityRow(builder *strings.Builder, analysis cycleCover.InstanceAnalysis) {
 	metrics := analysis.Metrics
-	msaMetrics := metrics.HighMsaSupportMetrics
+	msaMetrics := metrics.HighMsaHeuristicMetrics
 	cycleCoverMetrics := metrics.CycleCoverMetrics
 	msaPrecisionBold, cycleCoverPrecisionBold := bestPositivePair(msaMetrics.Precision, cycleCoverMetrics.Precision)
 	msaRecallBold, cycleCoverRecallBold := bestPositivePair(msaMetrics.Recall, cycleCoverMetrics.Recall)
@@ -1455,7 +1455,7 @@ func structuralSimilarityTotals(rows []cycleCover.InstanceAnalysis) structuralSi
 
 	for _, analysis := range rows {
 		metrics := analysis.Metrics
-		msaMetrics := metrics.HighMsaSupportMetrics
+		msaMetrics := metrics.HighMsaHeuristicMetrics
 		cycleCoverMetrics := metrics.CycleCoverMetrics
 		msaPrecisionWins, cycleCoverPrecisionWins := bestPositivePair(msaMetrics.Precision, cycleCoverMetrics.Precision)
 		msaRecallWins, cycleCoverRecallWins := bestPositivePair(msaMetrics.Recall, cycleCoverMetrics.Recall)
@@ -1532,7 +1532,7 @@ func writeMsaHeuristicCycleCoverOverlapTable(builder *strings.Builder, rows []cy
 
 func writeMsaHeuristicCycleCoverOverlapRow(builder *strings.Builder, analysis cycleCover.InstanceAnalysis) {
 	metrics := analysis.Metrics
-	msaEdges := metrics.HighMsaSupportMetrics.EdgeCount
+	msaEdges := metrics.HighMsaHeuristicMetrics.EdgeCount
 	cycleCoverEdges := metrics.CycleCoverMetrics.EdgeCount
 	sharedEdges := metrics.CycleCoverHighMsaEdges
 
@@ -1541,9 +1541,9 @@ func writeMsaHeuristicCycleCoverOverlapRow(builder *strings.Builder, analysis cy
 		html.EscapeString(analysis.Instance),
 		100*ratio(sharedEdges, msaEdges),
 		100*ratio(sharedEdges, cycleCoverEdges),
-		metrics.OptimalEdgesInCycleCoverAndHighMsaSupport,
-		metrics.OptimalEdgesInHighMsaSupportNotCycleCover,
-		metrics.OptimalEdgesInCycleCoverNotHighMsaSupport)
+		metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic,
+		metrics.OptimalEdgesInHighMsaHeuristicNotCycleCover,
+		metrics.OptimalEdgesInCycleCoverNotHighMsaHeuristic)
 }
 
 func writeMsaHeuristicCycleCoverOverlapTotalRow(builder *strings.Builder, totals msaHeuristicCycleCoverOverlapSummary) {
@@ -1570,12 +1570,12 @@ func msaHeuristicCycleCoverOverlapTotals(rows []cycleCover.InstanceAnalysis) msa
 	var totals msaHeuristicCycleCoverOverlapSummary
 	for _, analysis := range rows {
 		metrics := analysis.Metrics
-		totals.msaEdges += metrics.HighMsaSupportMetrics.EdgeCount
+		totals.msaEdges += metrics.HighMsaHeuristicMetrics.EdgeCount
 		totals.cycleCoverEdges += metrics.CycleCoverMetrics.EdgeCount
 		totals.sharedEdges += metrics.CycleCoverHighMsaEdges
-		totals.optimalBoth += metrics.OptimalEdgesInCycleCoverAndHighMsaSupport
-		totals.optimalOnlyMsa += metrics.OptimalEdgesInHighMsaSupportNotCycleCover
-		totals.optimalOnlyCycleCover += metrics.OptimalEdgesInCycleCoverNotHighMsaSupport
+		totals.optimalBoth += metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic
+		totals.optimalOnlyMsa += metrics.OptimalEdgesInHighMsaHeuristicNotCycleCover
+		totals.optimalOnlyCycleCover += metrics.OptimalEdgesInCycleCoverNotHighMsaHeuristic
 		totals.optimalNeither += metrics.OptimalEdgesInNeitherCycleCoverNorHigh
 	}
 
@@ -1630,7 +1630,7 @@ func buildMsaCountScalingRows(atspsData []AtspData, requestedCounts []int) ([]ms
 			row.boostedEdges += len(boostedEdges)
 			row.boostedTargetEdges += maxIntValue(len(msas)-1, 0)
 
-			tours, err := msaSupportTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
+			tours, err := msaHeuristicTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
 			if err != nil {
 				return nil, fmt.Errorf("%s: read found optimal tours: %w", atspData.name, err)
 			}
@@ -1653,19 +1653,19 @@ func buildMsaCountScalingRows(atspsData []AtspData, requestedCounts []int) ([]ms
 }
 
 func readOrCreateIndividualMsas(atspData AtspData) ([][][]float64, error) {
-	msas, err := msaSupport.ReadMsas(atspData.msaSupportDirectoryPath)
+	msas, err := msaHeuristic.ReadMsas(atspData.msaHeuristicDirectoryPath)
 	if err == nil && len(msas) == len(atspData.matrix) {
 		return msas, nil
 	}
 
-	if _, createErr := msaSupport.Create(atspData.matrix, atspData.msaSupportDirectoryPath); createErr != nil {
+	if _, createErr := msaHeuristic.Create(atspData.matrix, atspData.msaHeuristicDirectoryPath); createErr != nil {
 		if err != nil {
 			return nil, fmt.Errorf("%s: read individual MSAs: %w; create MSA heuristic: %w", atspData.name, err, createErr)
 		}
 		return nil, fmt.Errorf("%s: create MSA heuristic: %w", atspData.name, createErr)
 	}
 
-	msas, err = msaSupport.ReadMsas(atspData.msaSupportDirectoryPath)
+	msas, err = msaHeuristic.ReadMsas(atspData.msaHeuristicDirectoryPath)
 	if err != nil {
 		return nil, fmt.Errorf("%s: read individual MSAs: %w", atspData.name, err)
 	}
@@ -1959,16 +1959,16 @@ func heuristicDisplayName(heuristic string) string {
 	}
 }
 
-func buildHeuristicModifiers(heuristic string, matrix, msaSupport, cycleCover [][]float64, strength float64) [][]float64 {
+func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover [][]float64, strength float64) [][]float64 {
 	switch normalizeHeuristicName(heuristic) {
 	case heuristicBaseline:
-		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaSupport, cycleCover))
+		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
 	case heuristicMsaHeuristic:
-		return heuristics.BuildMsaHeuristicModifiers(msaSupport, strength)
+		return heuristics.BuildMsaHeuristicModifiers(msaHeuristic, strength)
 	case heuristicCycleCover:
 		return heuristics.BuildCycleCoverModifiers(cycleCover, strength)
 	default:
-		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaSupport, cycleCover))
+		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
 	}
 }
 
@@ -2255,18 +2255,18 @@ type AtspData struct {
 	matrix       [][]float64
 	knownOptimal float64
 
-	msaSupportDirectoryPath string
+	msaHeuristicDirectoryPath string
 
-	msaSupportHeatmapPlotPath   string
-	msaSupportHistogramPlotPath string
+	msaHeuristicHeatmapPlotPath   string
+	msaHeuristicHistogramPlotPath string
 
 	resultFilePath       string
 	resultPlotFilePrefix string
 
-	optimalUniqueToursCsvPath             string
-	toursHeatmapPlotPath                  string
-	toursHistogramPlotPath                string
-	msaSupportToursOverlapHeatmapPlotPath string
+	optimalUniqueToursCsvPath               string
+	toursHeatmapPlotPath                    string
+	toursHistogramPlotPath                  string
+	msaHeuristicToursOverlapHeatmapPlotPath string
 }
 
 func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspData {
@@ -2276,11 +2276,11 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 func makeAtspDataInResultsDirectory(name string, matrix [][]float64, knownOptimal float64, resultsRootPath string) AtspData {
 	name = strings.TrimSuffix(name, ".atsp")
 	resultsDirectoryPath := filepath.Join(resultsRootPath, name)
-	msaSupportDirectoryPath := filepath.Join(resultsDirectoryPath, "msa_support")
+	msaHeuristicDirectoryPath := filepath.Join(resultsDirectoryPath, "msa_heuristic")
 	plotsDirectoryPath := filepath.Join(resultsDirectoryPath, "plots")
 
-	msaSupportHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "msa_support_heatmap.png")
-	msaSupportHistogramPlotPath := filepath.Join(plotsDirectoryPath, "msa_support_histogram.png")
+	msaHeuristicHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "msa_heuristic_heatmap.png")
+	msaHeuristicHistogramPlotPath := filepath.Join(plotsDirectoryPath, "msa_heuristic_histogram.png")
 
 	resultFilePath := filepath.Join(resultsDirectoryPath, resultFileName)
 	resultPlotFilePrefix := filepath.Join(plotsDirectoryPath, "best_result")
@@ -2288,16 +2288,16 @@ func makeAtspDataInResultsDirectory(name string, matrix [][]float64, knownOptima
 	optimalUniqueToursCsvPath := filepath.Join(resultsDirectoryPath, "solutions.csv")
 	toursHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "tours_heatmap.png")
 	toursHistogramPlotPath := filepath.Join(plotsDirectoryPath, "tours_histogram.png")
-	msaSupportToursOverlapHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "msa_support_tours_overlap_heatmap.png")
+	msaHeuristicToursOverlapHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "msa_heuristic_tours_overlap_heatmap.png")
 
 	return AtspData{
 		name,
 		matrix,
 		knownOptimal,
 
-		msaSupportDirectoryPath,
+		msaHeuristicDirectoryPath,
 
-		msaSupportHeatmapPlotPath, msaSupportHistogramPlotPath,
+		msaHeuristicHeatmapPlotPath, msaHeuristicHistogramPlotPath,
 
 		resultFilePath,
 		resultPlotFilePrefix,
@@ -2305,13 +2305,13 @@ func makeAtspDataInResultsDirectory(name string, matrix [][]float64, knownOptima
 		optimalUniqueToursCsvPath,
 		toursHeatmapPlotPath,
 		toursHistogramPlotPath,
-		msaSupportToursOverlapHeatmapPlotPath,
+		msaHeuristicToursOverlapHeatmapPlotPath,
 	}
 }
 
 func withExperimentOutputRoot(atspData AtspData, resultsRootPath string) AtspData {
 	output := makeAtspDataInResultsDirectory(atspData.name, atspData.matrix, atspData.knownOptimal, resultsRootPath)
-	output.msaSupportDirectoryPath = atspData.msaSupportDirectoryPath
+	output.msaHeuristicDirectoryPath = atspData.msaHeuristicDirectoryPath
 	output.optimalUniqueToursCsvPath = atspData.optimalUniqueToursCsvPath
 	return output
 }
@@ -2588,7 +2588,7 @@ func startCPUProfile() (func(), error) {
 }
 
 func runExperimentMode(atspsData []AtspData, heuristic string) error {
-	if err := ensureMsaSupportArtifacts(atspsData); err != nil {
+	if err := ensureMsaHeuristicArtifacts(atspsData); err != nil {
 		return err
 	}
 
@@ -2596,9 +2596,9 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 }
 
 func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration) error {
-	needsMsaSupport := finalConfigurationsUseMsaHeuristic(configurations)
-	if needsMsaSupport {
-		if err := ensureMsaSupportCache(atspsData); err != nil {
+	needsMsaHeuristic := finalConfigurationsUseMsaHeuristic(configurations)
+	if needsMsaHeuristic {
+		if err := ensureMsaHeuristicCache(atspsData); err != nil {
 			return err
 		}
 	}
@@ -2609,7 +2609,7 @@ func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThr
 
 	for _, atspData := range atspsData {
 		finalAtspData := withExperimentOutputRoot(atspData, resultsRootPath)
-		if err := runFinalExperimentForInstance(finalAtspData, useThreeOpt, configurations, needsMsaSupport); err != nil {
+		if err := runFinalExperimentForInstance(finalAtspData, useThreeOpt, configurations, needsMsaHeuristic); err != nil {
 			return err
 		}
 	}
@@ -2617,7 +2617,7 @@ func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThr
 	return nil
 }
 
-func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configurations []finalExperimentConfiguration, needsMsaSupport bool) error {
+func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configurations []finalExperimentConfiguration, needsMsaHeuristic bool) error {
 	matrix := atspData.matrix
 	knownOptimal := atspData.knownOptimal
 	dimension := len(matrix)
@@ -2636,7 +2636,7 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 	}
 
 	var heuristicMatrix [][]float64
-	if needsMsaSupport {
+	if needsMsaHeuristic {
 		var err error
 		heuristicMatrix, err = readMsaHeuristicMatrixForHeuristic(atspData, heuristicMsaHeuristic)
 		if err != nil {
@@ -2819,7 +2819,7 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 			saveExperimentPlots(statistics, "MMAS deviation per iteration", resultPlotFilePrefixForHeuristic(atspData, heuristic))
 		}
 
-		uniqueOptimalTours, err := msaSupportTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
+		uniqueOptimalTours, err := msaHeuristicTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
 		if err != nil {
 			return err
 		}
@@ -2827,12 +2827,12 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 		for _, data := range experimentData {
 			for _, result := range data.results {
 				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
-					msaSupportTours.AddUniqueTour(uniqueOptimalTours, result.bestTour)
+					msaHeuristicTours.AddUniqueTour(uniqueOptimalTours, result.bestTour)
 				}
 			}
 		}
 
-		if err := msaSupportTours.SaveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, atspData.msaSupportDirectoryPath, uniqueOptimalTours); err != nil {
+		if err := msaHeuristicTours.SaveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, atspData.msaHeuristicDirectoryPath, uniqueOptimalTours); err != nil {
 			return err
 		}
 
@@ -2846,41 +2846,41 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 }
 
 func readMsaHeuristicMatrixForHeuristic(atspData AtspData, heuristic string) ([][]float64, error) {
-	return msaSupport.Read(atspData.msaSupportDirectoryPath)
+	return msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
 }
 
-func ensureMsaSupportArtifacts(atspsData []AtspData) error {
+func ensureMsaHeuristicArtifacts(atspsData []AtspData) error {
 	for _, atspData := range atspsData {
 		name := atspData.name
 		matrix := atspData.matrix
-		msaSupportDirectoryPath := atspData.msaSupportDirectoryPath
+		msaHeuristicDirectoryPath := atspData.msaHeuristicDirectoryPath
 
-		msaSupportMatrix, err := msaSupport.Read(atspData.msaSupportDirectoryPath)
+		msaHeuristicMatrix, err := msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
 
 		if err != nil {
 			start := time.Now()
-			msaSupportMatrix, err = msaSupport.Create(matrix, msaSupportDirectoryPath)
+			msaHeuristicMatrix, err = msaHeuristic.Create(matrix, msaHeuristicDirectoryPath)
 			elapsed := time.Since(start)
 
-			fmt.Printf("\tCreating %s took: %d ms\n", msaSupportDirectoryPath, elapsed.Milliseconds())
+			fmt.Printf("\tCreating %s took: %d ms\n", msaHeuristicDirectoryPath, elapsed.Milliseconds())
 
 			if err != nil {
 				return fmt.Errorf("error saving MSA heuristic: %w", err)
 			}
 		}
 
-		msaSupportHeatmapPlotTitle := name + " MSA heuristic heatmap"
+		msaHeuristicHeatmapPlotTitle := name + " MSA heuristic heatmap"
 
-		err = utilities.SaveHeatmapFromMatrix(msaSupportMatrix, msaSupportHeatmapPlotTitle, atspData.msaSupportHeatmapPlotPath)
+		err = utilities.SaveHeatmapFromMatrix(msaHeuristicMatrix, msaHeuristicHeatmapPlotTitle, atspData.msaHeuristicHeatmapPlotPath)
 		if err != nil {
 			return err
 		}
 
-		dataForHistogram := filterZeroes(flattenMatrix(msaSupportMatrix))
-		msaSupportHistogramPlotTitle := name + " MSA heuristic histogram"
+		dataForHistogram := filterZeroes(flattenMatrix(msaHeuristicMatrix))
+		msaHeuristicHistogramPlotTitle := name + " MSA heuristic histogram"
 
 		dimension := len(matrix)
-		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, msaSupportHistogramPlotTitle, atspData.msaSupportHistogramPlotPath)
+		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, msaHeuristicHistogramPlotTitle, atspData.msaHeuristicHistogramPlotPath)
 		if err != nil {
 			return err
 		}
@@ -2889,51 +2889,51 @@ func ensureMsaSupportArtifacts(atspsData []AtspData) error {
 	return nil
 }
 
-func ensureMsaSupportCache(atspsData []AtspData) error {
+func ensureMsaHeuristicCache(atspsData []AtspData) error {
 	for _, atspData := range atspsData {
-		if _, err := msaSupport.Read(atspData.msaSupportDirectoryPath); err == nil {
+		if _, err := msaHeuristic.Read(atspData.msaHeuristicDirectoryPath); err == nil {
 			continue
 		}
 
 		start := time.Now()
-		if _, err := msaSupport.Create(atspData.matrix, atspData.msaSupportDirectoryPath); err != nil {
+		if _, err := msaHeuristic.Create(atspData.matrix, atspData.msaHeuristicDirectoryPath); err != nil {
 			return fmt.Errorf("error saving MSA heuristic: %w", err)
 		}
 
-		fmt.Printf("\tCreating %s took: %d ms\n", atspData.msaSupportDirectoryPath, time.Since(start).Milliseconds())
+		fmt.Printf("\tCreating %s took: %d ms\n", atspData.msaHeuristicDirectoryPath, time.Since(start).Milliseconds())
 	}
 
 	return nil
 }
 
 func runAnalysisMode(atspsData []AtspData) error {
-	if err := ensureMsaSupportArtifacts(atspsData); err != nil {
+	if err := ensureMsaHeuristicArtifacts(atspsData); err != nil {
 		return err
 	}
 
-	msaSupportTourConfigs := make([]msaSupportTours.InstanceConfig, 0, len(atspsData))
+	msaHeuristicTourConfigs := make([]msaHeuristicTours.InstanceConfig, 0, len(atspsData))
 	cycleCoverConfigs := make([]cycleCover.InstanceConfig, 0, len(atspsData))
 	for _, atspData := range atspsData {
-		msaSupportTourConfigs = append(msaSupportTourConfigs, msaSupportTours.InstanceConfig{
-			Name:                              atspData.name,
-			Dimension:                         len(atspData.matrix),
-			MsaSupportDirectoryPath:           atspData.msaSupportDirectoryPath,
-			OptimalToursCsvPath:               atspData.optimalUniqueToursCsvPath,
-			ToursHeatmapPath:                  atspData.toursHeatmapPlotPath,
-			ToursHistogramPath:                atspData.toursHistogramPlotPath,
-			MsaSupportToursOverlapHeatmapPath: atspData.msaSupportToursOverlapHeatmapPlotPath,
+		msaHeuristicTourConfigs = append(msaHeuristicTourConfigs, msaHeuristicTours.InstanceConfig{
+			Name:                                atspData.name,
+			Dimension:                           len(atspData.matrix),
+			MsaHeuristicDirectoryPath:           atspData.msaHeuristicDirectoryPath,
+			OptimalToursCsvPath:                 atspData.optimalUniqueToursCsvPath,
+			ToursHeatmapPath:                    atspData.toursHeatmapPlotPath,
+			ToursHistogramPath:                  atspData.toursHistogramPlotPath,
+			MsaHeuristicToursOverlapHeatmapPath: atspData.msaHeuristicToursOverlapHeatmapPlotPath,
 		})
 
 		cycleCoverConfigs = append(cycleCoverConfigs, cycleCover.InstanceConfig{
-			Name:                    atspData.name,
-			Dimension:               len(atspData.matrix),
-			Matrix:                  atspData.matrix,
-			MsaSupportDirectoryPath: atspData.msaSupportDirectoryPath,
-			OptimalToursCsvPath:     atspData.optimalUniqueToursCsvPath,
+			Name:                      atspData.name,
+			Dimension:                 len(atspData.matrix),
+			Matrix:                    atspData.matrix,
+			MsaHeuristicDirectoryPath: atspData.msaHeuristicDirectoryPath,
+			OptimalToursCsvPath:       atspData.optimalUniqueToursCsvPath,
 		})
 	}
 
-	if err := msaSupportTours.AnalyzeInstances(msaSupportTours.Config{Instances: msaSupportTourConfigs}); err != nil {
+	if err := msaHeuristicTours.AnalyzeInstances(msaHeuristicTours.Config{Instances: msaHeuristicTourConfigs}); err != nil {
 		return err
 	}
 
