@@ -2247,23 +2247,18 @@ type AtspData struct {
 	matrix       [][]float64
 	knownOptimal float64
 
-	msaSupportDirectoryPath,
+	msaSupportDirectoryPath string
 
-	msaSupportHeatmapPlotPath, msaSupportHistogramPlotPath,
+	msaSupportHeatmapPlotPath   string
+	msaSupportHistogramPlotPath string
 
-	resultFilePath,
-	resultPlotFilePrefix,
+	resultFilePath       string
+	resultPlotFilePrefix string
 
-	optimalUniqueToursCsvPath,
-	toursHeatmapPlotPath,
-	toursHistogramPlotPath,
-	msaSupportToursOverlapHeatmapPlotPath,
-	msaSupportSolutionAnalysisCsvPath,
-	msaSupportSolutionThresholdsCsvPath,
-	cycleCoverEdgesCsvPath,
-	cycleCoverAnalysisCsvPath,
-	cycleCoverThresholdsCsvPath,
-	cycleCoverMsaSupportOverlapCsvPath string
+	optimalUniqueToursCsvPath             string
+	toursHeatmapPlotPath                  string
+	toursHistogramPlotPath                string
+	msaSupportToursOverlapHeatmapPlotPath string
 }
 
 func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspData {
@@ -2286,12 +2281,6 @@ func makeAtspDataInResultsDirectory(name string, matrix [][]float64, knownOptima
 	toursHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "tours_heatmap.png")
 	toursHistogramPlotPath := filepath.Join(plotsDirectoryPath, "tours_histogram.png")
 	msaSupportToursOverlapHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "msa_support_tours_overlap_heatmap.png")
-	msaSupportSolutionAnalysisCsvPath := filepath.Join(resultsDirectoryPath, "msa_support_solution_analysis.csv")
-	msaSupportSolutionThresholdsCsvPath := filepath.Join(resultsDirectoryPath, "msa_support_solution_thresholds.csv")
-	cycleCoverEdgesCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_edges.csv")
-	cycleCoverAnalysisCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_analysis.csv")
-	cycleCoverThresholdsCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_thresholds.csv")
-	cycleCoverMsaSupportOverlapCsvPath := filepath.Join(resultsDirectoryPath, "cycle_cover_msa_support_overlap.csv")
 
 	return AtspData{
 		name,
@@ -2309,12 +2298,6 @@ func makeAtspDataInResultsDirectory(name string, matrix [][]float64, knownOptima
 		toursHeatmapPlotPath,
 		toursHistogramPlotPath,
 		msaSupportToursOverlapHeatmapPlotPath,
-		msaSupportSolutionAnalysisCsvPath,
-		msaSupportSolutionThresholdsCsvPath,
-		cycleCoverEdgesCsvPath,
-		cycleCoverAnalysisCsvPath,
-		cycleCoverThresholdsCsvPath,
-		cycleCoverMsaSupportOverlapCsvPath,
 	}
 }
 
@@ -2917,21 +2900,15 @@ func runAnalysisMode(atspsData []AtspData) error {
 			ToursHeatmapPath:                  atspData.toursHeatmapPlotPath,
 			ToursHistogramPath:                atspData.toursHistogramPlotPath,
 			MsaSupportToursOverlapHeatmapPath: atspData.msaSupportToursOverlapHeatmapPlotPath,
-			AnalysisCsvPath:                   atspData.msaSupportSolutionAnalysisCsvPath,
-			ThresholdsCsvPath:                 atspData.msaSupportSolutionThresholdsCsvPath,
 		})
 
 		cycleCoverConfigs = append(cycleCoverConfigs, cycleCover.InstanceConfig{
-			Name:                        atspData.name,
-			Dimension:                   len(atspData.matrix),
-			Matrix:                      atspData.matrix,
-			KnownOptimal:                atspData.knownOptimal,
-			MsaSupportDirectoryPath:     atspData.msaSupportDirectoryPath,
-			OptimalToursCsvPath:         atspData.optimalUniqueToursCsvPath,
-			CycleCoverEdgesCsvPath:      atspData.cycleCoverEdgesCsvPath,
-			AnalysisCsvPath:             atspData.cycleCoverAnalysisCsvPath,
-			ThresholdsCsvPath:           atspData.cycleCoverThresholdsCsvPath,
-			CycleCoverOverlapMatrixPath: atspData.cycleCoverMsaSupportOverlapCsvPath,
+			Name:                    atspData.name,
+			Dimension:               len(atspData.matrix),
+			Matrix:                  atspData.matrix,
+			KnownOptimal:            atspData.knownOptimal,
+			MsaSupportDirectoryPath: atspData.msaSupportDirectoryPath,
+			OptimalToursCsvPath:     atspData.optimalUniqueToursCsvPath,
 		})
 	}
 

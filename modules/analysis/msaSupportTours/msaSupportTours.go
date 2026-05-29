@@ -591,6 +591,9 @@ func calculateCommonalityWithMatrix(tourEdges []Edge, matrix [][]float64) float6
 }
 
 func saveInstanceAnalysis(path, instance string, dimension int, metrics InstanceMetrics) error {
+	if path == "" {
+		return nil
+	}
 	if err := ensureParentDirectory(path); err != nil {
 		return err
 	}
@@ -636,6 +639,9 @@ func saveInstanceAnalysis(path, instance string, dimension int, metrics Instance
 }
 
 func saveThresholdAnalysis(path string, metrics []ThresholdMetrics) error {
+	if path == "" {
+		return nil
+	}
 	if err := ensureParentDirectory(path); err != nil {
 		return err
 	}
