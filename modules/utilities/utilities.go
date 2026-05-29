@@ -6,9 +6,7 @@ import (
 	"math"
 	"os"
 	"path"
-	"regexp"
 	"sort"
-	"strconv"
 
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/palette/moreland"
@@ -220,36 +218,6 @@ func savePlotWithPadding(p *plot.Plot, width, height vg.Length, filePath string)
 	}
 
 	return nil
-}
-
-func ExtractNumber(input string) (int, error) {
-
-	re := regexp.MustCompile(`\d+`)
-
-	match := re.FindString(input)
-
-	if match == "" {
-		return 0, fmt.Errorf("no number found in the string")
-	}
-
-	number, err := strconv.Atoi(match)
-	if err != nil {
-		return 0, err
-	}
-
-	return number, nil
-}
-
-func FilterStrings(strings []string, condition func(string) bool) []string {
-	result := []string{}
-
-	for _, str := range strings {
-		if condition(str) {
-			result = append(result, str)
-		}
-	}
-
-	return result
 }
 
 func GenerateRange(start, end, step float64) []float64 {

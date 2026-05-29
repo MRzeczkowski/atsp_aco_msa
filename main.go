@@ -1527,7 +1527,7 @@ func writeMsaSupportCycleCoverOverlapRow(builder *strings.Builder, analysis cycl
 	metrics := analysis.Metrics
 	msaEdges := metrics.HighMsaSupportMetrics.EdgeCount
 	cycleCoverEdges := metrics.CycleCoverMetrics.EdgeCount
-	sharedEdges := metrics.CycleCoverEdgesWithHighMsaSupport
+	sharedEdges := metrics.CycleCoverHighMsaEdges
 
 	fmt.Fprintf(builder,
 		"<tr><td>%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td></tr>\n",
@@ -1565,7 +1565,7 @@ func msaSupportCycleCoverOverlapTotals(rows []cycleCover.InstanceAnalysis) msaSu
 		metrics := analysis.Metrics
 		totals.msaEdges += metrics.HighMsaSupportMetrics.EdgeCount
 		totals.cycleCoverEdges += metrics.CycleCoverMetrics.EdgeCount
-		totals.sharedEdges += metrics.CycleCoverEdgesWithHighMsaSupport
+		totals.sharedEdges += metrics.CycleCoverHighMsaEdges
 		totals.optimalBoth += metrics.OptimalEdgesInCycleCoverAndHighMsaSupport
 		totals.optimalOnlyMsa += metrics.OptimalEdgesInHighMsaSupportNotCycleCover
 		totals.optimalOnlyCycleCover += metrics.OptimalEdgesInCycleCoverNotHighMsaSupport
@@ -2906,35 +2906,18 @@ func runAnalysisMode(atspsData []AtspData) error {
 			Name:                    atspData.name,
 			Dimension:               len(atspData.matrix),
 			Matrix:                  atspData.matrix,
-			KnownOptimal:            atspData.knownOptimal,
 			MsaSupportDirectoryPath: atspData.msaSupportDirectoryPath,
 			OptimalToursCsvPath:     atspData.optimalUniqueToursCsvPath,
 		})
 	}
 
-	msaSupportSolutionSummaryPath := filepath.Join(resultsDirectoryName, "msa_support_solution_analysis_summary.csv")
-	msaSupportSolutionReportPath := filepath.Join(resultsDirectoryName, "msa_support_solution_analysis_report.md")
-
-	_, err := msaSupportTours.AnalyzeInstances(msaSupportTours.Config{
-		Instances:      msaSupportTourConfigs,
-		SummaryCsvPath: msaSupportSolutionSummaryPath,
-		ReportPath:     msaSupportSolutionReportPath,
-		HighThreshold:  0.8,
-		Thresholds:     msaSupportTours.DefaultThresholds(),
-	})
-	if err != nil {
+	if err := msaSupportTours.AnalyzeInstances(msaSupportTours.Config{Instances: msaSupportTourConfigs}); err != nil {
 		return err
 	}
 
-	cycleCoverSummaryPath := filepath.Join(resultsDirectoryName, "cycle_cover_analysis_summary.csv")
-	cycleCoverReportPath := filepath.Join(resultsDirectoryName, "cycle_cover_analysis_report.md")
-
 	cycleCoverAnalyses, err := cycleCover.AnalyzeInstances(cycleCover.Config{
-		Instances:      cycleCoverConfigs,
-		SummaryCsvPath: cycleCoverSummaryPath,
-		ReportPath:     cycleCoverReportPath,
-		HighThreshold:  1.0,
-		Thresholds:     msaSupportTours.DefaultThresholds(),
+		Instances:     cycleCoverConfigs,
+		HighThreshold: 1.0,
 	})
 	if err != nil {
 		return err
@@ -2955,15 +2938,6 @@ func runAnalysisMode(atspsData []AtspData) error {
 		return err
 	}
 
-	heuristicBoostSummaryPath := filepath.Join(resultsDirectoryName, "heuristic_boosted_edges_summary.csv")
-	heuristicBoostRows, err := buildHeuristicBoostSummary(atspsData)
-	if err != nil {
-		return err
-	}
-	if err := saveHeuristicBoostSummary(heuristicBoostSummaryPath, heuristicBoostRows); err != nil {
-		return err
-	}
-
 	finalResultsSummaryPath, finalRows, finalSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses, finalResultsDirectoryName)
 	if err != nil {
 		return err
@@ -2974,14 +2948,9 @@ func runAnalysisMode(atspsData []AtspData) error {
 		return err
 	}
 
-	fmt.Printf("MSA support/solution analysis summary saved to %s\n", msaSupportSolutionSummaryPath)
-	fmt.Printf("MSA support/solution analysis report saved to %s\n", msaSupportSolutionReportPath)
-	fmt.Printf("Cycle-cover analysis summary saved to %s\n", cycleCoverSummaryPath)
-	fmt.Printf("Cycle-cover analysis report saved to %s\n", cycleCoverReportPath)
 	fmt.Printf("Structural similarity report saved to %s\n", structuralSimilarityReportPath)
 	fmt.Printf("MSA support/cycle-cover overlap report saved to %s\n", heuristicOverlapReportPath)
 	fmt.Printf("MSA count scaling report saved to %s\n", msaCountScalingReportPath)
-	fmt.Printf("Heuristic boosted-edge summary saved to %s\n", heuristicBoostSummaryPath)
 	if finalSummarySaved {
 		fmt.Printf("Final results summary saved to %s\n", finalResultsSummaryPath)
 		fmt.Printf("Pairwise performance report saved to %s\n", filepath.Join(finalResultsDirectoryName, "pairwise_performance.md"))
@@ -3056,142 +3025,6 @@ func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCov
 	}
 
 	return finalResultsSummaryPath, finalRows, true, nil
-}
-
-type heuristicBoostSummaryRow struct {
-	instance            string
-	heuristic           string
-	dimension           int
-	boostableEdges      int
-	tourEdgeTarget      int
-	boostedEdges        int
-	boostedEdgeDensity  float64
-	boostedToTourTarget float64
-}
-
-func buildHeuristicBoostSummary(atspsData []AtspData) ([]heuristicBoostSummaryRow, error) {
-	const referenceStrength = 1.0
-	heuristicNames := []string{
-		heuristicMsaSupport,
-		heuristicCycleCover,
-	}
-
-	instances := append([]AtspData(nil), atspsData...)
-	sort.SliceStable(instances, func(i, j int) bool {
-		return instances[i].name < instances[j].name
-	})
-
-	rows := make([]heuristicBoostSummaryRow, 0, len(instances)*len(heuristicNames))
-	for _, atspData := range instances {
-		var cycleCover [][]float64
-		var cycleCoverErr error
-		cycleCoverReady := false
-
-		for _, heuristic := range heuristicNames {
-			heuristicMatrix, err := readMsaSupportMatrixForHeuristic(atspData, heuristic)
-			if err != nil {
-				return nil, fmt.Errorf("%s/%s: failed to read heuristic matrix: %w", atspData.name, heuristic, err)
-			}
-
-			if heuristicUsesCycleCover(heuristic) && !cycleCoverReady {
-				cycleCover, _, cycleCoverErr = buildMinimumCycleCoverMatrix(atspData.matrix)
-				if cycleCoverErr != nil {
-					return nil, fmt.Errorf("%s: failed to build minimum cycle cover: %w", atspData.name, cycleCoverErr)
-				}
-				cycleCoverReady = true
-			}
-
-			modifiers := buildHeuristicModifiers(heuristic, atspData.matrix, heuristicMatrix, cycleCover, referenceStrength)
-			rows = append(rows, analyzeHeuristicBoosts(atspData.name, heuristic, modifiers))
-		}
-	}
-
-	return rows, nil
-}
-
-func analyzeHeuristicBoosts(instance, heuristic string, modifiers [][]float64) heuristicBoostSummaryRow {
-	dimension := len(modifiers)
-	totalDirectedEdges := dimension * (dimension - 1)
-	tourEdgeTarget := 0
-	if dimension > 1 {
-		tourEdgeTarget = dimension - 1
-	}
-	boostedEdges := 0
-
-	for i := 0; i < dimension; i++ {
-		for j := 0; j < len(modifiers[i]); j++ {
-			if i == j || modifiers[i][j] <= 1.0 {
-				continue
-			}
-
-			boostedEdges++
-		}
-	}
-
-	boostedEdgeDensity := 0.0
-	if totalDirectedEdges > 0 {
-		boostedEdgeDensity = float64(boostedEdges) / float64(totalDirectedEdges)
-	}
-
-	boostedToTourTarget := 0.0
-	if tourEdgeTarget > 0 {
-		boostedToTourTarget = float64(boostedEdges) / float64(tourEdgeTarget)
-	}
-
-	return heuristicBoostSummaryRow{
-		instance:            instance,
-		heuristic:           heuristic,
-		dimension:           dimension,
-		boostableEdges:      totalDirectedEdges,
-		tourEdgeTarget:      tourEdgeTarget,
-		boostedEdges:        boostedEdges,
-		boostedEdgeDensity:  boostedEdgeDensity,
-		boostedToTourTarget: boostedToTourTarget,
-	}
-}
-
-func saveHeuristicBoostSummary(path string, rows []heuristicBoostSummaryRow) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return err
-	}
-
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-	header := []string{
-		"Instance",
-		"Heuristic",
-		"Boostable edges",
-		"Tour edge target",
-		"Boosted edges",
-		"Boosted edge density [%]",
-		"Boosted edges vs tour target [%]",
-	}
-	if err := writer.Write(header); err != nil {
-		return err
-	}
-
-	for _, row := range rows {
-		record := []string{
-			row.instance,
-			row.heuristic,
-			strconv.Itoa(row.boostableEdges),
-			strconv.Itoa(row.tourEdgeTarget),
-			strconv.Itoa(row.boostedEdges),
-			fmt.Sprintf("%.2f", 100.0*row.boostedEdgeDensity),
-			fmt.Sprintf("%.2f", 100.0*row.boostedToTourTarget),
-		}
-		if err := writer.Write(record); err != nil {
-			return err
-		}
-	}
-
-	writer.Flush()
-	return writer.Error()
 }
 
 func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plotPathPrefix string) {

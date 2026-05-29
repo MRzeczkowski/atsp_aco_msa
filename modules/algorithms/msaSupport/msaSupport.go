@@ -21,11 +21,6 @@ func Read(rootMsaSupportPath string) ([][]float64, error) {
 	return readFromCsv(msaSupportPath)
 }
 
-func ReadAnti(rootAntiSupportPath string) ([][]float64, error) {
-	antiSupportPath := path.Join(rootAntiSupportPath, "msaa_support.csv")
-	return readFromCsv(antiSupportPath)
-}
-
 func ReadMsas(rootMsaSupportPath string) ([][][]float64, error) {
 
 	msaRootPath := path.Join(rootMsaSupportPath, "msas")
@@ -68,10 +63,6 @@ func ReadMsas(rootMsaSupportPath string) ([][][]float64, error) {
 
 func Create(matrix [][]float64, rootMsaSupportPath string) ([][]float64, error) {
 	return createComposite(matrix, rootMsaSupportPath, "msa_support.csv", "msas", edmonds.FindMSA)
-}
-
-func CreateAnti(matrix [][]float64, rootAntiSupportPath string) ([][]float64, error) {
-	return createComposite(matrix, rootAntiSupportPath, "msaa_support.csv", "msaas", edmonds.FindMSAA)
 }
 
 func createComposite(matrix [][]float64, rootPath, compositeFileName, arborescencesDirectoryName string, find finder) ([][]float64, error) {
