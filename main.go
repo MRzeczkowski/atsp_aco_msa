@@ -2700,7 +2700,6 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 		if err := removeExperimentPlotsForHeuristic(atspData, config.heuristic); err != nil {
 			return err
 		}
-		saveExperimentPlots(statistics, "MMAS deviation per iteration", resultPlotFilePrefixForHeuristic(atspData, config.heuristic))
 	}
 
 	if err := saveFinalHeuristicStatistics(atspData.resultFilePath, finalStatistics, configurations); err != nil {
