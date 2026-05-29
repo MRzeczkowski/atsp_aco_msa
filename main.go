@@ -2238,8 +2238,8 @@ func buildMinimumCycleCoverMatrix(matrix [][]float64) ([][]float64, float64, err
 }
 
 var resultsDirectoryName = "results"
-var finalResultsDirectoryName = filepath.Join(resultsDirectoryName, "final")
-var finalThreeOptResultsDirectoryName = filepath.Join(resultsDirectoryName, "final_3opt")
+var finalResultsDirectoryName = "final"
+var finalThreeOptResultsDirectoryName = "final_3opt"
 var resultFileName = "result.csv"
 
 type AtspData struct {
