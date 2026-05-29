@@ -1,24 +1,24 @@
 package heuristics
 
-const msaSupportHighSignalThreshold = 1.0
+const msaHeuristicHighSignalThreshold = 1.0
 
-func BuildMsaSupportModifiers(msaSupport [][]float64, strength float64) [][]float64 {
-	dimension := len(msaSupport)
+func BuildMsaHeuristicModifiers(msaHeuristic [][]float64, strength float64) [][]float64 {
+	dimension := len(msaHeuristic)
 	modifiers := BuildNeutralModifiers(dimension)
 	if dimension <= 1 || strength == 0 {
 		return modifiers
 	}
 
-	maxMsaSupportSelections := float64(dimension - 1)
+	maxMsaHeuristicSelections := float64(dimension - 1)
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
 			if i == j {
 				continue
 			}
 
-			msaSupportSignal := msaSupport[i][j] / maxMsaSupportSelections
-			if msaSupportSignal >= msaSupportHighSignalThreshold {
-				modifiers[i][j] = 1.0 + msaSupportSignal*strength
+			msaHeuristicSignal := msaHeuristic[i][j] / maxMsaHeuristicSelections
+			if msaHeuristicSignal >= msaHeuristicHighSignalThreshold {
+				modifiers[i][j] = 1.0 + msaHeuristicSignal*strength
 			}
 		}
 	}

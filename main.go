@@ -89,7 +89,7 @@ const (
 
 const (
 	finalNumberOfExperiments       = 50
-	finalMsaSupportWeight          = 0.9
+	finalMsaHeuristicWeight        = 0.9
 	finalCycleCoverWeight          = 0.8
 	defaultExperimentAlpha         = 1.0
 	defaultExperimentBeta          = 2.0
@@ -99,16 +99,19 @@ const (
 )
 
 const (
-	heuristicBaseline   = "baseline"
-	heuristicMsaSupport = "msa-support"
-	heuristicCycleCover = "cycle-cover"
+	heuristicBaseline     = "baseline"
+	heuristicMsaHeuristic = "msa-heuristic"
+	heuristicCycleCover   = "cycle-cover"
 )
 
-const finalHeuristicAll = "all"
+const (
+	finalHeuristicAll      = "all"
+	legacyMsaHeuristicName = "msa-support"
+)
 
 var finalResultsSummaryHeuristics = []string{
 	heuristicBaseline,
-	heuristicMsaSupport,
+	heuristicMsaHeuristic,
 	heuristicCycleCover,
 }
 
@@ -502,6 +505,9 @@ func saveHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperim
 	}
 
 	sortedStatistics := append([]HeuristicExperimentStatistics(nil), statistics...)
+	for i := range sortedStatistics {
+		sortedStatistics[i].heuristic = normalizeHeuristicName(sortedStatistics[i].heuristic)
+	}
 	sort.SliceStable(sortedStatistics, func(i, j int) bool {
 		left, right := sortedStatistics[i].statistics, sortedStatistics[j].statistics
 		if left.averageBestDeviation != right.averageBestDeviation {
@@ -514,7 +520,7 @@ func saveHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperim
 	})
 
 	for _, statistic := range sortedStatistics {
-		record := append([]string{statistic.heuristic}, statisticsCsvRecord(statistic.statistics)...)
+		record := append([]string{normalizeHeuristicName(statistic.heuristic)}, statisticsCsvRecord(statistic.statistics)...)
 		if err := writer.Write(record); err != nil {
 			return err
 		}
@@ -577,7 +583,7 @@ func readHeuristicStatistics(resultCsvPath string) ([]HeuristicExperimentStatist
 		}
 
 		statistics = append(statistics, HeuristicExperimentStatistics{
-			heuristic:  record[0],
+			heuristic:  normalizeHeuristicName(record[0]),
 			statistics: parsed,
 		})
 	}
@@ -588,16 +594,17 @@ func readHeuristicStatistics(resultCsvPath string) ([]HeuristicExperimentStatist
 func mergeHeuristicStatistics(existingStatistics, newStatistics []HeuristicExperimentStatistics, configurations []finalExperimentConfiguration) []HeuristicExperimentStatistics {
 	replaceSet := make(map[string]struct{}, len(configurations))
 	for _, configuration := range configurations {
-		replaceSet[configuration.heuristic] = struct{}{}
+		replaceSet[normalizeHeuristicName(configuration.heuristic)] = struct{}{}
 	}
 
 	knownFinalHeuristics := make(map[string]struct{}, len(finalExperimentConfigurations()))
 	for _, configuration := range finalExperimentConfigurations() {
-		knownFinalHeuristics[configuration.heuristic] = struct{}{}
+		knownFinalHeuristics[normalizeHeuristicName(configuration.heuristic)] = struct{}{}
 	}
 
 	merged := make([]HeuristicExperimentStatistics, 0, len(existingStatistics)+len(newStatistics))
 	for _, statistic := range existingStatistics {
+		statistic.heuristic = normalizeHeuristicName(statistic.heuristic)
 		if _, known := knownFinalHeuristics[statistic.heuristic]; !known {
 			continue
 		}
@@ -720,9 +727,9 @@ func writeFinalResultsSummaryFindings(builder *strings.Builder, rows []finalResu
 			bestSuccess)
 	}
 
-	fmt.Fprintf(builder, "- **Best-or-tied average best deviation counts: Baseline %d/%d, MSA support %d/%d, Cycle cover %d/%d.**\n",
+	fmt.Fprintf(builder, "- **Best-or-tied average best deviation counts: Baseline %d/%d, MSA heuristic %d/%d, Cycle cover %d/%d.**\n",
 		deviationWinCounts[heuristicBaseline], len(rows),
-		deviationWinCounts[heuristicMsaSupport], len(rows),
+		deviationWinCounts[heuristicMsaHeuristic], len(rows),
 		deviationWinCounts[heuristicCycleCover], len(rows))
 }
 
@@ -853,9 +860,9 @@ func saveFinalPairwisePerformanceReport(path string, rows []finalResultsSummaryR
 	}
 
 	comparisons := []finalPairwisePerformanceComparison{
-		calculateFinalPairwisePerformanceComparison(rows, heuristicMsaSupport, heuristicBaseline),
+		calculateFinalPairwisePerformanceComparison(rows, heuristicMsaHeuristic, heuristicBaseline),
 		calculateFinalPairwisePerformanceComparison(rows, heuristicCycleCover, heuristicBaseline),
-		calculateFinalPairwisePerformanceComparison(rows, heuristicMsaSupport, heuristicCycleCover),
+		calculateFinalPairwisePerformanceComparison(rows, heuristicMsaHeuristic, heuristicCycleCover),
 	}
 
 	var builder strings.Builder
@@ -957,21 +964,21 @@ func writeFinalConvergenceFindings(builder *strings.Builder, rows []finalResults
 
 	builder.WriteString("## Findings\n\n")
 	fmt.Fprintf(builder,
-		"- **Average best-iteration position: Baseline %.2f%%, MSA support %.2f%%, cycle cover %.2f%%.**\n",
+		"- **Average best-iteration position: Baseline %.2f%%, MSA heuristic %.2f%%, cycle cover %.2f%%.**\n",
 		averages[heuristicBaseline],
-		averages[heuristicMsaSupport],
+		averages[heuristicMsaHeuristic],
 		averages[heuristicCycleCover])
 	fmt.Fprintf(builder,
-		"- **Earliest-or-tied convergence counts: Baseline %d/%d, MSA support %d/%d, cycle cover %d/%d.**\n",
+		"- **Earliest-or-tied convergence counts: Baseline %d/%d, MSA heuristic %d/%d, cycle cover %d/%d.**\n",
 		winCounts[heuristicBaseline], len(rows),
-		winCounts[heuristicMsaSupport], len(rows),
+		winCounts[heuristicMsaHeuristic], len(rows),
 		winCounts[heuristicCycleCover], len(rows))
 }
 
 func writeFinalConvergenceTable(builder *strings.Builder, rows []finalResultsSummaryRow, averages map[string]float64) {
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
-	builder.WriteString("<tr><th>Instance</th><th>Baseline best iter [%]</th><th>MSA support best iter [%]</th><th>Cycle cover best iter [%]</th></tr>\n")
+	builder.WriteString("<tr><th>Instance</th><th>Baseline best iter [%]</th><th>MSA heuristic best iter [%]</th><th>Cycle cover best iter [%]</th></tr>\n")
 	builder.WriteString("</thead>\n")
 	builder.WriteString("<tbody>\n")
 	for _, row := range rows {
@@ -1081,28 +1088,28 @@ func saveFinalThreeOptComparisonReport(path string, finalRows, finalThreeOptRows
 func writeFinalThreeOptComparisonFindings(builder *strings.Builder, finalAverages, finalThreeOptAverages map[string]finalResultsSummaryMetric) {
 	builder.WriteString("## Findings\n\n")
 	fmt.Fprintf(builder,
-		"- **Reduced 3-opt lowers average best deviation for every variant: Baseline %s pp, MSA support %s pp, cycle cover %s pp.**\n",
+		"- **Reduced 3-opt lowers average best deviation for every variant: Baseline %s pp, MSA heuristic %s pp, cycle cover %s pp.**\n",
 		formatSignedFloat(finalAverages[heuristicBaseline].averageMinDeviation-finalThreeOptAverages[heuristicBaseline].averageMinDeviation),
-		formatSignedFloat(finalAverages[heuristicMsaSupport].averageMinDeviation-finalThreeOptAverages[heuristicMsaSupport].averageMinDeviation),
+		formatSignedFloat(finalAverages[heuristicMsaHeuristic].averageMinDeviation-finalThreeOptAverages[heuristicMsaHeuristic].averageMinDeviation),
 		formatSignedFloat(finalAverages[heuristicCycleCover].averageMinDeviation-finalThreeOptAverages[heuristicCycleCover].averageMinDeviation))
 	fmt.Fprintf(builder,
-		"- **Reduced 3-opt increases success rate for every variant: Baseline %s pp, MSA support %s pp, cycle cover %s pp.**\n",
+		"- **Reduced 3-opt increases success rate for every variant: Baseline %s pp, MSA heuristic %s pp, cycle cover %s pp.**\n",
 		formatSignedFloat(finalThreeOptAverages[heuristicBaseline].successRate-finalAverages[heuristicBaseline].successRate),
-		formatSignedFloat(finalThreeOptAverages[heuristicMsaSupport].successRate-finalAverages[heuristicMsaSupport].successRate),
+		formatSignedFloat(finalThreeOptAverages[heuristicMsaHeuristic].successRate-finalAverages[heuristicMsaHeuristic].successRate),
 		formatSignedFloat(finalThreeOptAverages[heuristicCycleCover].successRate-finalAverages[heuristicCycleCover].successRate))
 
-	msaGainWithout := deviationGainVsBaseline(finalAverages, heuristicMsaSupport)
-	msaGainWith := deviationGainVsBaseline(finalThreeOptAverages, heuristicMsaSupport)
+	msaGainWithout := deviationGainVsBaseline(finalAverages, heuristicMsaHeuristic)
+	msaGainWith := deviationGainVsBaseline(finalThreeOptAverages, heuristicMsaHeuristic)
 	cycleGainWithout := deviationGainVsBaseline(finalAverages, heuristicCycleCover)
 	cycleGainWith := deviationGainVsBaseline(finalThreeOptAverages, heuristicCycleCover)
 	fmt.Fprintf(builder,
-		"- **Deviation gain over baseline shrinks with 3-opt: MSA support %s -> %s pp, cycle cover %s -> %s pp.**\n",
+		"- **Deviation gain over baseline shrinks with 3-opt: MSA heuristic %s -> %s pp, cycle cover %s -> %s pp.**\n",
 		formatSignedFloat(msaGainWithout),
 		formatSignedFloat(msaGainWith),
 		formatSignedFloat(cycleGainWithout),
 		formatSignedFloat(cycleGainWith))
 	fmt.Fprintf(builder,
-		"- **Only %.2f%% of the MSA-support deviation gain and %.2f%% of the cycle-cover deviation gain remains visible after enabling 3-opt.**\n",
+		"- **Only %.2f%% of the MSA heuristic deviation gain and %.2f%% of the cycle-cover deviation gain remains visible after enabling 3-opt.**\n",
 		signalRemainingPercent(msaGainWithout, msaGainWith),
 		signalRemainingPercent(cycleGainWithout, cycleGainWith))
 	builder.WriteString("- **This supports treating reduced 3-opt as a strong local-search layer that partially hides the construction heuristic effect.**\n")
@@ -1137,7 +1144,7 @@ func writeFinalThreeOptSignalTable(builder *strings.Builder, finalAverages, fina
 	builder.WriteString("<tr><th>Heuristic</th><th>Dev. gain vs baseline without 3-opt [pp]</th><th>Dev. gain vs baseline with 3-opt [pp]</th><th>Signal remaining [%]</th></tr>\n")
 	builder.WriteString("</thead>\n")
 	builder.WriteString("<tbody>\n")
-	for _, heuristic := range []string{heuristicMsaSupport, heuristicCycleCover} {
+	for _, heuristic := range []string{heuristicMsaHeuristic, heuristicCycleCover} {
 		gainWithout := deviationGainVsBaseline(finalAverages, heuristic)
 		gainWith := deviationGainVsBaseline(finalThreeOptAverages, heuristic)
 
@@ -1183,20 +1190,20 @@ func saveStructuralPerformanceLinkReport(path string, rows []finalResultsSummary
 	cycleCoverRecall := ratio(structuralTotals.cycleCoverOptimalEdges, structuralTotals.foundOptimalEdges)
 
 	precisionHighlights := highestFloatHighlights(map[string]float64{
-		heuristicMsaSupport: msaPrecision,
-		heuristicCycleCover: cycleCoverPrecision,
+		heuristicMsaHeuristic: msaPrecision,
+		heuristicCycleCover:   cycleCoverPrecision,
 	})
 	recallHighlights := highestFloatHighlights(map[string]float64{
-		heuristicMsaSupport: msaRecall,
-		heuristicCycleCover: cycleCoverRecall,
+		heuristicMsaHeuristic: msaRecall,
+		heuristicCycleCover:   cycleCoverRecall,
 	})
 	deviationHighlights := lowestFloatHighlights(map[string]float64{
-		heuristicMsaSupport: performance[heuristicMsaSupport].averageMinDeviation,
-		heuristicCycleCover: performance[heuristicCycleCover].averageMinDeviation,
+		heuristicMsaHeuristic: performance[heuristicMsaHeuristic].averageMinDeviation,
+		heuristicCycleCover:   performance[heuristicCycleCover].averageMinDeviation,
 	}, true)
 	successHighlights := highestFloatHighlights(map[string]float64{
-		heuristicMsaSupport: performance[heuristicMsaSupport].successRate,
-		heuristicCycleCover: performance[heuristicCycleCover].successRate,
+		heuristicMsaHeuristic: performance[heuristicMsaHeuristic].successRate,
+		heuristicCycleCover:   performance[heuristicCycleCover].successRate,
 	})
 
 	var builder strings.Builder
@@ -1207,7 +1214,7 @@ func saveStructuralPerformanceLinkReport(path string, rows []finalResultsSummary
 	builder.WriteString("<tr><th>Heuristic</th><th>Structural precision [%]</th><th>Structural recall [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th></tr>\n")
 	builder.WriteString("</thead>\n")
 	builder.WriteString("<tbody>\n")
-	writeStructuralPerformanceLinkRow(&builder, heuristicMsaSupport, msaPrecision, msaRecall, performance[heuristicMsaSupport], precisionHighlights, recallHighlights, deviationHighlights, successHighlights)
+	writeStructuralPerformanceLinkRow(&builder, heuristicMsaHeuristic, msaPrecision, msaRecall, performance[heuristicMsaHeuristic], precisionHighlights, recallHighlights, deviationHighlights, successHighlights)
 	writeStructuralPerformanceLinkRow(&builder, heuristicCycleCover, cycleCoverPrecision, cycleCoverRecall, performance[heuristicCycleCover], precisionHighlights, recallHighlights, deviationHighlights, successHighlights)
 	builder.WriteString("</tbody>\n")
 	builder.WriteString("</table>\n")
@@ -1329,7 +1336,7 @@ func saveStructuralSimilarityReport(path string, analyses []cycleCover.InstanceA
 
 	var builder strings.Builder
 	builder.WriteString("# Structural Similarity To Found Optimal Tours\n\n")
-	builder.WriteString("This table compares the current MSA support edge set and the minimum cycle-cover edge set against the found optimal tours saved in `solutions.csv`.\n\n")
+	builder.WriteString("This table compares the current MSA heuristic edge set and the minimum cycle-cover edge set against the found optimal tours saved in `solutions.csv`.\n\n")
 	builder.WriteString("Instances without found optimal tours are omitted because precision and recall cannot be interpreted without a reference edge set.\n\n")
 	writeStructuralSimilarityFindings(&builder, totals)
 	builder.WriteString("\n")
@@ -1345,14 +1352,14 @@ func writeStructuralSimilarityFindings(builder *strings.Builder, totals structur
 	cycleCoverRecall := ratio(totals.cycleCoverOptimalEdges, totals.foundOptimalEdges)
 
 	builder.WriteString("## Findings\n\n")
-	fmt.Fprintf(builder, "- **Precision vs found-optimal tours: MSA support %.2f%%, cycle cover %.2f%%.**\n", 100*msaPrecision, 100*cycleCoverPrecision)
-	fmt.Fprintf(builder, "- **Recall vs found-optimal tours: MSA support %.2f%%, cycle cover %.2f%%.**\n", 100*msaRecall, 100*cycleCoverRecall)
-	fmt.Fprintf(builder, "- **Best-or-tied precision counts: MSA support %d/%d, cycle cover %d/%d.**\n",
+	fmt.Fprintf(builder, "- **Precision vs found-optimal tours: MSA heuristic %.2f%%, cycle cover %.2f%%.**\n", 100*msaPrecision, 100*cycleCoverPrecision)
+	fmt.Fprintf(builder, "- **Recall vs found-optimal tours: MSA heuristic %.2f%%, cycle cover %.2f%%.**\n", 100*msaRecall, 100*cycleCoverRecall)
+	fmt.Fprintf(builder, "- **Best-or-tied precision counts: MSA heuristic %d/%d, cycle cover %d/%d.**\n",
 		totals.msaPrecisionWins,
 		totals.instanceCount,
 		totals.cycleCoverPrecisionWins,
 		totals.instanceCount)
-	fmt.Fprintf(builder, "- **Best-or-tied recall counts: MSA support %d/%d, cycle cover %d/%d.**\n",
+	fmt.Fprintf(builder, "- **Best-or-tied recall counts: MSA heuristic %d/%d, cycle cover %d/%d.**\n",
 		totals.msaRecallWins,
 		totals.instanceCount,
 		totals.cycleCoverRecallWins,
@@ -1362,7 +1369,7 @@ func writeStructuralSimilarityFindings(builder *strings.Builder, totals structur
 func writeStructuralSimilarityTable(builder *strings.Builder, rows []cycleCover.InstanceAnalysis, totals structuralSimilaritySummary) {
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
-	builder.WriteString("<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">MSA support</th><th colspan=\"2\">Cycle cover</th></tr>\n")
+	builder.WriteString("<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">MSA heuristic</th><th colspan=\"2\">Cycle cover</th></tr>\n")
 	builder.WriteString("<tr><th>Precision [%]</th><th>Recall [%]</th><th>Precision [%]</th><th>Recall [%]</th></tr>\n")
 	builder.WriteString("</thead>\n")
 	builder.WriteString("<tbody>\n")
@@ -1477,37 +1484,37 @@ func structuralSimilarityTotals(rows []cycleCover.InstanceAnalysis) structuralSi
 	return totals
 }
 
-func saveMsaSupportCycleCoverOverlapReport(path string, analyses []cycleCover.InstanceAnalysis) error {
+func saveMsaHeuristicCycleCoverOverlapReport(path string, analyses []cycleCover.InstanceAnalysis) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
 
 	rows := sortedCycleCoverAnalyses(analyses)
-	totals := msaSupportCycleCoverOverlapTotals(rows)
+	totals := msaHeuristicCycleCoverOverlapTotals(rows)
 
 	var builder strings.Builder
-	builder.WriteString("# MSA Support And Cycle-Cover Overlap\n\n")
-	builder.WriteString("This table compares the current MSA support edge set directly with the minimum cycle-cover edge set.\n\n")
-	writeMsaSupportCycleCoverOverlapFindings(&builder, totals)
+	builder.WriteString("# MSA Heuristic And Cycle-Cover Overlap\n\n")
+	builder.WriteString("This table compares the current MSA heuristic edge set directly with the minimum cycle-cover edge set.\n\n")
+	writeMsaHeuristicCycleCoverOverlapFindings(&builder, totals)
 	builder.WriteString("\n")
-	writeMsaSupportCycleCoverOverlapTable(&builder, rows, totals)
+	writeMsaHeuristicCycleCoverOverlapTable(&builder, rows, totals)
 
 	return os.WriteFile(path, []byte(builder.String()), 0644)
 }
 
-func writeMsaSupportCycleCoverOverlapFindings(builder *strings.Builder, totals msaSupportCycleCoverOverlapSummary) {
+func writeMsaHeuristicCycleCoverOverlapFindings(builder *strings.Builder, totals msaHeuristicCycleCoverOverlapSummary) {
 	builder.WriteString("## Findings\n\n")
-	fmt.Fprintf(builder, "- **%.2f%% of MSA support edges are also cycle-cover edges.**\n", 100*ratio(totals.sharedEdges, totals.msaEdges))
-	fmt.Fprintf(builder, "- **%.2f%% of cycle-cover edges are also MSA support edges.**\n", 100*ratio(totals.sharedEdges, totals.cycleCoverEdges))
+	fmt.Fprintf(builder, "- **%.2f%% of MSA heuristic edges are also cycle-cover edges.**\n", 100*ratio(totals.sharedEdges, totals.msaEdges))
+	fmt.Fprintf(builder, "- **%.2f%% of cycle-cover edges are also MSA heuristic edges.**\n", 100*ratio(totals.sharedEdges, totals.cycleCoverEdges))
 	fmt.Fprintf(builder,
-		"- **Found-optimal edge partition: both %d, only MSA support %d, only cycle cover %d, neither %d.**\n",
+		"- **Found-optimal edge partition: both %d, only MSA heuristic %d, only cycle cover %d, neither %d.**\n",
 		totals.optimalBoth,
 		totals.optimalOnlyMsa,
 		totals.optimalOnlyCycleCover,
 		totals.optimalNeither)
 }
 
-func writeMsaSupportCycleCoverOverlapTable(builder *strings.Builder, rows []cycleCover.InstanceAnalysis, totals msaSupportCycleCoverOverlapSummary) {
+func writeMsaHeuristicCycleCoverOverlapTable(builder *strings.Builder, rows []cycleCover.InstanceAnalysis, totals msaHeuristicCycleCoverOverlapSummary) {
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
 	builder.WriteString("<tr><th>Instance</th><th>MSA in CC [%]</th><th>CC in MSA [%]</th><th>Optimal both</th><th>Optimal only MSA</th><th>Optimal only CC</th></tr>\n")
@@ -1515,15 +1522,15 @@ func writeMsaSupportCycleCoverOverlapTable(builder *strings.Builder, rows []cycl
 	builder.WriteString("<tbody>\n")
 
 	for _, analysis := range rows {
-		writeMsaSupportCycleCoverOverlapRow(builder, analysis)
+		writeMsaHeuristicCycleCoverOverlapRow(builder, analysis)
 	}
-	writeMsaSupportCycleCoverOverlapTotalRow(builder, totals)
+	writeMsaHeuristicCycleCoverOverlapTotalRow(builder, totals)
 
 	builder.WriteString("</tbody>\n")
 	builder.WriteString("</table>\n")
 }
 
-func writeMsaSupportCycleCoverOverlapRow(builder *strings.Builder, analysis cycleCover.InstanceAnalysis) {
+func writeMsaHeuristicCycleCoverOverlapRow(builder *strings.Builder, analysis cycleCover.InstanceAnalysis) {
 	metrics := analysis.Metrics
 	msaEdges := metrics.HighMsaSupportMetrics.EdgeCount
 	cycleCoverEdges := metrics.CycleCoverMetrics.EdgeCount
@@ -1539,7 +1546,7 @@ func writeMsaSupportCycleCoverOverlapRow(builder *strings.Builder, analysis cycl
 		metrics.OptimalEdgesInCycleCoverNotHighMsaSupport)
 }
 
-func writeMsaSupportCycleCoverOverlapTotalRow(builder *strings.Builder, totals msaSupportCycleCoverOverlapSummary) {
+func writeMsaHeuristicCycleCoverOverlapTotalRow(builder *strings.Builder, totals msaHeuristicCycleCoverOverlapSummary) {
 	fmt.Fprintf(builder,
 		"<tr><td><strong>Total</strong></td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td></tr>\n",
 		100*ratio(totals.sharedEdges, totals.msaEdges),
@@ -1549,7 +1556,7 @@ func writeMsaSupportCycleCoverOverlapTotalRow(builder *strings.Builder, totals m
 		totals.optimalOnlyCycleCover)
 }
 
-type msaSupportCycleCoverOverlapSummary struct {
+type msaHeuristicCycleCoverOverlapSummary struct {
 	msaEdges              int
 	cycleCoverEdges       int
 	sharedEdges           int
@@ -1559,8 +1566,8 @@ type msaSupportCycleCoverOverlapSummary struct {
 	optimalNeither        int
 }
 
-func msaSupportCycleCoverOverlapTotals(rows []cycleCover.InstanceAnalysis) msaSupportCycleCoverOverlapSummary {
-	var totals msaSupportCycleCoverOverlapSummary
+func msaHeuristicCycleCoverOverlapTotals(rows []cycleCover.InstanceAnalysis) msaHeuristicCycleCoverOverlapSummary {
+	var totals msaHeuristicCycleCoverOverlapSummary
 	for _, analysis := range rows {
 		metrics := analysis.Metrics
 		totals.msaEdges += metrics.HighMsaSupportMetrics.EdgeCount
@@ -1587,7 +1594,7 @@ func saveMsaCountScalingReport(path string, atspsData []AtspData) error {
 
 	var builder strings.Builder
 	builder.WriteString("# MSA Count Scaling\n\n")
-	builder.WriteString("This table shows how the MSA-support signal changes when it is built from an increasing number of individual root MSAs. For each requested count, roots are selected deterministically and spread across the available root indices. If the requested count is larger than an instance dimension, all roots are used for that instance.\n\n")
+	builder.WriteString("This table shows how the MSA heuristic signal changes when it is built from an increasing number of individual root MSAs. For each requested count, roots are selected deterministically and spread across the available root indices. If the requested count is larger than an instance dimension, all roots are used for that instance.\n\n")
 	if len(rows) > 0 {
 		fmt.Fprintf(&builder, "The table uses pooled totals over %d selected instances. Precision and recall use the %d instances with at least one found optimal tour in `solutions.csv`; boosted-edge density uses every selected instance. The boosted-edge target is `n - 1`, matching the edge count of a single arborescence.\n\n", rows[0].instanceCount, rows[0].referenceInstanceCount)
 	}
@@ -1617,7 +1624,7 @@ func buildMsaCountScalingRows(atspsData []AtspData, requestedCounts []int) ([]ms
 				selectedRootCount = len(msas)
 			}
 			selectedRoots := selectEvenlySpacedRootIndexes(len(msas), selectedRootCount)
-			boostedEdges := buildPartialMsaSupportEdgeSet(msas, selectedRoots)
+			boostedEdges := buildPartialMsaHeuristicEdgeSet(msas, selectedRoots)
 
 			row.instanceCount++
 			row.boostedEdges += len(boostedEdges)
@@ -1653,9 +1660,9 @@ func readOrCreateIndividualMsas(atspData AtspData) ([][][]float64, error) {
 
 	if _, createErr := msaSupport.Create(atspData.matrix, atspData.msaSupportDirectoryPath); createErr != nil {
 		if err != nil {
-			return nil, fmt.Errorf("%s: read individual MSAs: %w; create MSA support: %w", atspData.name, err, createErr)
+			return nil, fmt.Errorf("%s: read individual MSAs: %w; create MSA heuristic: %w", atspData.name, err, createErr)
 		}
-		return nil, fmt.Errorf("%s: create MSA support: %w", atspData.name, createErr)
+		return nil, fmt.Errorf("%s: create MSA heuristic: %w", atspData.name, createErr)
 	}
 
 	msas, err = msaSupport.ReadMsas(atspData.msaSupportDirectoryPath)
@@ -1737,7 +1744,7 @@ func (row msaCountScalingRow) recall() float64 {
 	return ratio(row.overlapEdges, row.optimalEdges)
 }
 
-func buildPartialMsaSupportEdgeSet(msas [][][]float64, selectedRoots []int) map[models.Edge]struct{} {
+func buildPartialMsaHeuristicEdgeSet(msas [][][]float64, selectedRoots []int) map[models.Edge]struct{} {
 	selectedRootSet := make(map[int]struct{}, len(selectedRoots))
 	support := make(map[models.Edge]int)
 	dimension := 0
@@ -1918,7 +1925,7 @@ func readFinalResultSummaryMetrics(resultCsvPath string) (map[string]finalResult
 			return nil, fmt.Errorf("invalid success rate for %s: %w", record[heuristicIndex], err)
 		}
 
-		metrics[record[heuristicIndex]] = finalResultsSummaryMetric{
+		metrics[normalizeHeuristicName(record[heuristicIndex])] = finalResultsSummaryMetric{
 			averageMinDeviation:  averageDeviation,
 			successRate:          successRate,
 			averageBestIteration: averageBestIteration,
@@ -1940,11 +1947,11 @@ func indexOf(values []string, value string) int {
 }
 
 func heuristicDisplayName(heuristic string) string {
-	switch heuristic {
+	switch normalizeHeuristicName(heuristic) {
 	case heuristicBaseline:
 		return "Baseline"
-	case heuristicMsaSupport:
-		return "MSA support"
+	case heuristicMsaHeuristic:
+		return "MSA heuristic"
 	case heuristicCycleCover:
 		return "Cycle cover"
 	default:
@@ -1953,11 +1960,11 @@ func heuristicDisplayName(heuristic string) string {
 }
 
 func buildHeuristicModifiers(heuristic string, matrix, msaSupport, cycleCover [][]float64, strength float64) [][]float64 {
-	switch heuristic {
+	switch normalizeHeuristicName(heuristic) {
 	case heuristicBaseline:
 		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaSupport, cycleCover))
-	case heuristicMsaSupport:
-		return heuristics.BuildMsaSupportModifiers(msaSupport, strength)
+	case heuristicMsaHeuristic:
+		return heuristics.BuildMsaHeuristicModifiers(msaSupport, strength)
 	case heuristicCycleCover:
 		return heuristics.BuildCycleCoverModifiers(cycleCover, strength)
 	default:
@@ -2181,9 +2188,9 @@ func finalExperimentConfigurations() []finalExperimentConfiguration {
 			},
 		},
 		{
-			heuristic: heuristicMsaSupport,
+			heuristic: heuristicMsaHeuristic,
 			parameters: []ExperimentParameters{
-				newDefaultExperimentParameters(finalMsaSupportWeight),
+				newDefaultExperimentParameters(finalMsaHeuristicWeight),
 			},
 		},
 		{
@@ -2196,6 +2203,7 @@ func finalExperimentConfigurations() []finalExperimentConfiguration {
 }
 
 func selectFinalExperimentConfigurations(finalHeuristic string) ([]finalExperimentConfiguration, error) {
+	finalHeuristic = normalizeHeuristicName(finalHeuristic)
 	configurations := finalExperimentConfigurations()
 	if finalHeuristic == finalHeuristicAll {
 		return configurations, nil
@@ -2360,23 +2368,34 @@ func isValidRunMode(mode string) bool {
 	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeFinal || mode == runModeFinal3Opt
 }
 
+func normalizeHeuristicName(heuristic string) string {
+	if heuristic == legacyMsaHeuristicName {
+		return heuristicMsaHeuristic
+	}
+
+	return heuristic
+}
+
 func isValidHeuristic(heuristic string) bool {
+	heuristic = normalizeHeuristicName(heuristic)
 	return heuristic == heuristicBaseline ||
-		heuristic == heuristicMsaSupport ||
+		heuristic == heuristicMsaHeuristic ||
 		heuristic == heuristicCycleCover
 }
 
 func heuristicUsesCycleCover(heuristic string) bool {
+	heuristic = normalizeHeuristicName(heuristic)
 	return heuristic == heuristicCycleCover
 }
 
-func heuristicUsesMsaSupport(heuristic string) bool {
-	return heuristic == heuristicMsaSupport
+func heuristicUsesMsaHeuristic(heuristic string) bool {
+	heuristic = normalizeHeuristicName(heuristic)
+	return heuristic == heuristicMsaHeuristic
 }
 
-func finalConfigurationsUseMsaSupport(configurations []finalExperimentConfiguration) bool {
+func finalConfigurationsUseMsaHeuristic(configurations []finalExperimentConfiguration) bool {
 	for _, configuration := range configurations {
-		if heuristicUsesMsaSupport(configuration.heuristic) {
+		if heuristicUsesMsaHeuristic(configuration.heuristic) {
 			return true
 		}
 	}
@@ -2385,10 +2404,10 @@ func finalConfigurationsUseMsaSupport(configurations []finalExperimentConfigurat
 }
 
 func heuristicFileSuffix(heuristic string) string {
-	switch heuristic {
+	switch normalizeHeuristicName(heuristic) {
 	case heuristicBaseline:
 		return "_baseline"
-	case heuristicMsaSupport:
+	case heuristicMsaHeuristic:
 		return ""
 	case heuristicCycleCover:
 		return "_cycle_cover"
@@ -2449,17 +2468,20 @@ func finalExperimentUsesThreeOpt(mode string) bool {
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, tiny, balanced, large, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, or final+3opt")
-	heuristic := flag.String("heuristic", heuristicMsaSupport, "ACO heuristic modifier to use in experiment mode: baseline, msa-support, or cycle-cover")
-	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, baseline, msa-support, or cycle-cover")
+	heuristic := flag.String("heuristic", heuristicMsaHeuristic, "ACO heuristic modifier to use in experiment mode: baseline, msa-heuristic, or cycle-cover")
+	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, baseline, msa-heuristic, or cycle-cover")
 	flag.Parse()
+
+	selectedHeuristic := normalizeHeuristicName(*heuristic)
+	selectedFinalHeuristic := normalizeHeuristicName(*finalHeuristic)
 
 	if !isValidRunMode(*mode) {
 		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal, runModeFinal3Opt)
 		return
 	}
 
-	if !isValidHeuristic(*heuristic) {
-		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, or %q\n", *heuristic, heuristicBaseline, heuristicMsaSupport, heuristicCycleCover)
+	if !isValidHeuristic(selectedHeuristic) {
+		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, or %q\n", *heuristic, heuristicBaseline, heuristicMsaHeuristic, heuristicCycleCover)
 		return
 	}
 
@@ -2467,7 +2489,7 @@ func main() {
 	var finalConfigurations []finalExperimentConfiguration
 	if shouldRunFinalExperiments(*mode) {
 		selectedInstances = instanceSetBalanced
-		configurations, err := selectFinalExperimentConfigurations(*finalHeuristic)
+		configurations, err := selectFinalExperimentConfigurations(selectedFinalHeuristic)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -2489,7 +2511,7 @@ func main() {
 			return
 		}
 
-		err = runExperimentMode(atspsData, *heuristic)
+		err = runExperimentMode(atspsData, selectedHeuristic)
 		stopProfiling()
 		if err != nil {
 			fmt.Println(err)
@@ -2574,7 +2596,7 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 }
 
 func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration) error {
-	needsMsaSupport := finalConfigurationsUseMsaSupport(configurations)
+	needsMsaSupport := finalConfigurationsUseMsaHeuristic(configurations)
 	if needsMsaSupport {
 		if err := ensureMsaSupportCache(atspsData); err != nil {
 			return err
@@ -2616,7 +2638,7 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 	var heuristicMatrix [][]float64
 	if needsMsaSupport {
 		var err error
-		heuristicMatrix, err = readMsaSupportMatrixForHeuristic(atspData, heuristicMsaSupport)
+		heuristicMatrix, err = readMsaHeuristicMatrixForHeuristic(atspData, heuristicMsaHeuristic)
 		if err != nil {
 			return err
 		}
@@ -2696,7 +2718,7 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 func removeLegacyFinalReports(resultsRootPath string) error {
 	legacyReports := []string{
 		filepath.Join(resultsRootPath, bestParametersReportPathForHeuristic(heuristicBaseline)),
-		filepath.Join(resultsRootPath, bestParametersReportPathForHeuristic(heuristicMsaSupport)),
+		filepath.Join(resultsRootPath, bestParametersReportPathForHeuristic(heuristicMsaHeuristic)),
 		filepath.Join(resultsRootPath, bestParametersReportPathForHeuristic(heuristicCycleCover)),
 	}
 
@@ -2740,7 +2762,7 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 		dimension := len(matrix)
 		instanceStart := time.Now()
 
-		heuristicMatrix, err := readMsaSupportMatrixForHeuristic(atspData, heuristic)
+		heuristicMatrix, err := readMsaHeuristicMatrixForHeuristic(atspData, heuristic)
 		if err != nil {
 			return err
 		}
@@ -2823,7 +2845,7 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 	return nil
 }
 
-func readMsaSupportMatrixForHeuristic(atspData AtspData, heuristic string) ([][]float64, error) {
+func readMsaHeuristicMatrixForHeuristic(atspData AtspData, heuristic string) ([][]float64, error) {
 	return msaSupport.Read(atspData.msaSupportDirectoryPath)
 }
 
@@ -2843,11 +2865,11 @@ func ensureMsaSupportArtifacts(atspsData []AtspData) error {
 			fmt.Printf("\tCreating %s took: %d ms\n", msaSupportDirectoryPath, elapsed.Milliseconds())
 
 			if err != nil {
-				return fmt.Errorf("error saving MSA support: %w", err)
+				return fmt.Errorf("error saving MSA heuristic: %w", err)
 			}
 		}
 
-		msaSupportHeatmapPlotTitle := name + " MSA support heatmap"
+		msaSupportHeatmapPlotTitle := name + " MSA heuristic heatmap"
 
 		err = utilities.SaveHeatmapFromMatrix(msaSupportMatrix, msaSupportHeatmapPlotTitle, atspData.msaSupportHeatmapPlotPath)
 		if err != nil {
@@ -2855,7 +2877,7 @@ func ensureMsaSupportArtifacts(atspsData []AtspData) error {
 		}
 
 		dataForHistogram := filterZeroes(flattenMatrix(msaSupportMatrix))
-		msaSupportHistogramPlotTitle := name + " MSA support histogram"
+		msaSupportHistogramPlotTitle := name + " MSA heuristic histogram"
 
 		dimension := len(matrix)
 		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, msaSupportHistogramPlotTitle, atspData.msaSupportHistogramPlotPath)
@@ -2875,7 +2897,7 @@ func ensureMsaSupportCache(atspsData []AtspData) error {
 
 		start := time.Now()
 		if _, err := msaSupport.Create(atspData.matrix, atspData.msaSupportDirectoryPath); err != nil {
-			return fmt.Errorf("error saving MSA support: %w", err)
+			return fmt.Errorf("error saving MSA heuristic: %w", err)
 		}
 
 		fmt.Printf("\tCreating %s took: %d ms\n", atspData.msaSupportDirectoryPath, time.Since(start).Milliseconds())
@@ -2929,7 +2951,7 @@ func runAnalysisMode(atspsData []AtspData) error {
 	}
 
 	heuristicOverlapReportPath := filepath.Join(finalResultsDirectoryName, "msa_cycle_cover_overlap.md")
-	if err := saveMsaSupportCycleCoverOverlapReport(heuristicOverlapReportPath, cycleCoverAnalyses); err != nil {
+	if err := saveMsaHeuristicCycleCoverOverlapReport(heuristicOverlapReportPath, cycleCoverAnalyses); err != nil {
 		return err
 	}
 
@@ -2949,7 +2971,7 @@ func runAnalysisMode(atspsData []AtspData) error {
 	}
 
 	fmt.Printf("Structural similarity report saved to %s\n", structuralSimilarityReportPath)
-	fmt.Printf("MSA support/cycle-cover overlap report saved to %s\n", heuristicOverlapReportPath)
+	fmt.Printf("MSA heuristic/cycle-cover overlap report saved to %s\n", heuristicOverlapReportPath)
 	fmt.Printf("MSA count scaling report saved to %s\n", msaCountScalingReportPath)
 	if finalSummarySaved {
 		fmt.Printf("Final results summary saved to %s\n", finalResultsSummaryPath)

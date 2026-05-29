@@ -36,7 +36,7 @@ func TestReadOptimalToursMissingFile(t *testing.T) {
 
 func TestReadOptimalTours(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "solutions.csv")
-	data := "Tour,Commonality with MSA support,Min commonality with MSA,Avg commonality with MSA,Max commonality with MSA\n" +
+	data := "Tour,Commonality with MSA heuristic,Min commonality with MSA,Avg commonality with MSA,Max commonality with MSA\n" +
 		"\"[0,1,2]\",100.00,100.00,100.00,100.00\n"
 	if err := os.WriteFile(path, []byte(data), 0644); err != nil {
 		t.Fatalf("failed to write test CSV: %v", err)
@@ -57,15 +57,15 @@ func TestAnalyzeInstancesWritesTourPlots(t *testing.T) {
 	dir := t.TempDir()
 	msaSupportDir := filepath.Join(dir, "msa_support")
 	if err := os.MkdirAll(msaSupportDir, 0700); err != nil {
-		t.Fatalf("failed to create MSA support dir: %v", err)
+		t.Fatalf("failed to create MSA heuristic dir: %v", err)
 	}
 
 	if err := os.WriteFile(filepath.Join(msaSupportDir, "msa_support.csv"), []byte("0,2,0\n0,0,2\n2,0,0\n"), 0644); err != nil {
-		t.Fatalf("failed to write MSA support: %v", err)
+		t.Fatalf("failed to write MSA heuristic: %v", err)
 	}
 
 	solutionsPath := filepath.Join(dir, "solutions.csv")
-	solutions := "Tour,Commonality with MSA support,Min commonality with MSA,Avg commonality with MSA,Max commonality with MSA\n" +
+	solutions := "Tour,Commonality with MSA heuristic,Min commonality with MSA,Avg commonality with MSA,Max commonality with MSA\n" +
 		"\"[0,1,2]\",100.00,100.00,100.00,100.00\n"
 	if err := os.WriteFile(solutionsPath, []byte(solutions), 0644); err != nil {
 		t.Fatalf("failed to write solutions CSV: %v", err)

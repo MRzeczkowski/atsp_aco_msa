@@ -56,13 +56,13 @@ func AnalyzeInstance(config InstanceConfig) error {
 
 	msaSupportMatrix, err := msaSupport.Read(config.MsaSupportDirectoryPath)
 	if err != nil {
-		return fmt.Errorf("%s: failed to read MSA support: %w", config.Name, err)
+		return fmt.Errorf("%s: failed to read MSA heuristic: %w", config.Name, err)
 	}
 	if err := validateSquareMatrix(msaSupportMatrix); err != nil {
-		return fmt.Errorf("%s: invalid MSA support: %w", config.Name, err)
+		return fmt.Errorf("%s: invalid MSA heuristic: %w", config.Name, err)
 	}
 	if config.Dimension != 0 && config.Dimension != len(msaSupportMatrix) {
-		return fmt.Errorf("%s: configured dimension %d does not match MSA support dimension %d", config.Name, config.Dimension, len(msaSupportMatrix))
+		return fmt.Errorf("%s: configured dimension %d does not match MSA heuristic dimension %d", config.Name, config.Dimension, len(msaSupportMatrix))
 	}
 	if err := validateTours(uniqueOptimalTours, len(msaSupportMatrix)); err != nil {
 		return fmt.Errorf("%s: invalid found optimal tours: %w", config.Name, err)
@@ -77,7 +77,7 @@ func AnalyzeInstance(config InstanceConfig) error {
 		}
 
 		overlapMatrix := BuildMsaSupportToursOverlapMatrix(msaSupportMatrix, toursMatrix, toursCount)
-		overlapHeatmapPlotTitle := config.Name + " MSA support/tours overlap heatmap"
+		overlapHeatmapPlotTitle := config.Name + " MSA heuristic/tours overlap heatmap"
 		if err := utilities.SaveHeatmapFromMatrix(overlapMatrix, overlapHeatmapPlotTitle, config.MsaSupportToursOverlapHeatmapPath); err != nil {
 			return err
 		}
@@ -213,7 +213,7 @@ func BuildMsaSupportToursOverlapMatrix(msaSupport, toursMatrix [][]float64, tour
 func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, toursStatistics []TourStatistics) error {
 	header := []string{
 		"Tour",
-		"Commonality with MSA support",
+		"Commonality with MSA heuristic",
 		"Min commonality with MSA",
 		"Avg commonality with MSA",
 		"Max commonality with MSA",

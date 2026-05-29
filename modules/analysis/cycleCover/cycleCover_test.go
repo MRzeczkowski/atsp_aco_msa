@@ -25,8 +25,8 @@ func TestCalculateAnalysisStructuralMetrics(t *testing.T) {
 
 	assertFloat(t, "cycle-cover precision", metrics.CycleCoverMetrics.Precision, 1)
 	assertFloat(t, "cycle-cover recall", metrics.CycleCoverMetrics.Recall, 1)
-	assertFloat(t, "high-MSA support precision", metrics.HighMsaSupportMetrics.Precision, 0.5)
-	assertFloat(t, "high-MSA support recall", metrics.HighMsaSupportMetrics.Recall, 0.25)
+	assertFloat(t, "high-MSA heuristic precision", metrics.HighMsaSupportMetrics.Precision, 0.5)
+	assertFloat(t, "high-MSA heuristic recall", metrics.HighMsaSupportMetrics.Recall, 0.25)
 
 	if metrics.CycleCoverHighMsaEdges != 1 {
 		t.Fatalf("expected one shared cycle-cover/MSA edge, got %d", metrics.CycleCoverHighMsaEdges)
@@ -59,7 +59,7 @@ func TestCalculateAnalysisOptimalEdgePartition(t *testing.T) {
 		t.Fatalf("expected one optimal edge in both sets, got %d", metrics.OptimalEdgesInCycleCoverAndHighMsaSupport)
 	}
 	if metrics.OptimalEdgesInHighMsaSupportNotCycleCover != 1 {
-		t.Fatalf("expected one optimal edge only in MSA support, got %d", metrics.OptimalEdgesInHighMsaSupportNotCycleCover)
+		t.Fatalf("expected one optimal edge only in MSA heuristic, got %d", metrics.OptimalEdgesInHighMsaSupportNotCycleCover)
 	}
 	if metrics.OptimalEdgesInCycleCoverNotHighMsaSupport != 0 {
 		t.Fatalf("expected no optimal edge only in cycle cover, got %d", metrics.OptimalEdgesInCycleCoverNotHighMsaSupport)
@@ -97,7 +97,7 @@ func TestAnalyzeInstanceCalculatesExpectedMetrics(t *testing.T) {
 		"2,0,0",
 	}, "\n"))
 	writeFile(t, filepath.Join(dir, "solutions.csv"), strings.Join([]string{
-		"Tour,Commonality with MSA support",
+		"Tour,Commonality with MSA heuristic",
 		`"[0,1,2]",100`,
 	}, "\n"))
 

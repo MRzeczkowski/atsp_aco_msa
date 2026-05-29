@@ -4,11 +4,11 @@
 
 - **Cycle cover has the lowest average best deviation overall: 0.36%.**
 - **Cycle cover has the highest average success rate overall: 40.14%.**
-- **Best-or-tied average best deviation counts: Baseline 5/28, MSA support 10/28, Cycle cover 17/28.**
+- **Best-or-tied average best deviation counts: Baseline 5/28, MSA heuristic 10/28, Cycle cover 17/28.**
 
 <table>
 <thead>
-<tr><th rowspan="2">Instance</th><th colspan="2">Baseline</th><th colspan="2">MSA support</th><th colspan="2">Cycle cover</th></tr>
+<tr><th rowspan="2">Instance</th><th colspan="2">Baseline</th><th colspan="2">MSA heuristic</th><th colspan="2">Cycle cover</th></tr>
 <tr><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th></tr>
 </thead>
 <tbody>

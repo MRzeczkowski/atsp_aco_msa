@@ -16,7 +16,7 @@ func TestCreateKeepsOriginalWeightsWhenOnlySomeMsasCached(t *testing.T) {
 	cleanDir := filepath.Join(t.TempDir(), "clean")
 	expected, err := Create(matrix, cleanDir)
 	if err != nil {
-		t.Fatalf("create clean MSA support: %v", err)
+		t.Fatalf("create clean MSA heuristic: %v", err)
 	}
 
 	cachedRootDir := filepath.Join(t.TempDir(), "cached")
@@ -34,11 +34,11 @@ func TestCreateKeepsOriginalWeightsWhenOnlySomeMsasCached(t *testing.T) {
 
 	actual, err := Create(matrix, cachedRootDir)
 	if err != nil {
-		t.Fatalf("create partially cached MSA support: %v", err)
+		t.Fatalf("create partially cached MSA heuristic: %v", err)
 	}
 
 	if !compareMatrices(actual, expected) {
-		t.Fatalf("expected partially cached MSA support %v to equal clean MSA support %v", actual, expected)
+		t.Fatalf("expected partially cached MSA heuristic %v to equal clean MSA heuristic %v", actual, expected)
 	}
 }
 

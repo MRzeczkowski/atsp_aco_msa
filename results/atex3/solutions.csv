@@ -1,4 +1,4 @@
-Tour,Commonality with MSA support,Min commonality with MSA,Avg commonality with MSA,Max commonality with MSA
+Tour,Commonality with MSA heuristic,Min commonality with MSA,Avg commonality with MSA,Max commonality with MSA
 "[0,3,31,30,2,5,1,4,8,11,7,6,10,15,9,14,22,21,13,12,20,19,23,16,24,25,17,18,26,29,27,28]",75.00,21.88,34.57,43.75
 "[0,3,31,30,2,5,1,6,10,11,7,4,8,15,9,14,22,21,13,12,20,19,23,16,24,25,17,18,26,29,27,28]",75.00,18.75,32.81,40.62
 "[0,3,31,30,2,5,1,6,10,11,7,4,8,15,9,14,22,21,13,12,20,19,23,18,26,25,17,16,24,29,27,28]",75.00,18.75,32.03,40.62

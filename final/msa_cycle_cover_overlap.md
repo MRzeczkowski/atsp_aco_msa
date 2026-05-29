@@ -1,12 +1,12 @@
-# MSA Support And Cycle-Cover Overlap
+# MSA Heuristic And Cycle-Cover Overlap
 
-This table compares the current MSA support edge set directly with the minimum cycle-cover edge set.
+This table compares the current MSA heuristic edge set directly with the minimum cycle-cover edge set.
 
 ## Findings
 
-- **43.09% of MSA support edges are also cycle-cover edges.**
-- **28.69% of cycle-cover edges are also MSA support edges.**
-- **Found-optimal edge partition: both 754, only MSA support 208, only cycle cover 1069, neither 28234.**
+- **43.09% of MSA heuristic edges are also cycle-cover edges.**
+- **28.69% of cycle-cover edges are also MSA heuristic edges.**
+- **Found-optimal edge partition: both 754, only MSA heuristic 208, only cycle cover 1069, neither 28234.**
 
 <table>
 <thead>

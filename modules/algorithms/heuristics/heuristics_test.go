@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestBuildMsaSupportModifiersBoostsOnlyHighSupportEdges(t *testing.T) {
+func TestBuildMsaHeuristicModifiersBoostsOnlyHighSupportEdges(t *testing.T) {
 	msaSupport := [][]float64{
 		{0, 3, 2, 0},
 		{0, 0, 3, 1},
@@ -13,7 +13,7 @@ func TestBuildMsaSupportModifiersBoostsOnlyHighSupportEdges(t *testing.T) {
 		{0, 0, 0, 0},
 	}
 
-	modifiers := BuildMsaSupportModifiers(msaSupport, 0.5)
+	modifiers := BuildMsaHeuristicModifiers(msaSupport, 0.5)
 	expected := [][]float64{
 		{1, 1.5, 1, 1},
 		{1, 1, 1.5, 1},
@@ -22,17 +22,17 @@ func TestBuildMsaSupportModifiersBoostsOnlyHighSupportEdges(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(modifiers, expected) {
-		t.Fatalf("unexpected MSA support modifiers\nwant: %v\n got: %v", expected, modifiers)
+		t.Fatalf("unexpected MSA heuristic modifiers\nwant: %v\n got: %v", expected, modifiers)
 	}
 }
 
-func TestBuildMsaSupportModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testing.T) {
+func TestBuildMsaHeuristicModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testing.T) {
 	msaSupport := [][]float64{
 		{0, 3},
 		{3, 0},
 	}
 
-	modifiers := BuildMsaSupportModifiers(msaSupport, 0)
+	modifiers := BuildMsaHeuristicModifiers(msaSupport, 0)
 	expected := [][]float64{
 		{1, 1},
 		{1, 1},

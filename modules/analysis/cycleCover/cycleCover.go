@@ -88,13 +88,13 @@ func AnalyzeInstance(config InstanceConfig, highThreshold float64) (InstanceAnal
 
 	msaSupportMatrix, err := msaSupport.Read(config.MsaSupportDirectoryPath)
 	if err != nil {
-		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read MSA support: %w", config.Name, err)
+		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read MSA heuristic: %w", config.Name, err)
 	}
 	if err := validateSquareMatrix(msaSupportMatrix); err != nil {
-		return InstanceAnalysis{}, fmt.Errorf("%s: invalid MSA support: %w", config.Name, err)
+		return InstanceAnalysis{}, fmt.Errorf("%s: invalid MSA heuristic: %w", config.Name, err)
 	}
 	if len(msaSupportMatrix) != len(config.Matrix) {
-		return InstanceAnalysis{}, fmt.Errorf("%s: MSA support dimension %d does not match matrix dimension %d", config.Name, len(msaSupportMatrix), len(config.Matrix))
+		return InstanceAnalysis{}, fmt.Errorf("%s: MSA heuristic dimension %d does not match matrix dimension %d", config.Name, len(msaSupportMatrix), len(config.Matrix))
 	}
 
 	uniqueOptimalTours, err := msaSupportTours.ReadOptimalTours(config.OptimalToursCsvPath)

@@ -4,12 +4,12 @@ Each value is the average iteration where the best run solution was found, expre
 
 ## Findings
 
-- **Average best-iteration position: Baseline 26.41%, MSA support 25.94%, cycle cover 25.26%.**
-- **Earliest-or-tied convergence counts: Baseline 7/28, MSA support 8/28, cycle cover 13/28.**
+- **Average best-iteration position: Baseline 26.41%, MSA heuristic 25.94%, cycle cover 25.26%.**
+- **Earliest-or-tied convergence counts: Baseline 7/28, MSA heuristic 8/28, cycle cover 13/28.**
 
 <table>
 <thead>
-<tr><th>Instance</th><th>Baseline best iter [%]</th><th>MSA support best iter [%]</th><th>Cycle cover best iter [%]</th></tr>
+<tr><th>Instance</th><th>Baseline best iter [%]</th><th>MSA heuristic best iter [%]</th><th>Cycle cover best iter [%]</th></tr>
 </thead>
 <tbody>
 <tr><td>ft53</td><td align="right">62.19</td><td align="right"><strong>54.51</strong></td><td align="right">61.45</td></tr>

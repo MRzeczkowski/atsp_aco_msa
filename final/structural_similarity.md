@@ -1,19 +1,19 @@
 # Structural Similarity To Found Optimal Tours
 
-This table compares the current MSA support edge set and the minimum cycle-cover edge set against the found optimal tours saved in `solutions.csv`.
+This table compares the current MSA heuristic edge set and the minimum cycle-cover edge set against the found optimal tours saved in `solutions.csv`.
 
 Instances without found optimal tours are omitted because precision and recall cannot be interpreted without a reference edge set.
 
 ## Findings
 
-- **Precision vs found-optimal tours: MSA support 65.44%, cycle cover 77.15%.**
-- **Recall vs found-optimal tours: MSA support 3.18%, cycle cover 6.02%.**
-- **Best-or-tied precision counts: MSA support 9/23, cycle cover 16/23.**
-- **Best-or-tied recall counts: MSA support 0/23, cycle cover 23/23.**
+- **Precision vs found-optimal tours: MSA heuristic 65.44%, cycle cover 77.15%.**
+- **Recall vs found-optimal tours: MSA heuristic 3.18%, cycle cover 6.02%.**
+- **Best-or-tied precision counts: MSA heuristic 9/23, cycle cover 16/23.**
+- **Best-or-tied recall counts: MSA heuristic 0/23, cycle cover 23/23.**
 
 <table>
 <thead>
-<tr><th rowspan="2">Instance</th><th colspan="2">MSA support</th><th colspan="2">Cycle cover</th></tr>
+<tr><th rowspan="2">Instance</th><th colspan="2">MSA heuristic</th><th colspan="2">Cycle cover</th></tr>
 <tr><th>Precision [%]</th><th>Recall [%]</th><th>Precision [%]</th><th>Recall [%]</th></tr>
 </thead>
 <tbody>
