@@ -104,10 +104,7 @@ const (
 	heuristicCycleCover   = "cycle-cover"
 )
 
-const (
-	finalHeuristicAll      = "all"
-	legacyMsaHeuristicName = "msa-support"
-)
+const finalHeuristicAll = "all"
 
 var finalResultsSummaryHeuristics = []string{
 	heuristicBaseline,
@@ -505,9 +502,6 @@ func saveHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperim
 	}
 
 	sortedStatistics := append([]HeuristicExperimentStatistics(nil), statistics...)
-	for i := range sortedStatistics {
-		sortedStatistics[i].heuristic = normalizeHeuristicName(sortedStatistics[i].heuristic)
-	}
 	sort.SliceStable(sortedStatistics, func(i, j int) bool {
 		left, right := sortedStatistics[i].statistics, sortedStatistics[j].statistics
 		if left.averageBestDeviation != right.averageBestDeviation {
@@ -520,7 +514,7 @@ func saveHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperim
 	})
 
 	for _, statistic := range sortedStatistics {
-		record := append([]string{normalizeHeuristicName(statistic.heuristic)}, statisticsCsvRecord(statistic.statistics)...)
+		record := append([]string{statistic.heuristic}, statisticsCsvRecord(statistic.statistics)...)
 		if err := writer.Write(record); err != nil {
 			return err
 		}
@@ -583,7 +577,7 @@ func readHeuristicStatistics(resultCsvPath string) ([]HeuristicExperimentStatist
 		}
 
 		statistics = append(statistics, HeuristicExperimentStatistics{
-			heuristic:  normalizeHeuristicName(record[0]),
+			heuristic:  record[0],
 			statistics: parsed,
 		})
 	}
@@ -594,17 +588,16 @@ func readHeuristicStatistics(resultCsvPath string) ([]HeuristicExperimentStatist
 func mergeHeuristicStatistics(existingStatistics, newStatistics []HeuristicExperimentStatistics, configurations []finalExperimentConfiguration) []HeuristicExperimentStatistics {
 	replaceSet := make(map[string]struct{}, len(configurations))
 	for _, configuration := range configurations {
-		replaceSet[normalizeHeuristicName(configuration.heuristic)] = struct{}{}
+		replaceSet[configuration.heuristic] = struct{}{}
 	}
 
 	knownFinalHeuristics := make(map[string]struct{}, len(finalExperimentConfigurations()))
 	for _, configuration := range finalExperimentConfigurations() {
-		knownFinalHeuristics[normalizeHeuristicName(configuration.heuristic)] = struct{}{}
+		knownFinalHeuristics[configuration.heuristic] = struct{}{}
 	}
 
 	merged := make([]HeuristicExperimentStatistics, 0, len(existingStatistics)+len(newStatistics))
 	for _, statistic := range existingStatistics {
-		statistic.heuristic = normalizeHeuristicName(statistic.heuristic)
 		if _, known := knownFinalHeuristics[statistic.heuristic]; !known {
 			continue
 		}
@@ -1534,7 +1527,7 @@ func writeMsaHeuristicCycleCoverOverlapRow(builder *strings.Builder, analysis cy
 	metrics := analysis.Metrics
 	msaEdges := metrics.HighMsaHeuristicMetrics.EdgeCount
 	cycleCoverEdges := metrics.CycleCoverMetrics.EdgeCount
-	sharedEdges := metrics.CycleCoverHighMsaEdges
+	sharedEdges := metrics.CycleCoverHighMsaHeuristicEdges
 
 	fmt.Fprintf(builder,
 		"<tr><td>%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td></tr>\n",
@@ -1572,7 +1565,7 @@ func msaHeuristicCycleCoverOverlapTotals(rows []cycleCover.InstanceAnalysis) msa
 		metrics := analysis.Metrics
 		totals.msaEdges += metrics.HighMsaHeuristicMetrics.EdgeCount
 		totals.cycleCoverEdges += metrics.CycleCoverMetrics.EdgeCount
-		totals.sharedEdges += metrics.CycleCoverHighMsaEdges
+		totals.sharedEdges += metrics.CycleCoverHighMsaHeuristicEdges
 		totals.optimalBoth += metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic
 		totals.optimalOnlyMsa += metrics.OptimalEdgesInHighMsaHeuristicNotCycleCover
 		totals.optimalOnlyCycleCover += metrics.OptimalEdgesInCycleCoverNotHighMsaHeuristic
@@ -1925,7 +1918,7 @@ func readFinalResultSummaryMetrics(resultCsvPath string) (map[string]finalResult
 			return nil, fmt.Errorf("invalid success rate for %s: %w", record[heuristicIndex], err)
 		}
 
-		metrics[normalizeHeuristicName(record[heuristicIndex])] = finalResultsSummaryMetric{
+		metrics[record[heuristicIndex]] = finalResultsSummaryMetric{
 			averageMinDeviation:  averageDeviation,
 			successRate:          successRate,
 			averageBestIteration: averageBestIteration,
@@ -1947,7 +1940,7 @@ func indexOf(values []string, value string) int {
 }
 
 func heuristicDisplayName(heuristic string) string {
-	switch normalizeHeuristicName(heuristic) {
+	switch heuristic {
 	case heuristicBaseline:
 		return "Baseline"
 	case heuristicMsaHeuristic:
@@ -1960,7 +1953,7 @@ func heuristicDisplayName(heuristic string) string {
 }
 
 func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover [][]float64, strength float64) [][]float64 {
-	switch normalizeHeuristicName(heuristic) {
+	switch heuristic {
 	case heuristicBaseline:
 		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
 	case heuristicMsaHeuristic:
@@ -2203,7 +2196,6 @@ func finalExperimentConfigurations() []finalExperimentConfiguration {
 }
 
 func selectFinalExperimentConfigurations(finalHeuristic string) ([]finalExperimentConfiguration, error) {
-	finalHeuristic = normalizeHeuristicName(finalHeuristic)
 	configurations := finalExperimentConfigurations()
 	if finalHeuristic == finalHeuristicAll {
 		return configurations, nil
@@ -2368,28 +2360,17 @@ func isValidRunMode(mode string) bool {
 	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeFinal || mode == runModeFinal3Opt
 }
 
-func normalizeHeuristicName(heuristic string) string {
-	if heuristic == legacyMsaHeuristicName {
-		return heuristicMsaHeuristic
-	}
-
-	return heuristic
-}
-
 func isValidHeuristic(heuristic string) bool {
-	heuristic = normalizeHeuristicName(heuristic)
 	return heuristic == heuristicBaseline ||
 		heuristic == heuristicMsaHeuristic ||
 		heuristic == heuristicCycleCover
 }
 
 func heuristicUsesCycleCover(heuristic string) bool {
-	heuristic = normalizeHeuristicName(heuristic)
 	return heuristic == heuristicCycleCover
 }
 
 func heuristicUsesMsaHeuristic(heuristic string) bool {
-	heuristic = normalizeHeuristicName(heuristic)
 	return heuristic == heuristicMsaHeuristic
 }
 
@@ -2404,7 +2385,7 @@ func finalConfigurationsUseMsaHeuristic(configurations []finalExperimentConfigur
 }
 
 func heuristicFileSuffix(heuristic string) string {
-	switch normalizeHeuristicName(heuristic) {
+	switch heuristic {
 	case heuristicBaseline:
 		return "_baseline"
 	case heuristicMsaHeuristic:
@@ -2472,8 +2453,8 @@ func main() {
 	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, baseline, msa-heuristic, or cycle-cover")
 	flag.Parse()
 
-	selectedHeuristic := normalizeHeuristicName(*heuristic)
-	selectedFinalHeuristic := normalizeHeuristicName(*finalHeuristic)
+	selectedHeuristic := *heuristic
+	selectedFinalHeuristic := *finalHeuristic
 
 	if !isValidRunMode(*mode) {
 		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal, runModeFinal3Opt)

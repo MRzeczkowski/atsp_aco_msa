@@ -28,8 +28,8 @@ func TestCalculateAnalysisStructuralMetrics(t *testing.T) {
 	assertFloat(t, "high-MSA heuristic precision", metrics.HighMsaHeuristicMetrics.Precision, 0.5)
 	assertFloat(t, "high-MSA heuristic recall", metrics.HighMsaHeuristicMetrics.Recall, 0.25)
 
-	if metrics.CycleCoverHighMsaEdges != 1 {
-		t.Fatalf("expected one shared cycle-cover/MSA edge, got %d", metrics.CycleCoverHighMsaEdges)
+	if metrics.CycleCoverHighMsaHeuristicEdges != 1 {
+		t.Fatalf("expected one shared cycle-cover/MSA edge, got %d", metrics.CycleCoverHighMsaHeuristicEdges)
 	}
 	if metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic != 1 {
 		t.Fatalf("expected one optimal edge in both sets, got %d", metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic)

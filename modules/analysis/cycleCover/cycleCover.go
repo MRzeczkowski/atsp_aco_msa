@@ -34,9 +34,9 @@ type InstanceMetrics struct {
 	FoundOptimalTourCount       int
 	UniqueFoundOptimalEdgeCount int
 
-	CycleCoverMetrics       EdgeSetMetrics
-	HighMsaHeuristicMetrics EdgeSetMetrics
-	CycleCoverHighMsaEdges  int
+	CycleCoverMetrics               EdgeSetMetrics
+	HighMsaHeuristicMetrics         EdgeSetMetrics
+	CycleCoverHighMsaHeuristicEdges int
 
 	OptimalEdgesInCycleCoverAndHighMsaHeuristic int
 	OptimalEdgesInCycleCoverNotHighMsaHeuristic int
@@ -124,11 +124,11 @@ func calculateAnalysis(instance string, dimension int, msaHeuristic [][]float64,
 	cycleCoverHighMsaHeuristicSet := intersectEdgeSets(cycleCoverSet, highMsaHeuristicSet)
 
 	metrics := InstanceMetrics{
-		FoundOptimalTourCount:       len(uniqueOptimalTours),
-		UniqueFoundOptimalEdgeCount: len(optimalEdges),
-		CycleCoverMetrics:           calculateEdgeSetMetrics(cycleCoverSet, optimalEdges),
-		HighMsaHeuristicMetrics:     calculateEdgeSetMetrics(highMsaHeuristicSet, optimalEdges),
-		CycleCoverHighMsaEdges:      len(cycleCoverHighMsaHeuristicSet),
+		FoundOptimalTourCount:           len(uniqueOptimalTours),
+		UniqueFoundOptimalEdgeCount:     len(optimalEdges),
+		CycleCoverMetrics:               calculateEdgeSetMetrics(cycleCoverSet, optimalEdges),
+		HighMsaHeuristicMetrics:         calculateEdgeSetMetrics(highMsaHeuristicSet, optimalEdges),
+		CycleCoverHighMsaHeuristicEdges: len(cycleCoverHighMsaHeuristicSet),
 	}
 
 	metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic = countOptimalEdgesByMembership(optimalEdges, cycleCoverSet, highMsaHeuristicSet, true, true)

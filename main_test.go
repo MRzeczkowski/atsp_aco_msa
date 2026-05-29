@@ -768,15 +768,6 @@ func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCs
 	}
 }
 
-func TestLegacyMsaHeuristicHeuristicNameIsNormalized(t *testing.T) {
-	if normalizeHeuristicName(legacyMsaHeuristicName) != heuristicMsaHeuristic {
-		t.Fatal("legacy heuristic name should normalize to MSA heuristic")
-	}
-	if !isValidHeuristic(legacyMsaHeuristicName) {
-		t.Fatal("legacy heuristic name should remain accepted")
-	}
-}
-
 func TestFinalModeAndBaselineHeuristicAreValid(t *testing.T) {
 	if !isValidRunMode(runModeFinal) {
 		t.Fatal("final run mode should be valid")
@@ -935,7 +926,7 @@ func sampleCycleCoverAnalyses() []cycleCover.InstanceAnalysis {
 					Precision:        0.6,
 					Recall:           0.3,
 				},
-				CycleCoverHighMsaEdges:                      2,
+				CycleCoverHighMsaHeuristicEdges:             2,
 				OptimalEdgesInCycleCoverAndHighMsaHeuristic: 2,
 				OptimalEdgesInHighMsaHeuristicNotCycleCover: 2,
 				OptimalEdgesInCycleCoverNotHighMsaHeuristic: 1,
@@ -960,7 +951,7 @@ func sampleCycleCoverAnalyses() []cycleCover.InstanceAnalysis {
 					Precision:        0.75,
 					Recall:           0.75,
 				},
-				CycleCoverHighMsaEdges:                      1,
+				CycleCoverHighMsaHeuristicEdges:             1,
 				OptimalEdgesInCycleCoverAndHighMsaHeuristic: 1,
 				OptimalEdgesInHighMsaHeuristicNotCycleCover: 0,
 				OptimalEdgesInCycleCoverNotHighMsaHeuristic: 2,
