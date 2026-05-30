@@ -1,4 +1,5 @@
 Heuristic,Alpha,Beta,Rho,Heuristic weight,Iterations,Min best at iteration,Avg best at iteration,Max best at iteration,Min local search improvements,Avg local search improvements,Max local search improvements,Min best deviation,Avg best deviation,Max best deviation,Success rate [%]
+cycle-cover-msa-patching,1.00,2.00,0.80,0.80,5000,110,1979.20,4879,35,79390.00,13907,1.14,1.62,2.11,0.00
 cycle-cover,1.00,2.00,0.80,0.80,5000,200,1817.16,4972,8,77908.00,27853,0.75,1.68,2.24,0.00
 msa-heuristic,1.00,2.00,0.80,0.90,5000,117,2267.90,4922,3,63543.00,9840,1.27,1.99,3.07,0.00
 baseline,1.00,2.00,0.80,0.00,5000,251,2591.12,4850,0,40070.00,9530,1.37,2.03,3.02,0.00
