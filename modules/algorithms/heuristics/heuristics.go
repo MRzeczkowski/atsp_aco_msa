@@ -4,12 +4,8 @@ import "math"
 
 const msaHeuristicHighSignalThreshold = 1.0
 
-type patchEdge struct {
-	from, to int
-}
-
 type patchCandidate struct {
-	edge     patchEdge
+	from, to int
 	signal   float64
 	distance float64
 	valid    bool
@@ -75,16 +71,12 @@ func BuildCycleCoverMsaPatchingMatrix(matrix, msaHeuristic, cycleCover [][]float
 		}
 	}
 
-	components := buildCycleCoverComponents(cycleCover, dimension)
-	componentCount := countComponents(components)
+	components, componentCount := buildCycleCoverComponents(cycleCover, dimension)
 	if componentCount <= 1 || len(msaHeuristic) == 0 {
 		return patchingMatrix
 	}
 
-	connectors := selectMsaPatchConnectors(matrix, msaHeuristic, components, componentCount)
-	for edge, signal := range connectors {
-		patchingMatrix[edge.from][edge.to] = signal
-	}
+	addMsaConnectorHints(patchingMatrix, matrix, msaHeuristic, components, componentCount)
 
 	return patchingMatrix
 }
@@ -128,7 +120,7 @@ func heuristicDimension(matrices ...[][]float64) int {
 	return 0
 }
 
-func buildCycleCoverComponents(cycleCover [][]float64, dimension int) []int {
+func buildCycleCoverComponents(cycleCover [][]float64, dimension int) ([]int, int) {
 	components := make([]int, dimension)
 	for i := range components {
 		components[i] = -1
@@ -148,7 +140,7 @@ func buildCycleCoverComponents(cycleCover [][]float64, dimension int) []int {
 		component++
 	}
 
-	return components
+	return components, component
 }
 
 func cycleCoverSuccessor(cycleCover [][]float64, vertex int) int {
@@ -165,23 +157,13 @@ func cycleCoverSuccessor(cycleCover [][]float64, vertex int) int {
 	return -1
 }
 
-func countComponents(components []int) int {
-	count := 0
-	for _, component := range components {
-		if component+1 > count {
-			count = component + 1
-		}
-	}
-	return count
-}
-
-func selectMsaPatchConnectors(matrix, msaHeuristic [][]float64, components []int, componentCount int) map[patchEdge]float64 {
+func addMsaConnectorHints(patchingMatrix, matrix, msaHeuristic [][]float64, components []int, componentCount int) {
 	outgoing := make([]patchCandidate, componentCount)
 	incoming := make([]patchCandidate, componentCount)
 	dimension := len(components)
 	maxMsaHeuristicSelections := float64(dimension - 1)
 	if maxMsaHeuristicSelections <= 0 {
-		return nil
+		return
 	}
 
 	for from := 0; from < dimension && from < len(msaHeuristic); from++ {
@@ -196,7 +178,8 @@ func selectMsaPatchConnectors(matrix, msaHeuristic [][]float64, components []int
 			}
 
 			candidate := patchCandidate{
-				edge:     patchEdge{from: from, to: to},
+				from:     from,
+				to:       to,
 				signal:   signal,
 				distance: matrixDistance(matrix, from, to),
 				valid:    true,
@@ -210,19 +193,16 @@ func selectMsaPatchConnectors(matrix, msaHeuristic [][]float64, components []int
 		}
 	}
 
-	connectors := make(map[patchEdge]float64)
 	for _, candidate := range outgoing {
 		if candidate.valid {
-			connectors[candidate.edge] = candidate.signal
+			patchingMatrix[candidate.from][candidate.to] = candidate.signal
 		}
 	}
 	for _, candidate := range incoming {
 		if candidate.valid {
-			connectors[candidate.edge] = candidate.signal
+			patchingMatrix[candidate.from][candidate.to] = candidate.signal
 		}
 	}
-
-	return connectors
 }
 
 func matrixDistance(matrix [][]float64, from, to int) float64 {
@@ -243,8 +223,8 @@ func betterPatchCandidate(candidate, current patchCandidate) bool {
 	if candidate.distance != current.distance {
 		return candidate.distance < current.distance
 	}
-	if candidate.edge.from != current.edge.from {
-		return candidate.edge.from < current.edge.from
+	if candidate.from != current.from {
+		return candidate.from < current.from
 	}
-	return candidate.edge.to < current.edge.to
+	return candidate.to < current.to
 }
