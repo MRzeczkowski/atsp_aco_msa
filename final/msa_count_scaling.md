@@ -15,7 +15,7 @@ The table uses pooled totals over 28 selected instances. Precision and recall us
 </thead>
 <tbody>
 <tr><td>1</td><td align="right">100.00</td><td align="right">55.21</td><td align="right">4.27</td></tr>
-<tr><td>2</td><td align="right">93.49</td><td align="right">57.66</td><td align="right">4.12</td></tr>
+<tr><td>2</td><td align="right">93.49</td><td align="right">57.66</td><td align="right">4.11</td></tr>
 <tr><td>4</td><td align="right">87.56</td><td align="right">59.05</td><td align="right">3.93</td></tr>
 <tr><td>8</td><td align="right">82.42</td><td align="right">60.05</td><td align="right">3.82</td></tr>
 <tr><td>16</td><td align="right">79.97</td><td align="right">61.64</td><td align="right">3.66</td></tr>

@@ -4,11 +4,13 @@ import "math"
 
 const msaHeuristicHighSignalThreshold = 1.0
 
-type patchCandidate struct {
-	from, to int
-	signal   float64
-	distance float64
-	valid    bool
+type cyclePatch struct {
+	fromA, toB   int
+	fromB, toA   int
+	costIncrease float64
+	msaSupport   float64
+	score        float64
+	valid        bool
 }
 
 func BuildMsaHeuristicModifiers(msaHeuristic [][]float64, strength float64) [][]float64 {
@@ -55,30 +57,28 @@ func BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover [][]fl
 
 func BuildCycleCoverMsaPatchingMatrix(matrix, msaHeuristic, cycleCover [][]float64) [][]float64 {
 	dimension := heuristicDimension(matrix, msaHeuristic, cycleCover)
-	patchingMatrix := make([][]float64, dimension)
-	for i := range patchingMatrix {
-		patchingMatrix[i] = make([]float64, dimension)
-	}
+	patchingMatrix := newZeroMatrix(dimension)
 	if dimension == 0 {
 		return patchingMatrix
 	}
 
-	for i := 0; i < dimension && i < len(cycleCover); i++ {
-		for j := 0; j < dimension && j < len(cycleCover[i]); j++ {
-			if i != j && cycleCover[i][j] != 0 {
-				patchingMatrix[i][j] = 1.0
-			}
+	successors, ok := cycleCoverSuccessors(cycleCover, dimension)
+	if !ok {
+		return copyPositiveEdges(cycleCover, dimension)
+	}
+
+	cycles := buildCycles(successors)
+	for len(cycles) > 1 {
+		patch := bestCyclePatch(matrix, msaHeuristic, successors, cycles)
+		if !patch.valid {
+			return copyPositiveEdges(cycleCover, dimension)
 		}
+
+		applyCyclePatch(successors, patch)
+		cycles = buildCycles(successors)
 	}
 
-	components, componentCount := buildCycleCoverComponents(cycleCover, dimension)
-	if componentCount <= 1 || len(msaHeuristic) == 0 {
-		return patchingMatrix
-	}
-
-	addMsaConnectorHints(patchingMatrix, matrix, msaHeuristic, components, componentCount)
-
-	return patchingMatrix
+	return buildSuccessorMatrix(successors)
 }
 
 func BuildCycleCoverModifiers(cycleCover [][]float64, strength float64) [][]float64 {
@@ -120,27 +120,47 @@ func heuristicDimension(matrices ...[][]float64) int {
 	return 0
 }
 
-func buildCycleCoverComponents(cycleCover [][]float64, dimension int) ([]int, int) {
-	components := make([]int, dimension)
-	for i := range components {
-		components[i] = -1
+func newZeroMatrix(dimension int) [][]float64 {
+	matrix := make([][]float64, dimension)
+	for i := range matrix {
+		matrix[i] = make([]float64, dimension)
 	}
 
-	component := 0
-	for start := 0; start < dimension; start++ {
-		if components[start] != -1 {
-			continue
-		}
+	return matrix
+}
 
-		current := start
-		for current >= 0 && current < dimension && components[current] == -1 {
-			components[current] = component
-			current = cycleCoverSuccessor(cycleCover, current)
+func copyPositiveEdges(matrix [][]float64, dimension int) [][]float64 {
+	copyMatrix := newZeroMatrix(dimension)
+	for i := 0; i < dimension && i < len(matrix); i++ {
+		for j := 0; j < dimension && j < len(matrix[i]); j++ {
+			if i != j && matrix[i][j] != 0 {
+				copyMatrix[i][j] = 1.0
+			}
 		}
-		component++
 	}
 
-	return components, component
+	return copyMatrix
+}
+
+func cycleCoverSuccessors(cycleCover [][]float64, dimension int) ([]int, bool) {
+	successors := make([]int, dimension)
+	inDegree := make([]int, dimension)
+	for vertex := range successors {
+		successor := cycleCoverSuccessor(cycleCover, vertex)
+		if successor < 0 || successor >= dimension {
+			return nil, false
+		}
+		successors[vertex] = successor
+		inDegree[successor]++
+	}
+
+	for _, degree := range inDegree {
+		if degree != 1 {
+			return nil, false
+		}
+	}
+
+	return successors, true
 }
 
 func cycleCoverSuccessor(cycleCover [][]float64, vertex int) int {
@@ -157,52 +177,107 @@ func cycleCoverSuccessor(cycleCover [][]float64, vertex int) int {
 	return -1
 }
 
-func addMsaConnectorHints(patchingMatrix, matrix, msaHeuristic [][]float64, components []int, componentCount int) {
-	outgoing := make([]patchCandidate, componentCount)
-	incoming := make([]patchCandidate, componentCount)
-	dimension := len(components)
-	maxMsaHeuristicSelections := float64(dimension - 1)
-	if maxMsaHeuristicSelections <= 0 {
-		return
+func buildCycles(successors []int) [][]int {
+	visited := make([]bool, len(successors))
+	cycles := make([][]int, 0)
+
+	for start := 0; start < len(successors); start++ {
+		if visited[start] {
+			continue
+		}
+
+		cycle := make([]int, 0)
+		current := start
+		for !visited[current] {
+			visited[current] = true
+			cycle = append(cycle, current)
+			current = successors[current]
+		}
+		cycles = append(cycles, cycle)
 	}
 
-	for from := 0; from < dimension && from < len(msaHeuristic); from++ {
-		for to := 0; to < dimension && to < len(msaHeuristic[from]); to++ {
-			if from == to || components[from] == components[to] {
-				continue
-			}
+	return cycles
+}
 
-			signal := msaHeuristic[from][to] / maxMsaHeuristicSelections
-			if signal < msaHeuristicHighSignalThreshold {
-				continue
-			}
-
-			candidate := patchCandidate{
-				from:     from,
-				to:       to,
-				signal:   signal,
-				distance: matrixDistance(matrix, from, to),
-				valid:    true,
-			}
-			if betterPatchCandidate(candidate, outgoing[components[from]]) {
-				outgoing[components[from]] = candidate
-			}
-			if betterPatchCandidate(candidate, incoming[components[to]]) {
-				incoming[components[to]] = candidate
+func bestCyclePatch(matrix, msaHeuristic [][]float64, successors []int, cycles [][]int) cyclePatch {
+	best := cyclePatch{}
+	for cycleA := 0; cycleA < len(cycles); cycleA++ {
+		for cycleB := cycleA + 1; cycleB < len(cycles); cycleB++ {
+			for _, fromA := range cycles[cycleA] {
+				for _, fromB := range cycles[cycleB] {
+					patch := newCyclePatch(matrix, msaHeuristic, successors, fromA, fromB)
+					if betterCyclePatch(patch, best) {
+						best = patch
+					}
+				}
 			}
 		}
 	}
 
-	for _, candidate := range outgoing {
-		if candidate.valid {
-			patchingMatrix[candidate.from][candidate.to] = candidate.signal
-		}
+	return best
+}
+
+func newCyclePatch(matrix, msaHeuristic [][]float64, successors []int, fromA, fromB int) cyclePatch {
+	toA := successors[fromA]
+	toB := successors[fromB]
+	costIncrease := matrixDistance(matrix, fromA, toB) +
+		matrixDistance(matrix, fromB, toA) -
+		matrixDistance(matrix, fromA, toA) -
+		matrixDistance(matrix, fromB, toB)
+	msaSupport := msaHeuristicSignal(msaHeuristic, fromA, toB) +
+		msaHeuristicSignal(msaHeuristic, fromB, toA)
+
+	return cyclePatch{
+		fromA:        fromA,
+		toB:          toB,
+		fromB:        fromB,
+		toA:          toA,
+		costIncrease: costIncrease,
+		msaSupport:   msaSupport,
+		score:        costIncrease / (1.0 + msaSupport),
+		valid:        true,
 	}
-	for _, candidate := range incoming {
-		if candidate.valid {
-			patchingMatrix[candidate.from][candidate.to] = candidate.signal
-		}
+}
+
+func applyCyclePatch(successors []int, patch cyclePatch) {
+	successors[patch.fromA] = patch.toB
+	successors[patch.fromB] = patch.toA
+}
+
+func msaHeuristicSignal(msaHeuristic [][]float64, from, to int) float64 {
+	maxMsaHeuristicSelections := float64(len(msaHeuristic) - 1)
+	if maxMsaHeuristicSelections <= 0 ||
+		from < 0 || from >= len(msaHeuristic) ||
+		to < 0 || to >= len(msaHeuristic[from]) {
+		return 0
 	}
+
+	return msaHeuristic[from][to] / maxMsaHeuristicSelections
+}
+
+func betterCyclePatch(candidate, current cyclePatch) bool {
+	if !current.valid {
+		return true
+	}
+	if candidate.score != current.score {
+		return candidate.score < current.score
+	}
+	if candidate.msaSupport != current.msaSupport {
+		return candidate.msaSupport > current.msaSupport
+	}
+	if candidate.costIncrease != current.costIncrease {
+		return candidate.costIncrease < current.costIncrease
+	}
+	if candidate.fromA != current.fromA {
+		return candidate.fromA < current.fromA
+	}
+	if candidate.toB != current.toB {
+		return candidate.toB < current.toB
+	}
+	if candidate.fromB != current.fromB {
+		return candidate.fromB < current.fromB
+	}
+	return candidate.toA < current.toA
 }
 
 func matrixDistance(matrix [][]float64, from, to int) float64 {
@@ -213,18 +288,13 @@ func matrixDistance(matrix [][]float64, from, to int) float64 {
 	return math.Inf(1)
 }
 
-func betterPatchCandidate(candidate, current patchCandidate) bool {
-	if !current.valid {
-		return true
+func buildSuccessorMatrix(successors []int) [][]float64 {
+	matrix := newZeroMatrix(len(successors))
+	for from, to := range successors {
+		if from != to && to >= 0 && to < len(successors) {
+			matrix[from][to] = 1.0
+		}
 	}
-	if candidate.signal != current.signal {
-		return candidate.signal > current.signal
-	}
-	if candidate.distance != current.distance {
-		return candidate.distance < current.distance
-	}
-	if candidate.from != current.from {
-		return candidate.from < current.from
-	}
-	return candidate.to < current.to
+
+	return matrix
 }
