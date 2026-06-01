@@ -57,9 +57,8 @@ func BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover [][]fl
 
 func BuildCycleCoverMsaPatchingMatrix(matrix, msaHeuristic, cycleCover [][]float64) [][]float64 {
 	dimension := heuristicDimension(matrix, msaHeuristic, cycleCover)
-	patchingMatrix := newZeroMatrix(dimension)
 	if dimension == 0 {
-		return patchingMatrix
+		return newZeroMatrix(dimension)
 	}
 
 	successors, ok := cycleCoverSuccessors(cycleCover, dimension)
@@ -67,14 +66,22 @@ func BuildCycleCoverMsaPatchingMatrix(matrix, msaHeuristic, cycleCover [][]float
 		return copyPositiveEdges(cycleCover, dimension)
 	}
 
+	usedInPatch := make([]bool, dimension)
 	cycles := buildCycles(successors)
 	for len(cycles) > 1 {
-		patch := bestCyclePatch(matrix, msaHeuristic, successors, cycles)
+		// Karp's modified patching process:
+		// 1. take a shortest current cycle,
+		// 2. patch it to another cycle with a two-edge exchange,
+		// 3. never reuse vertices that already served as patch endpoints.
+		cycle := shortestCycle(cycles)
+		patch := bestCyclePatch(matrix, msaHeuristic, successors, cycle, usedInPatch)
 		if !patch.valid {
 			return copyPositiveEdges(cycleCover, dimension)
 		}
 
 		applyCyclePatch(successors, patch)
+		usedInPatch[patch.fromA] = true
+		usedInPatch[patch.fromB] = true
 		cycles = buildCycles(successors)
 	}
 
@@ -199,17 +206,36 @@ func buildCycles(successors []int) [][]int {
 	return cycles
 }
 
-func bestCyclePatch(matrix, msaHeuristic [][]float64, successors []int, cycles [][]int) cyclePatch {
+func shortestCycle(cycles [][]int) []int {
+	shortest := cycles[0]
+	for _, cycle := range cycles[1:] {
+		if len(cycle) < len(shortest) {
+			shortest = cycle
+		}
+	}
+
+	return shortest
+}
+
+func bestCyclePatch(matrix, msaHeuristic [][]float64, successors []int, cycle []int, usedInPatch []bool) cyclePatch {
 	best := cyclePatch{}
-	for cycleA := 0; cycleA < len(cycles); cycleA++ {
-		for cycleB := cycleA + 1; cycleB < len(cycles); cycleB++ {
-			for _, fromA := range cycles[cycleA] {
-				for _, fromB := range cycles[cycleB] {
-					patch := newCyclePatch(matrix, msaHeuristic, successors, fromA, fromB)
-					if betterCyclePatch(patch, best) {
-						best = patch
-					}
-				}
+	inCycle := make([]bool, len(successors))
+	for _, vertex := range cycle {
+		inCycle[vertex] = true
+	}
+
+	for _, fromA := range cycle {
+		if usedInPatch[fromA] {
+			continue
+		}
+		for fromB := range successors {
+			if inCycle[fromB] || usedInPatch[fromB] {
+				continue
+			}
+
+			patch := newCyclePatch(matrix, msaHeuristic, successors, fromA, fromB)
+			if betterCyclePatch(patch, best) {
+				best = patch
 			}
 		}
 	}
@@ -224,8 +250,16 @@ func newCyclePatch(matrix, msaHeuristic [][]float64, successors []int, fromA, fr
 		matrixDistance(matrix, fromB, toA) -
 		matrixDistance(matrix, fromA, toA) -
 		matrixDistance(matrix, fromB, toB)
+	if math.IsInf(costIncrease, 0) || math.IsNaN(costIncrease) {
+		return cyclePatch{}
+	}
+
 	msaSupport := msaHeuristicSignal(msaHeuristic, fromA, toB) +
 		msaHeuristicSignal(msaHeuristic, fromB, toA)
+	score := costIncrease / (1.0 + msaSupport)
+	if math.IsInf(score, 0) || math.IsNaN(score) {
+		return cyclePatch{}
+	}
 
 	return cyclePatch{
 		fromA:        fromA,
@@ -234,7 +268,7 @@ func newCyclePatch(matrix, msaHeuristic [][]float64, successors []int, fromA, fr
 		toA:          toA,
 		costIncrease: costIncrease,
 		msaSupport:   msaSupport,
-		score:        costIncrease / (1.0 + msaSupport),
+		score:        score,
 		valid:        true,
 	}
 }
