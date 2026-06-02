@@ -27,7 +27,7 @@ func TestCalculateAnalysisStructuralMetrics(t *testing.T) {
 		{1, 2, 1, 0},
 	}
 
-	analysis := calculateAnalysis("test", 4, matrix, msaHeuristic, tours, cycleCoverEdges, 1.0)
+	analysis := calculateAnalysis("test", 4, matrix, msaHeuristic, tours, cycleCoverEdges, 1.0, 1.0)
 	metrics := analysis.Metrics
 
 	assertFloat(t, "cycle-cover precision", metrics.CycleCoverMetrics.Precision, 1)
@@ -68,7 +68,7 @@ func TestCalculateAnalysisOptimalEdgePartition(t *testing.T) {
 		{2, 3, 1, 0},
 	}
 
-	analysis := calculateAnalysis("test", 4, matrix, msaHeuristic, tours, cycleCoverEdges, 1.0)
+	analysis := calculateAnalysis("test", 4, matrix, msaHeuristic, tours, cycleCoverEdges, 1.0, 1.0)
 	metrics := analysis.Metrics
 
 	if metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic != 1 {

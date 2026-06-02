@@ -46,8 +46,8 @@ func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
 		t.Fatalf("expected one statistic, got %d", len(statistics))
 	}
 
-	if statistics[0].heuristicWeight != 0.50 || statistics[0].successRate != 40.00 {
-		t.Fatalf("unexpected statistic values: heuristicWeight=%f successRate=%f", statistics[0].heuristicWeight, statistics[0].successRate)
+	if statistics[0].heuristicWeight != 0.50 || statistics[0].msaPatchBias != 0.0 || statistics[0].successRate != 40.00 {
+		t.Fatalf("unexpected statistic values: heuristicWeight=%f msaPatchBias=%f successRate=%f", statistics[0].heuristicWeight, statistics[0].msaPatchBias, statistics[0].successRate)
 	}
 
 	legacyPath := filepath.Join(dir, "legacy.csv")
@@ -60,6 +60,43 @@ func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
 
 	if _, err := readStatistics(legacyPath); err == nil {
 		t.Fatal("expected legacy 16-column statistics CSV to be rejected")
+	}
+}
+
+func TestReadStatisticsAcceptsPatchingMsaPatchBiasColumn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "result_cycle_cover_msa_patching.csv")
+	record := []string{
+		"1.00",
+		"2.00",
+		"0.80",
+		"0.50",
+		"0.25",
+		"5000",
+		"1",
+		"2.00",
+		"3",
+		"0",
+		"0.00",
+		"0",
+		"1.00",
+		"2.00",
+		"3.00",
+		"40.00",
+	}
+	content := strings.Join(statisticsCsvHeaderForHeuristic(heuristicCycleCoverMsaPatching), ",") + "\n" + strings.Join(record, ",") + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write patching statistics CSV: %v", err)
+	}
+
+	statistics, err := readStatistics(path)
+	if err != nil {
+		t.Fatalf("readStatistics returned unexpected error: %v", err)
+	}
+	if len(statistics) != 1 {
+		t.Fatalf("expected one statistic, got %d", len(statistics))
+	}
+	if statistics[0].heuristicWeight != 0.50 || statistics[0].msaPatchBias != 0.25 || statistics[0].successRate != 40.00 {
+		t.Fatalf("unexpected statistic values: heuristicWeight=%f msaPatchBias=%f successRate=%f", statistics[0].heuristicWeight, statistics[0].msaPatchBias, statistics[0].successRate)
 	}
 }
 
@@ -562,7 +599,7 @@ func TestBuildHeuristicModifiersReturnsNeutralMatrixForBaseline(t *testing.T) {
 		{1, 1, 0},
 	}
 
-	modifiers := buildHeuristicModifiers(heuristicBaseline, nil, msaHeuristic, nil, 1.0)
+	modifiers := buildHeuristicModifiers(heuristicBaseline, nil, msaHeuristic, nil, newDefaultExperimentParameters(1.0))
 	expected := [][]float64{
 		{1, 1, 1},
 		{1, 1, 1},
@@ -580,7 +617,7 @@ func TestBuildHeuristicModifiersBaselineCanUseDistanceMatrixDimension(t *testing
 		{2, 0},
 	}
 
-	modifiers := buildHeuristicModifiers(heuristicBaseline, matrix, nil, nil, 1.0)
+	modifiers := buildHeuristicModifiers(heuristicBaseline, matrix, nil, nil, newDefaultExperimentParameters(1.0))
 	expected := [][]float64{
 		{1, 1},
 		{1, 1},
@@ -659,11 +696,12 @@ func TestFinalExperimentConfigurationsUseFixedBalancedComparison(t *testing.T) {
 	expected := []struct {
 		heuristic string
 		weight    float64
+		bias      float64
 	}{
-		{heuristicBaseline, defaultBaselineHeuristicWeight},
-		{heuristicMsaHeuristic, finalMsaHeuristicWeight},
-		{heuristicCycleCover, finalCycleCoverWeight},
-		{heuristicCycleCoverMsaPatching, finalCycleCoverMsaPatchingWeight},
+		{heuristicBaseline, defaultBaselineHeuristicWeight, 0.0},
+		{heuristicMsaHeuristic, finalMsaHeuristicWeight, 0.0},
+		{heuristicCycleCover, finalCycleCoverWeight, 0.0},
+		{heuristicCycleCoverMsaPatching, finalCycleCoverMsaPatchingWeight, finalCycleCoverMsaPatchingMsaPatchBias},
 	}
 
 	if len(configs) != len(expected) {
@@ -682,9 +720,40 @@ func TestFinalExperimentConfigurationsUseFixedBalancedComparison(t *testing.T) {
 		if parameters.alpha != defaultExperimentAlpha ||
 			parameters.beta != defaultExperimentBeta ||
 			parameters.rho != defaultExperimentRho ||
-			parameters.heuristicWeight != expected[i].weight {
+			parameters.heuristicWeight != expected[i].weight ||
+			parameters.msaPatchBias != expected[i].bias {
 			t.Fatalf("unexpected final parameters for %s: %+v", config.heuristic, parameters)
 		}
+	}
+}
+
+func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
+	msaParameters := generateParameters(heuristicMsaHeuristic)
+	if len(msaParameters) != 11 {
+		t.Fatalf("expected 11 MSA heuristic parameter sets, got %d", len(msaParameters))
+	}
+	for _, parameters := range msaParameters {
+		if parameters.msaPatchBias != 0 {
+			t.Fatalf("expected MSA patch bias to be zero for non-patching heuristic, got %+v", parameters)
+		}
+	}
+
+	patchingParameters := generateParameters(heuristicCycleCoverMsaPatching)
+	if len(patchingParameters) != 51 {
+		t.Fatalf("expected 51 patching parameter sets, got %d", len(patchingParameters))
+	}
+
+	zeroWeightCount := 0
+	for _, parameters := range patchingParameters {
+		if parameters.heuristicWeight == 0 {
+			zeroWeightCount++
+			if parameters.msaPatchBias != 0 {
+				t.Fatalf("expected zero-weight patching parameter to use zero MSA patch bias, got %+v", parameters)
+			}
+		}
+	}
+	if zeroWeightCount != 1 {
+		t.Fatalf("expected one zero-weight patching parameter set, got %d", zeroWeightCount)
 	}
 }
 

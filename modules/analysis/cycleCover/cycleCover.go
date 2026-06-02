@@ -23,6 +23,7 @@ type InstanceConfig struct {
 type Config struct {
 	Instances     []InstanceConfig
 	HighThreshold float64
+	MsaPatchBias  float64
 }
 
 type InstanceAnalysis struct {
@@ -58,6 +59,7 @@ func AnalyzeInstances(config Config) ([]InstanceAnalysis, error) {
 	if highThreshold == 0 {
 		highThreshold = 1.0
 	}
+	msaPatchBias := config.MsaPatchBias
 
 	instances := append([]InstanceConfig(nil), config.Instances...)
 	sort.SliceStable(instances, func(i, j int) bool {
@@ -66,7 +68,7 @@ func AnalyzeInstances(config Config) ([]InstanceAnalysis, error) {
 
 	analyses := make([]InstanceAnalysis, 0, len(instances))
 	for _, instance := range instances {
-		analysis, err := AnalyzeInstance(instance, highThreshold)
+		analysis, err := analyzeInstance(instance, highThreshold, msaPatchBias)
 		if err != nil {
 			return nil, err
 		}
@@ -77,6 +79,10 @@ func AnalyzeInstances(config Config) ([]InstanceAnalysis, error) {
 }
 
 func AnalyzeInstance(config InstanceConfig, highThreshold float64) (InstanceAnalysis, error) {
+	return analyzeInstance(config, highThreshold, 1.0)
+}
+
+func analyzeInstance(config InstanceConfig, highThreshold, msaPatchBias float64) (InstanceAnalysis, error) {
 	if highThreshold == 0 {
 		highThreshold = 1.0
 	}
@@ -115,17 +121,17 @@ func AnalyzeInstance(config InstanceConfig, highThreshold float64) (InstanceAnal
 		return InstanceAnalysis{}, fmt.Errorf("%s: invalid minimum cycle cover: %w", config.Name, err)
 	}
 
-	analysis := calculateAnalysis(config.Name, len(config.Matrix), config.Matrix, msaHeuristicMatrix, uniqueOptimalTours, cycleCoverEdges, highThreshold)
+	analysis := calculateAnalysis(config.Name, len(config.Matrix), config.Matrix, msaHeuristicMatrix, uniqueOptimalTours, cycleCoverEdges, highThreshold, msaPatchBias)
 	return analysis, nil
 }
 
-func calculateAnalysis(instance string, dimension int, matrix, msaHeuristic [][]float64, uniqueOptimalTours map[string][]int, cycleCoverEdges []Edge, highThreshold float64) InstanceAnalysis {
+func calculateAnalysis(instance string, dimension int, matrix, msaHeuristic [][]float64, uniqueOptimalTours map[string][]int, cycleCoverEdges []Edge, highThreshold, msaPatchBias float64) InstanceAnalysis {
 	optimalEdges := buildTourEdgeSet(uniqueOptimalTours)
 	cycleCoverSet := buildEdgeSet(cycleCoverEdges)
 	highMsaHeuristicSet := buildMsaHeuristicThresholdSet(msaHeuristic, highThreshold, true)
 	cycleCoverHighMsaHeuristicSet := intersectEdgeSets(cycleCoverSet, highMsaHeuristicSet)
 	cycleCoverMatrix := buildEdgeMatrix(dimension, cycleCoverEdges)
-	cycleCoverMsaPatchingSet := buildMatrixEdgeSet(heuristics.BuildCycleCoverMsaPatchingMatrix(matrix, msaHeuristic, cycleCoverMatrix))
+	cycleCoverMsaPatchingSet := buildMatrixEdgeSet(heuristics.BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, msaHeuristic, cycleCoverMatrix, msaPatchBias))
 
 	metrics := InstanceMetrics{
 		FoundOptimalTourCount:           len(uniqueOptimalTours),

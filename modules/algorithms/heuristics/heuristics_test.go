@@ -82,7 +82,7 @@ func TestBuildCycleCoverMsaPatchingModifiersUsesMsaSupportInPatchScore(t *testin
 		{2, 0, 0, 0},
 	}
 
-	modifiers := BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover, 0.5)
+	modifiers := BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover, 0.5, 1.0)
 	expected := [][]float64{
 		{1, 1.5, 1, 1},
 		{1, 1, 1.5, 1},
@@ -92,6 +92,39 @@ func TestBuildCycleCoverMsaPatchingModifiersUsesMsaSupportInPatchScore(t *testin
 
 	if !reflect.DeepEqual(modifiers, expected) {
 		t.Fatalf("unexpected cycle-cover MSA-patching modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildCycleCoverMsaPatchingModifiersCanDisableMsaPatchBias(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 20, 3},
+		{1, 0, 5, 20},
+		{20, 3, 0, 1},
+		{5, 20, 1, 0},
+	}
+	cycleCover := [][]float64{
+		{0, 1, 0, 0},
+		{1, 0, 0, 0},
+		{0, 0, 0, 1},
+		{0, 0, 1, 0},
+	}
+	msaHeuristic := [][]float64{
+		{0, 0, 0, 0},
+		{0, 0, 2, 0},
+		{0, 0, 0, 0},
+		{2, 0, 0, 0},
+	}
+
+	modifiers := BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover, 0.5, 0.0)
+	expected := [][]float64{
+		{1, 1, 1, 1.5},
+		{1.5, 1, 1, 1},
+		{1, 1.5, 1, 1},
+		{1, 1, 1.5, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected cost-only Karp patching modifiers\nwant: %v\n got: %v", expected, modifiers)
 	}
 }
 
@@ -204,7 +237,7 @@ func TestBestCyclePatchUsesOnlyVerticesFromSelectedShortestCycle(t *testing.T) {
 	usedInPatch := make([]bool, len(successors))
 	msaHeuristic := newZeroMatrix(len(successors))
 
-	patch := bestCyclePatch(matrix, msaHeuristic, successors, shortest, usedInPatch)
+	patch := bestCyclePatch(matrix, msaHeuristic, successors, shortest, usedInPatch, 1.0)
 
 	if !patch.valid {
 		t.Fatal("expected a valid patch")
@@ -226,7 +259,7 @@ func TestBestCyclePatchDoesNotReusePatchVertices(t *testing.T) {
 	usedInPatch := []bool{true, false, true, false}
 	msaHeuristic := newZeroMatrix(len(successors))
 
-	patch := bestCyclePatch(matrix, msaHeuristic, successors, shortest, usedInPatch)
+	patch := bestCyclePatch(matrix, msaHeuristic, successors, shortest, usedInPatch, 1.0)
 
 	if !patch.valid {
 		t.Fatal("expected a valid patch")

@@ -37,17 +37,18 @@ func BuildMsaHeuristicModifiers(msaHeuristic [][]float64, strength float64) [][]
 	return modifiers
 }
 
-func BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover [][]float64, strength float64) [][]float64 {
-	patchingMatrix := BuildCycleCoverMsaPatchingMatrix(matrix, msaHeuristic, cycleCover)
-	modifiers := BuildNeutralModifiers(len(patchingMatrix))
-	if strength == 0 {
-		return modifiers
+func BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover [][]float64, patchingWeight, msaPatchBias float64) [][]float64 {
+	if patchingWeight == 0 {
+		return BuildNeutralModifiers(heuristicDimension(matrix, msaHeuristic, cycleCover))
 	}
+
+	patchingMatrix := BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, msaHeuristic, cycleCover, msaPatchBias)
+	modifiers := BuildNeutralModifiers(len(patchingMatrix))
 
 	for i := 0; i < len(patchingMatrix); i++ {
 		for j := 0; j < len(patchingMatrix[i]); j++ {
 			if i != j && patchingMatrix[i][j] > 0 {
-				modifiers[i][j] = 1.0 + patchingMatrix[i][j]*strength
+				modifiers[i][j] = 1.0 + patchingMatrix[i][j]*patchingWeight
 			}
 		}
 	}
@@ -56,6 +57,10 @@ func BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover [][]fl
 }
 
 func BuildCycleCoverMsaPatchingMatrix(matrix, msaHeuristic, cycleCover [][]float64) [][]float64 {
+	return BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, msaHeuristic, cycleCover, 1.0)
+}
+
+func BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, msaHeuristic, cycleCover [][]float64, msaPatchBias float64) [][]float64 {
 	dimension := heuristicDimension(matrix, msaHeuristic, cycleCover)
 	if dimension == 0 {
 		return newZeroMatrix(dimension)
@@ -74,7 +79,7 @@ func BuildCycleCoverMsaPatchingMatrix(matrix, msaHeuristic, cycleCover [][]float
 		// 2. patch it to another cycle with a two-edge exchange,
 		// 3. never reuse vertices that already served as patch endpoints.
 		cycle := shortestCycle(cycles)
-		patch := bestCyclePatch(matrix, msaHeuristic, successors, cycle, usedInPatch)
+		patch := bestCyclePatch(matrix, msaHeuristic, successors, cycle, usedInPatch, msaPatchBias)
 		if !patch.valid {
 			return copyPositiveEdges(cycleCover, dimension)
 		}
@@ -217,7 +222,7 @@ func shortestCycle(cycles [][]int) []int {
 	return shortest
 }
 
-func bestCyclePatch(matrix, msaHeuristic [][]float64, successors []int, cycle []int, usedInPatch []bool) cyclePatch {
+func bestCyclePatch(matrix, msaHeuristic [][]float64, successors []int, cycle []int, usedInPatch []bool, msaPatchBias float64) cyclePatch {
 	best := cyclePatch{}
 	inCycle := make([]bool, len(successors))
 	for _, vertex := range cycle {
@@ -233,7 +238,7 @@ func bestCyclePatch(matrix, msaHeuristic [][]float64, successors []int, cycle []
 				continue
 			}
 
-			patch := newCyclePatch(matrix, msaHeuristic, successors, fromA, fromB)
+			patch := newCyclePatch(matrix, msaHeuristic, successors, fromA, fromB, msaPatchBias)
 			if betterCyclePatch(patch, best) {
 				best = patch
 			}
@@ -243,7 +248,7 @@ func bestCyclePatch(matrix, msaHeuristic [][]float64, successors []int, cycle []
 	return best
 }
 
-func newCyclePatch(matrix, msaHeuristic [][]float64, successors []int, fromA, fromB int) cyclePatch {
+func newCyclePatch(matrix, msaHeuristic [][]float64, successors []int, fromA, fromB int, msaPatchBias float64) cyclePatch {
 	toA := successors[fromA]
 	toB := successors[fromB]
 	costIncrease := matrixDistance(matrix, fromA, toB) +
@@ -256,7 +261,8 @@ func newCyclePatch(matrix, msaHeuristic [][]float64, successors []int, fromA, fr
 
 	msaSupport := msaHeuristicSignal(msaHeuristic, fromA, toB) +
 		msaHeuristicSignal(msaHeuristic, fromB, toA)
-	score := costIncrease / (1.0 + msaSupport)
+	weightedMsaSupport := msaSupport * msaPatchBias
+	score := costIncrease / (1.0 + weightedMsaSupport)
 	if math.IsInf(score, 0) || math.IsNaN(score) {
 		return cyclePatch{}
 	}
@@ -267,7 +273,7 @@ func newCyclePatch(matrix, msaHeuristic [][]float64, successors []int, fromA, fr
 		fromB:        fromB,
 		toA:          toA,
 		costIncrease: costIncrease,
-		msaSupport:   msaSupport,
+		msaSupport:   weightedMsaSupport,
 		score:        score,
 		valid:        true,
 	}

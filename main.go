@@ -32,8 +32,8 @@ type ExperimentsData struct {
 }
 
 type ExperimentParameters struct {
-	alpha, beta, rho, heuristicWeight float64
-	iterations                        int
+	alpha, beta, rho, heuristicWeight, msaPatchBias float64
+	iterations                                      int
 }
 
 type ExperimentResult struct {
@@ -88,15 +88,16 @@ const (
 )
 
 const (
-	finalNumberOfExperiments         = 50
-	finalMsaHeuristicWeight          = 0.9
-	finalCycleCoverWeight            = 0.8
-	finalCycleCoverMsaPatchingWeight = 0.6
-	defaultExperimentAlpha           = 1.0
-	defaultExperimentBeta            = 2.0
-	defaultExperimentRho             = 0.8
-	defaultExperimentRunCount        = 30
-	defaultBaselineHeuristicWeight   = 0.0
+	finalNumberOfExperiments               = 50
+	finalMsaHeuristicWeight                = 0.9
+	finalCycleCoverWeight                  = 0.8
+	finalCycleCoverMsaPatchingWeight       = 0.7
+	finalCycleCoverMsaPatchingMsaPatchBias = 0.25
+	defaultExperimentAlpha                 = 1.0
+	defaultExperimentBeta                  = 2.0
+	defaultExperimentRho                   = 0.8
+	defaultExperimentRunCount              = 30
+	defaultBaselineHeuristicWeight         = 0.0
 )
 
 const (
@@ -195,6 +196,17 @@ var statisticsCsvHeader = []string{
 	"Success rate [%]",
 }
 
+func statisticsCsvHeaderForHeuristic(heuristic string) []string {
+	if heuristic != heuristicCycleCoverMsaPatching {
+		return statisticsCsvHeader
+	}
+
+	header := append([]string{}, statisticsCsvHeader[:4]...)
+	header = append(header, "MSA patch bias")
+	header = append(header, statisticsCsvHeader[4:]...)
+	return header
+}
+
 func generateMarkdownCounts(paramName string, counts map[float64]int) string {
 	markdown := fmt.Sprintf("### %s\n\n", paramName)
 	markdown += "| Value | Count |\n"
@@ -216,7 +228,7 @@ func generateMarkdownCounts(paramName string, counts map[float64]int) string {
 	return markdown
 }
 
-func saveBestParametersInfo(resultsRootPath, fileName string, bestStatistics []ExperimentsDataStatistics) {
+func saveBestParametersInfo(resultsRootPath, fileName string, bestStatistics []ExperimentsDataStatistics, includeMsaPatchBias bool) {
 	sort.SliceStable(bestStatistics, func(i, j int) bool {
 		if bestStatistics[i].averageBestDeviation != bestStatistics[j].averageBestDeviation {
 			return bestStatistics[i].averageBestDeviation < bestStatistics[j].averageBestDeviation
@@ -241,6 +253,7 @@ func saveBestParametersInfo(resultsRootPath, fileName string, bestStatistics []E
 	betaCounts := make(map[float64]int)
 	rhoCounts := make(map[float64]int)
 	heuristicWeightCounts := make(map[float64]int)
+	msaPatchBiasCounts := make(map[float64]int)
 
 	// Count the occurrences
 	for params := range uniqueParameters {
@@ -248,6 +261,9 @@ func saveBestParametersInfo(resultsRootPath, fileName string, bestStatistics []E
 		betaCounts[params.beta]++
 		rhoCounts[params.rho]++
 		heuristicWeightCounts[params.heuristicWeight]++
+		if includeMsaPatchBias {
+			msaPatchBiasCounts[params.msaPatchBias]++
+		}
 	}
 
 	// Markdown content
@@ -258,8 +274,13 @@ func saveBestParametersInfo(resultsRootPath, fileName string, bestStatistics []E
 
 	// Best parameters
 	markdown += "## Best Parameters\n\n"
-	markdown += "| Alpha | Beta | Rho | Heuristic weight | Times used |\n"
-	markdown += "|-------|------|-----|-------|------------|\n"
+	if includeMsaPatchBias {
+		markdown += "| Alpha | Beta | Rho | Heuristic weight | MSA patch bias | Times used |\n"
+		markdown += "|-------|------|-----|------------------|----------------|------------|\n"
+	} else {
+		markdown += "| Alpha | Beta | Rho | Heuristic weight | Times used |\n"
+		markdown += "|-------|------|-----|------------------|------------|\n"
+	}
 
 	sortedParameters := make([]ExperimentParameters, 0, len(uniqueParameters))
 	for parameters := range uniqueParameters {
@@ -276,13 +297,21 @@ func saveBestParametersInfo(resultsRootPath, fileName string, bestStatistics []E
 		if left.rho != right.rho {
 			return left.rho < right.rho
 		}
-		return left.heuristicWeight < right.heuristicWeight
+		if left.heuristicWeight != right.heuristicWeight {
+			return left.heuristicWeight < right.heuristicWeight
+		}
+		return left.msaPatchBias < right.msaPatchBias
 	})
 
 	for _, parameters := range sortedParameters {
 		timesUsed := uniqueParameters[parameters]
-		markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %d |\n",
-			parameters.alpha, parameters.beta, parameters.rho, parameters.heuristicWeight, timesUsed)
+		if includeMsaPatchBias {
+			markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %.2f | %d |\n",
+				parameters.alpha, parameters.beta, parameters.rho, parameters.heuristicWeight, parameters.msaPatchBias, timesUsed)
+		} else {
+			markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %d |\n",
+				parameters.alpha, parameters.beta, parameters.rho, parameters.heuristicWeight, timesUsed)
+		}
 	}
 	markdown += "\n"
 
@@ -292,6 +321,9 @@ func saveBestParametersInfo(resultsRootPath, fileName string, bestStatistics []E
 	markdown += generateMarkdownCounts("Beta", betaCounts)
 	markdown += generateMarkdownCounts("Rho", rhoCounts)
 	markdown += generateMarkdownCounts("Heuristic weight", heuristicWeightCounts)
+	if includeMsaPatchBias {
+		markdown += generateMarkdownCounts("MSA patch bias", msaPatchBiasCounts)
+	}
 
 	// Parameter ranges
 	markdown += "## Parameter Ranges\n\n"
@@ -304,6 +336,10 @@ func saveBestParametersInfo(resultsRootPath, fileName string, bestStatistics []E
 	markdown += fmt.Sprintf("- **Beta**: %.2f - %.2f\n", minBeta, maxBeta)
 	markdown += fmt.Sprintf("- **Rho**: %.2f - %.2f\n", minRho, maxRho)
 	markdown += fmt.Sprintf("- **Heuristic weight**: %.2f - %.2f\n", minHeuristicWeight, maxHeuristicWeight)
+	if includeMsaPatchBias {
+		minMsaPatchBias, maxMsaPatchBias := findMinMax(msaPatchBiasCounts)
+		markdown += fmt.Sprintf("- **MSA patch bias**: %.2f - %.2f\n", minMsaPatchBias, maxMsaPatchBias)
+	}
 
 	// Save to a file
 	reportPath := filepath.Join(resultsRootPath, fileName)
@@ -348,9 +384,11 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read header: %w", err)
 	}
-	if len(header) != len(statisticsCsvHeader) {
-		return nil, fmt.Errorf("invalid header length: %d", len(header))
+	includeMsaPatchBias := slices.Equal(header, statisticsCsvHeaderForHeuristic(heuristicCycleCoverMsaPatching))
+	if !slices.Equal(header, statisticsCsvHeader) && !includeMsaPatchBias {
+		return nil, fmt.Errorf("invalid statistics header")
 	}
+	defaultMsaPatchBias := defaultMsaPatchBiasForStatisticsPath(csvFilePath)
 
 	var statistics []ExperimentsDataStatistics
 
@@ -361,11 +399,15 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 	}
 
 	for _, record := range records {
-		if len(record) != len(statisticsCsvHeader) {
+		expectedRecordLength := len(statisticsCsvHeader)
+		if includeMsaPatchBias {
+			expectedRecordLength = len(statisticsCsvHeaderForHeuristic(heuristicCycleCoverMsaPatching))
+		}
+		if len(record) != expectedRecordLength {
 			return nil, fmt.Errorf("invalid record length: %d", len(record))
 		}
 
-		statistic, err := parseStatisticsRecord(record)
+		statistic, err := parseStatisticsRecord(record, includeMsaPatchBias, defaultMsaPatchBias)
 		if err != nil {
 			return nil, err
 		}
@@ -376,8 +418,20 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 	return statistics, nil
 }
 
-func parseStatisticsRecord(record []string) (ExperimentsDataStatistics, error) {
-	if len(record) != len(statisticsCsvHeader) {
+func defaultMsaPatchBiasForStatisticsPath(csvFilePath string) float64 {
+	if strings.Contains(filepath.Base(csvFilePath), "cycle_cover_msa_patching") {
+		return 1.0
+	}
+
+	return 0.0
+}
+
+func parseStatisticsRecord(record []string, includeMsaPatchBias bool, defaultMsaPatchBias float64) (ExperimentsDataStatistics, error) {
+	expectedRecordLength := len(statisticsCsvHeader)
+	if includeMsaPatchBias {
+		expectedRecordLength = len(statisticsCsvHeaderForHeuristic(heuristicCycleCoverMsaPatching))
+	}
+	if len(record) != expectedRecordLength {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid record length: %d", len(record))
 	}
 
@@ -397,47 +451,57 @@ func parseStatisticsRecord(record []string) (ExperimentsDataStatistics, error) {
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid heuristic weight: %w", err)
 	}
-	iterations, err := strconv.Atoi(record[4])
+	msaPatchBias := defaultMsaPatchBias
+	indexOffset := 0
+	if includeMsaPatchBias {
+		var err error
+		msaPatchBias, err = strconv.ParseFloat(record[4], 64)
+		if err != nil {
+			return ExperimentsDataStatistics{}, fmt.Errorf("invalid MSA patch bias: %w", err)
+		}
+		indexOffset = 1
+	}
+	iterations, err := strconv.Atoi(record[4+indexOffset])
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid iterations: %w", err)
 	}
-	minBestAtIteration, err := strconv.Atoi(record[5])
+	minBestAtIteration, err := strconv.Atoi(record[5+indexOffset])
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid min best at iteration: %w", err)
 	}
-	averageBestAtIteration, err := strconv.ParseFloat(record[6], 64)
+	averageBestAtIteration, err := strconv.ParseFloat(record[6+indexOffset], 64)
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid avg best at iteration: %w", err)
 	}
-	maxBestAtIteration, err := strconv.Atoi(record[7])
+	maxBestAtIteration, err := strconv.Atoi(record[7+indexOffset])
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid max best at iteration: %w", err)
 	}
-	minThreeOptImprovementsCount, err := strconv.Atoi(record[8])
+	minThreeOptImprovementsCount, err := strconv.Atoi(record[8+indexOffset])
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid min local search improvements: %w", err)
 	}
-	averageThreeOptImprovementsCount, err := strconv.ParseFloat(record[9], 64)
+	averageThreeOptImprovementsCount, err := strconv.ParseFloat(record[9+indexOffset], 64)
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid avg local search improvements: %w", err)
 	}
-	maxThreeOptImprovementsCount, err := strconv.Atoi(record[10])
+	maxThreeOptImprovementsCount, err := strconv.Atoi(record[10+indexOffset])
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid max local search improvements: %w", err)
 	}
-	minBestDeviation, err := strconv.ParseFloat(record[11], 64)
+	minBestDeviation, err := strconv.ParseFloat(record[11+indexOffset], 64)
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid min best deviation: %w", err)
 	}
-	averageBestDeviation, err := strconv.ParseFloat(record[12], 64)
+	averageBestDeviation, err := strconv.ParseFloat(record[12+indexOffset], 64)
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid avg best deviation: %w", err)
 	}
-	maxBestDeviation, err := strconv.ParseFloat(record[13], 64)
+	maxBestDeviation, err := strconv.ParseFloat(record[13+indexOffset], 64)
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid max best deviation: %w", err)
 	}
-	successRate, err := strconv.ParseFloat(record[14], 64)
+	successRate, err := strconv.ParseFloat(record[14+indexOffset], 64)
 	if err != nil {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid success rate: %w", err)
 	}
@@ -448,6 +512,7 @@ func parseStatisticsRecord(record []string) (ExperimentsDataStatistics, error) {
 			beta:            beta,
 			rho:             rho,
 			heuristicWeight: heuristicWeight,
+			msaPatchBias:    msaPatchBias,
 			iterations:      iterations,
 		},
 		minBestAtIteration:               minBestAtIteration,
@@ -463,7 +528,7 @@ func parseStatisticsRecord(record []string) (ExperimentsDataStatistics, error) {
 	}, nil
 }
 
-func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics) {
+func saveStatistics(resultCsvPath, heuristic string, statistics []ExperimentsDataStatistics) {
 	if err := os.MkdirAll(filepath.Dir(resultCsvPath), 0700); err != nil {
 		fmt.Printf("Failed to create statistics directory: %v\n", err)
 		return
@@ -477,11 +542,12 @@ func saveStatistics(resultCsvPath string, statistics []ExperimentsDataStatistics
 	defer file.Close()
 
 	writer := csv.NewWriter(file)
+	includeMsaPatchBias := heuristic == heuristicCycleCoverMsaPatching
 
-	_ = writer.Write(statisticsCsvHeader)
+	_ = writer.Write(statisticsCsvHeaderForHeuristic(heuristic))
 
 	for _, statistic := range statistics {
-		writer.Write(statisticsCsvRecord(statistic))
+		writer.Write(statisticsCsvRecord(statistic, includeMsaPatchBias))
 	}
 
 	writer.Flush()
@@ -517,7 +583,7 @@ func saveHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperim
 	})
 
 	for _, statistic := range sortedStatistics {
-		record := append([]string{statistic.heuristic}, statisticsCsvRecord(statistic.statistics)...)
+		record := append([]string{statistic.heuristic}, statisticsCsvRecord(statistic.statistics, false)...)
 		if err := writer.Write(record); err != nil {
 			return err
 		}
@@ -559,7 +625,9 @@ func readHeuristicStatistics(resultCsvPath string) ([]HeuristicExperimentStatist
 	}
 
 	expectedHeader := append([]string{"Heuristic"}, statisticsCsvHeader...)
-	if !slices.Equal(header, expectedHeader) {
+	extendedHeader := append([]string{"Heuristic"}, statisticsCsvHeaderForHeuristic(heuristicCycleCoverMsaPatching)...)
+	extendedFormat := slices.Equal(header, extendedHeader)
+	if !slices.Equal(header, expectedHeader) && !extendedFormat {
 		return nil, fmt.Errorf("invalid heuristic statistics header")
 	}
 
@@ -570,11 +638,15 @@ func readHeuristicStatistics(resultCsvPath string) ([]HeuristicExperimentStatist
 
 	statistics := make([]HeuristicExperimentStatistics, 0, len(records))
 	for _, record := range records {
-		if len(record) != len(expectedHeader) {
-			return nil, fmt.Errorf("invalid heuristic statistics record length: got %d want %d", len(record), len(expectedHeader))
+		expectedRecordLength := len(expectedHeader)
+		if extendedFormat {
+			expectedRecordLength = len(extendedHeader)
+		}
+		if len(record) != expectedRecordLength {
+			return nil, fmt.Errorf("invalid heuristic statistics record length: got %d want %d", len(record), expectedRecordLength)
 		}
 
-		parsed, err := parseStatisticsRecord(record[1:])
+		parsed, err := parseStatisticsRecord(record[1:], extendedFormat, 0.0)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", record[0], err)
 		}
@@ -2108,16 +2180,16 @@ func heuristicDisplayName(heuristic string) string {
 	}
 }
 
-func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover [][]float64, strength float64) [][]float64 {
+func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover [][]float64, parameters ExperimentParameters) [][]float64 {
 	switch heuristic {
 	case heuristicBaseline:
 		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
 	case heuristicMsaHeuristic:
-		return heuristics.BuildMsaHeuristicModifiers(msaHeuristic, strength)
+		return heuristics.BuildMsaHeuristicModifiers(msaHeuristic, parameters.heuristicWeight)
 	case heuristicCycleCover:
-		return heuristics.BuildCycleCoverModifiers(cycleCover, strength)
+		return heuristics.BuildCycleCoverModifiers(cycleCover, parameters.heuristicWeight)
 	case heuristicCycleCoverMsaPatching:
-		return heuristics.BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover, strength)
+		return heuristics.BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover, parameters.heuristicWeight, parameters.msaPatchBias)
 	default:
 		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
 	}
@@ -2133,9 +2205,9 @@ func heuristicMatrixDimension(matrices ...[][]float64) int {
 	return 0
 }
 
-func statisticsCsvRecord(statistic ExperimentsDataStatistics) []string {
+func statisticsCsvRecord(statistic ExperimentsDataStatistics, includeMsaPatchBias bool) []string {
 	floatFormat := "%.2f"
-	return []string{
+	record := []string{
 		fmt.Sprintf(floatFormat, statistic.alpha),
 		fmt.Sprintf(floatFormat, statistic.beta),
 		fmt.Sprintf(floatFormat, statistic.rho),
@@ -2152,6 +2224,10 @@ func statisticsCsvRecord(statistic ExperimentsDataStatistics) []string {
 		fmt.Sprintf(floatFormat, statistic.maxBestDeviation),
 		fmt.Sprintf(floatFormat, statistic.successRate),
 	}
+	if includeMsaPatchBias {
+		record = append(record[:4], append([]string{fmt.Sprintf(floatFormat, statistic.msaPatchBias)}, record[4:]...)...)
+	}
+	return record
 }
 
 func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataStatistics {
@@ -2305,18 +2381,33 @@ func setDimensionDependantParameters(dimension int, parameters *ExperimentParame
 	parameters.iterations = iterations
 }
 
-func generateParameters() []ExperimentParameters {
+func generateParameters(heuristic string) []ExperimentParameters {
 	parameters := make([]ExperimentParameters, 0)
+	heuristicWeights := []float64{0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0}
+	msaPatchBiases := []float64{0.0}
+	if heuristic == heuristicCycleCoverMsaPatching {
+		msaPatchBiases = []float64{0.0, 0.25, 0.5, 0.75, 1.0}
+	}
 
 	for _, alpha := range utilities.GenerateRange(defaultExperimentAlpha, defaultExperimentAlpha, 0.25) {
 		for _, beta := range utilities.GenerateRange(defaultExperimentBeta, defaultExperimentBeta, 1.0) {
 			for _, rho := range utilities.GenerateRange(defaultExperimentRho, defaultExperimentRho, 0.1) {
-				for _, heuristicWeight := range []float64{0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0} {
+				for _, heuristicWeight := range heuristicWeights {
+					currentMsaPatchBiases := msaPatchBiases
+					if heuristicWeight == 0 {
+						currentMsaPatchBiases = []float64{0.0}
+					}
 
-					parameters = append(parameters,
-						ExperimentParameters{
-							alpha, beta, rho, heuristicWeight, 0,
-						})
+					for _, msaPatchBias := range currentMsaPatchBiases {
+						parameters = append(parameters,
+							ExperimentParameters{
+								alpha:           alpha,
+								beta:            beta,
+								rho:             rho,
+								heuristicWeight: heuristicWeight,
+								msaPatchBias:    msaPatchBias,
+							})
+					}
 				}
 			}
 		}
@@ -2353,7 +2444,7 @@ func finalExperimentConfigurations() []finalExperimentConfiguration {
 		{
 			heuristic: heuristicCycleCoverMsaPatching,
 			parameters: []ExperimentParameters{
-				newDefaultExperimentParameters(finalCycleCoverMsaPatchingWeight),
+				newPatchingExperimentParameters(finalCycleCoverMsaPatchingWeight, finalCycleCoverMsaPatchingMsaPatchBias),
 			},
 		},
 	}
@@ -2381,6 +2472,12 @@ func newDefaultExperimentParameters(heuristicWeight float64) ExperimentParameter
 		rho:             defaultExperimentRho,
 		heuristicWeight: heuristicWeight,
 	}
+}
+
+func newPatchingExperimentParameters(heuristicWeight, msaPatchBias float64) ExperimentParameters {
+	parameters := newDefaultExperimentParameters(heuristicWeight)
+	parameters.msaPatchBias = msaPatchBias
+	return parameters
 }
 
 func buildMinimumCycleCoverMatrix(matrix [][]float64) ([][]float64, float64, error) {
@@ -2740,7 +2837,7 @@ func runExperimentMode(atspsData []AtspData, heuristic string) error {
 		return err
 	}
 
-	return runExperimentSet(atspsData, resultsDirectoryName, heuristic, generateParameters(), defaultExperimentRunCount)
+	return runExperimentSet(atspsData, resultsDirectoryName, heuristic, generateParameters(heuristic), defaultExperimentRunCount)
 }
 
 func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration) error {
@@ -2821,7 +2918,7 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 		for _, parameters := range config.parameters {
 			setDimensionDependantParameters(dimension, &parameters)
 			parameterStart := time.Now()
-			heuristicModifiers := buildHeuristicModifiers(config.heuristic, matrix, heuristicMatrix, cycleCover, parameters.heuristicWeight)
+			heuristicModifiers := buildHeuristicModifiers(config.heuristic, matrix, heuristicMatrix, cycleCover, parameters)
 			results := runExperiments(finalNumberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, useThreeOpt)
 			data := ExperimentsData{parameters, results}
 			experimentData = append(experimentData, data)
@@ -2829,9 +2926,10 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 			parameterStatistics := calculateStatistics([]ExperimentsData{data})
 			if len(parameterStatistics) != 0 {
 				statistic := parameterStatistics[0]
-				fmt.Printf("\t%s heuristicWeight=%.2f iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+				fmt.Printf("\t%s heuristicWeight=%.2f msaPatchBias=%.2f iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
 					config.heuristic,
 					parameters.heuristicWeight,
+					parameters.msaPatchBias,
 					parameters.iterations,
 					finalNumberOfExperiments,
 					time.Since(parameterStart).Round(time.Millisecond),
@@ -2941,7 +3039,7 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 		for _, parameters := range experimentParameters {
 			setDimensionDependantParameters(dimension, &parameters)
 			parameterStart := time.Now()
-			heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters.heuristicWeight)
+			heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters)
 			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, false)
 			data := ExperimentsData{parameters, results}
 
@@ -2950,8 +3048,9 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 			parameterStatistics := calculateStatistics([]ExperimentsData{data})
 			if len(parameterStatistics) != 0 {
 				statistic := parameterStatistics[0]
-				fmt.Printf("\theuristicWeight=%.2f iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+				fmt.Printf("\theuristicWeight=%.2f msaPatchBias=%.2f iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
 					parameters.heuristicWeight,
+					parameters.msaPatchBias,
 					parameters.iterations,
 					numberOfExperiments,
 					time.Since(parameterStart).Round(time.Millisecond),
@@ -2962,7 +3061,7 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 
 		statistics := calculateStatistics(experimentData)
 		if len(statistics) != 0 {
-			saveStatistics(resultFilePathForHeuristic(atspData, heuristic), statistics)
+			saveStatistics(resultFilePathForHeuristic(atspData, heuristic), heuristic, statistics)
 			if err := removeExperimentPlotsForHeuristic(atspData, heuristic); err != nil {
 				return err
 			}
@@ -2990,7 +3089,7 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 	}
 
 	bestStatistics := getBestStatisticsFromFiles(resultFilePathsForHeuristic(atspsData, heuristic))
-	saveBestParametersInfo(resultsRootPath, bestParametersReportPathForHeuristic(heuristic), bestStatistics)
+	saveBestParametersInfo(resultsRootPath, bestParametersReportPathForHeuristic(heuristic), bestStatistics, heuristic == heuristicCycleCoverMsaPatching)
 
 	return nil
 }
@@ -3090,6 +3189,7 @@ func runAnalysisMode(atspsData []AtspData) error {
 	cycleCoverAnalyses, err := cycleCover.AnalyzeInstances(cycleCover.Config{
 		Instances:     cycleCoverConfigs,
 		HighThreshold: 1.0,
+		MsaPatchBias:  finalCycleCoverMsaPatchingMsaPatchBias,
 	})
 	if err != nil {
 		return err
@@ -3201,6 +3301,7 @@ func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCov
 
 func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plotPathPrefix string) {
 	bestStatistic := statistics[0]
+	includeMsaPatchBias := shouldIncludeMsaPatchBiasInPlots(statistics)
 
 	for _, statistic := range statistics {
 		if statistic.alpha != bestStatistic.alpha ||
@@ -3214,14 +3315,31 @@ func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plot
 		maxDeviationPlotData := utilities.LinePlotData{Name: "max deviation", Color: color.RGBA{R: 255, A: 255}, Values: statistic.maxDeviationPerIteration}
 		lines := []utilities.LinePlotData{minDeviationPlotData, avgDeviationPlotData, maxDeviationPlotData}
 
-		titleSuffix := fmt.Sprintf(" (alpha=%.2f, beta=%.2f, rho=%.2f, heuristicWeight=%.2f)",
+		titleParameters := fmt.Sprintf("alpha=%.2f, beta=%.2f, rho=%.2f, heuristicWeight=%.2f",
 			statistic.alpha, statistic.beta, statistic.rho, statistic.heuristicWeight)
 
 		heuristicWeightPlotSuffix := "_heuristicWeight=" + strconv.Itoa(int(100*statistic.heuristicWeight)) + "%"
-		plotPath := plotPathPrefix + heuristicWeightPlotSuffix + ".png"
+		plotPath := plotPathPrefix + heuristicWeightPlotSuffix
+		if includeMsaPatchBias {
+			titleParameters += fmt.Sprintf(", msaPatchBias=%.2f", statistic.msaPatchBias)
+			plotPath += "_msaPatchBias=" + strconv.Itoa(int(100*statistic.msaPatchBias)) + "%"
+		}
+		plotPath += ".png"
 
-		utilities.SaveLinePlotFromData(lines, plotTitle+titleSuffix, plotPath)
+		utilities.SaveLinePlotFromData(lines, plotTitle+" ("+titleParameters+")", plotPath)
 	}
+}
+
+func shouldIncludeMsaPatchBiasInPlots(statistics []ExperimentsDataStatistics) bool {
+	seen := make(map[float64]struct{})
+	for _, statistic := range statistics {
+		seen[statistic.msaPatchBias] = struct{}{}
+		if statistic.msaPatchBias != 0 {
+			return true
+		}
+	}
+
+	return len(seen) > 1
 }
 
 func removeExperimentPlotsForHeuristic(atspData AtspData, heuristic string) error {
