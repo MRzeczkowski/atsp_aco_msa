@@ -74,11 +74,11 @@ func BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, msaHeuristic, cycl
 	usedInPatch := make([]bool, dimension)
 	cycles := buildCycles(successors)
 	for len(cycles) > 1 {
-		// Karp's modified patching process:
-		// 1. take a shortest current cycle,
+		// Modified patching process:
+		// 1. take a largest current cycle,
 		// 2. patch it to another cycle with a two-edge exchange,
 		// 3. never reuse vertices that already served as patch endpoints.
-		cycle := shortestCycle(cycles)
+		cycle := largestCycle(cycles)
 		patch := bestCyclePatch(matrix, msaHeuristic, successors, cycle, usedInPatch, msaPatchBias)
 		if !patch.valid {
 			return copyPositiveEdges(cycleCover, dimension)
@@ -211,15 +211,15 @@ func buildCycles(successors []int) [][]int {
 	return cycles
 }
 
-func shortestCycle(cycles [][]int) []int {
-	shortest := cycles[0]
+func largestCycle(cycles [][]int) []int {
+	largest := cycles[0]
 	for _, cycle := range cycles[1:] {
-		if len(cycle) < len(shortest) {
-			shortest = cycle
+		if len(cycle) > len(largest) {
+			largest = cycle
 		}
 	}
 
-	return shortest
+	return largest
 }
 
 func bestCyclePatch(matrix, msaHeuristic [][]float64, successors []int, cycle []int, usedInPatch []bool, msaPatchBias float64) cyclePatch {

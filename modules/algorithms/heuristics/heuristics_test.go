@@ -124,11 +124,11 @@ func TestBuildCycleCoverMsaPatchingModifiersCanDisableMsaPatchBias(t *testing.T)
 	}
 
 	if !reflect.DeepEqual(modifiers, expected) {
-		t.Fatalf("unexpected cost-only Karp patching modifiers\nwant: %v\n got: %v", expected, modifiers)
+		t.Fatalf("unexpected cost-only patching modifiers\nwant: %v\n got: %v", expected, modifiers)
 	}
 }
 
-func TestBuildCycleCoverMsaPatchingMatrixAppliesKarpTwoEdgePatch(t *testing.T) {
+func TestBuildCycleCoverMsaPatchingMatrixAppliesTwoEdgePatch(t *testing.T) {
 	matrix := [][]float64{
 		{0, 1, 20, 1},
 		{1, 0, 20, 20},
@@ -157,7 +157,21 @@ func TestBuildCycleCoverMsaPatchingMatrixAppliesKarpTwoEdgePatch(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(patchingMatrix, expected) {
-		t.Fatalf("unexpected Karp patching matrix\nwant: %v\n got: %v", expected, patchingMatrix)
+		t.Fatalf("unexpected patching matrix\nwant: %v\n got: %v", expected, patchingMatrix)
+	}
+}
+
+func TestLargestCycleSelectsLargestCycleDeterministically(t *testing.T) {
+	cycles := [][]int{
+		{0, 1},
+		{2, 3, 4},
+		{5, 6, 7},
+	}
+
+	selected := largestCycle(cycles)
+
+	if !reflect.DeepEqual(selected, []int{2, 3, 4}) {
+		t.Fatalf("expected first largest cycle to be selected, got %v", selected)
 	}
 }
 
@@ -221,7 +235,7 @@ func TestBuildCycleCoverMsaPatchingMatrixIgnoresIntraCycleMsaEdges(t *testing.T)
 	}
 }
 
-func TestBestCyclePatchUsesOnlyVerticesFromSelectedShortestCycle(t *testing.T) {
+func TestBestCyclePatchUsesOnlyVerticesFromSelectedCycle(t *testing.T) {
 	matrix := [][]float64{
 		{0, 1, 6, 6, 6, 6, 6, 6},
 		{1, 0, 20, 3, 20, 20, 20, 20},
@@ -233,17 +247,17 @@ func TestBestCyclePatchUsesOnlyVerticesFromSelectedShortestCycle(t *testing.T) {
 		{6, 6, 6, 6, 0, 1, 6, 0},
 	}
 	successors := []int{1, 0, 3, 4, 2, 6, 7, 5}
-	shortest := []int{0, 1}
+	selectedCycle := []int{0, 1}
 	usedInPatch := make([]bool, len(successors))
 	msaHeuristic := newZeroMatrix(len(successors))
 
-	patch := bestCyclePatch(matrix, msaHeuristic, successors, shortest, usedInPatch, 1.0)
+	patch := bestCyclePatch(matrix, msaHeuristic, successors, selectedCycle, usedInPatch, 1.0)
 
 	if !patch.valid {
 		t.Fatal("expected a valid patch")
 	}
 	if patch.fromA != 1 || patch.fromB != 2 {
-		t.Fatalf("expected best patch from selected shortest cycle to be 1/2, got %d/%d", patch.fromA, patch.fromB)
+		t.Fatalf("expected best patch from selected cycle to be 1/2, got %d/%d", patch.fromA, patch.fromB)
 	}
 }
 
@@ -255,11 +269,11 @@ func TestBestCyclePatchDoesNotReusePatchVertices(t *testing.T) {
 		{1, 2, 1, 0},
 	}
 	successors := []int{1, 0, 3, 2}
-	shortest := []int{0, 1}
+	selectedCycle := []int{0, 1}
 	usedInPatch := []bool{true, false, true, false}
 	msaHeuristic := newZeroMatrix(len(successors))
 
-	patch := bestCyclePatch(matrix, msaHeuristic, successors, shortest, usedInPatch, 1.0)
+	patch := bestCyclePatch(matrix, msaHeuristic, successors, selectedCycle, usedInPatch, 1.0)
 
 	if !patch.valid {
 		t.Fatal("expected a valid patch")

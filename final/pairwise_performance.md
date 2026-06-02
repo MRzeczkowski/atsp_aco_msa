@@ -9,9 +9,9 @@ Negative average-best-deviation delta means the first heuristic in the compariso
 <tbody>
 <tr><td>MSA heuristic vs Baseline</td><td align="right">-0.41</td><td align="right">19</td><td align="right">1</td><td align="right">8</td><td align="right">+1.71</td></tr>
 <tr><td>Cycle cover vs Baseline</td><td align="right">-0.74</td><td align="right">22</td><td align="right">2</td><td align="right">4</td><td align="right">+0.43</td></tr>
-<tr><td>Cycle-cover MSA patching vs Baseline</td><td align="right">-0.84</td><td align="right">20</td><td align="right">1</td><td align="right">7</td><td align="right">+0.07</td></tr>
+<tr><td>Cycle-cover MSA patching vs Baseline</td><td align="right">-0.76</td><td align="right">20</td><td align="right">1</td><td align="right">7</td><td align="right">+0.71</td></tr>
 <tr><td>MSA heuristic vs Cycle cover</td><td align="right">+0.33</td><td align="right">8</td><td align="right">1</td><td align="right">19</td><td align="right">+1.29</td></tr>
-<tr><td>MSA heuristic vs Cycle-cover MSA patching</td><td align="right">+0.43</td><td align="right">8</td><td align="right">1</td><td align="right">19</td><td align="right">+1.64</td></tr>
-<tr><td>Cycle cover vs Cycle-cover MSA patching</td><td align="right">+0.09</td><td align="right">12</td><td align="right">1</td><td align="right">15</td><td align="right">+0.36</td></tr>
+<tr><td>MSA heuristic vs Cycle-cover MSA patching</td><td align="right">+0.35</td><td align="right">7</td><td align="right">1</td><td align="right">20</td><td align="right">+1.00</td></tr>
+<tr><td>Cycle cover vs Cycle-cover MSA patching</td><td align="right">+0.02</td><td align="right">12</td><td align="right">1</td><td align="right">15</td><td align="right">-0.29</td></tr>
 </tbody>
 </table>
