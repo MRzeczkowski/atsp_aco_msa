@@ -4,10 +4,10 @@ This report compares the final MMAS experiments without local search against the
 
 ## Findings
 
-- **Reduced 3-opt average-best-deviation deltas: Baseline +3.16 pp, MSA heuristic +2.77 pp, Cycle cover +2.53 pp, Cycle-cover MSA patching +2.47 pp.**
-- **Reduced 3-opt success-rate deltas: Baseline +34.07 pp, MSA heuristic +33.36 pp, Cycle cover +35.79 pp, Cycle-cover MSA patching +38.93 pp.**
-- **Deviation gain over baseline with and without 3-opt: MSA heuristic +0.41 -> +0.02 pp, Cycle cover +0.74 -> +0.11 pp, Cycle-cover MSA patching +0.76 -> +0.08 pp.**
-- **Signal remaining after enabling 3-opt: MSA heuristic 5.49%, Cycle cover 15.18%, Cycle-cover MSA patching 9.96%.**
+- **Reduced 3-opt average-best-deviation deltas: Baseline +3.16 pp, MSA heuristic +2.77 pp, Cycle cover +2.53 pp, Cycle-cover MSA patching +2.43 pp.**
+- **Reduced 3-opt success-rate deltas: Baseline +34.07 pp, MSA heuristic +33.36 pp, Cycle cover +35.79 pp, Cycle-cover MSA patching +38.00 pp.**
+- **Deviation gain over baseline with and without 3-opt: MSA heuristic +0.41 -> +0.02 pp, Cycle cover +0.74 -> +0.11 pp, Cycle-cover MSA patching +0.82 -> +0.09 pp.**
+- **Signal remaining after enabling 3-opt: MSA heuristic 5.49%, Cycle cover 15.18%, Cycle-cover MSA patching 11.20%.**
 - **This supports treating reduced 3-opt as a strong local-search layer that partially hides the construction heuristic effect.**
 
 ## Overall Effect
@@ -20,7 +20,7 @@ This report compares the final MMAS experiments without local search against the
 <tr><td>Baseline</td><td align="right">3.63</td><td align="right">0.47</td><td align="right">3.93</td><td align="right">38.00</td></tr>
 <tr><td>MSA heuristic</td><td align="right">3.22</td><td align="right">0.45</td><td align="right">5.64</td><td align="right">39.00</td></tr>
 <tr><td>Cycle cover</td><td align="right">2.89</td><td align="right">0.36</td><td align="right">4.36</td><td align="right">40.14</td></tr>
-<tr><td>Cycle-cover MSA patching</td><td align="right">2.87</td><td align="right">0.40</td><td align="right">4.64</td><td align="right">43.57</td></tr>
+<tr><td>Cycle-cover MSA patching</td><td align="right">2.81</td><td align="right">0.38</td><td align="right">4.29</td><td align="right">42.29</td></tr>
 </tbody>
 </table>
 
@@ -33,7 +33,7 @@ This report compares the final MMAS experiments without local search against the
 <tbody>
 <tr><td>MSA heuristic</td><td align="right">+0.41</td><td align="right">+0.02</td><td align="right">5.49</td></tr>
 <tr><td>Cycle cover</td><td align="right">+0.74</td><td align="right">+0.11</td><td align="right">15.18</td></tr>
-<tr><td>Cycle-cover MSA patching</td><td align="right">+0.76</td><td align="right">+0.08</td><td align="right">9.96</td></tr>
+<tr><td>Cycle-cover MSA patching</td><td align="right">+0.82</td><td align="right">+0.09</td><td align="right">11.20</td></tr>
 </tbody>
 </table>
 

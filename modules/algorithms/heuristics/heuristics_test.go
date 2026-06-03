@@ -161,20 +161,6 @@ func TestBuildCycleCoverMsaPatchingMatrixAppliesTwoEdgePatch(t *testing.T) {
 	}
 }
 
-func TestLargestCycleSelectsLargestCycleDeterministically(t *testing.T) {
-	cycles := [][]int{
-		{0, 1},
-		{2, 3, 4},
-		{5, 6, 7},
-	}
-
-	selected := largestCycle(cycles)
-
-	if !reflect.DeepEqual(selected, []int{2, 3, 4}) {
-		t.Fatalf("expected first largest cycle to be selected, got %v", selected)
-	}
-}
-
 func TestBuildCycleCoverMsaPatchingMatrixReturnsSingleTourWithValidDegrees(t *testing.T) {
 	matrix := [][]float64{
 		{0, 1, 2, 3, 4, 5},
@@ -235,52 +221,166 @@ func TestBuildCycleCoverMsaPatchingMatrixIgnoresIntraCycleMsaEdges(t *testing.T)
 	}
 }
 
-func TestBestCyclePatchUsesOnlyVerticesFromSelectedCycle(t *testing.T) {
+func TestBestGreedyCyclePatchCanPatchAnyPairOfCycles(t *testing.T) {
 	matrix := [][]float64{
-		{0, 1, 6, 6, 6, 6, 6, 6},
-		{1, 0, 20, 3, 20, 20, 20, 20},
-		{6, 6, 0, 1, 6, 0, 6, 6},
-		{6, 6, 6, 0, 1, 6, 0, 6},
-		{6, 6, 1, 6, 0, 6, 6, 0},
-		{6, 6, 0, 6, 6, 0, 1, 6},
-		{6, 6, 6, 0, 6, 6, 0, 1},
-		{6, 6, 6, 6, 0, 1, 6, 0},
+		{0, 1, 10, 10, 10, 10},
+		{1, 0, 10, 10, 10, 10},
+		{10, 10, 0, 1, 10, 10},
+		{10, 10, 1, 0, 10, 1},
+		{10, 10, 1, 10, 0, 1},
+		{10, 10, 10, 10, 1, 0},
 	}
-	successors := []int{1, 0, 3, 4, 2, 6, 7, 5}
-	selectedCycle := []int{0, 1}
-	usedInPatch := make([]bool, len(successors))
+	successors := []int{1, 0, 3, 2, 5, 4}
+	cycles := buildCycles(successors)
 	msaHeuristic := newZeroMatrix(len(successors))
 
-	patch := bestCyclePatch(matrix, msaHeuristic, successors, selectedCycle, usedInPatch, 1.0)
+	patch := bestGreedyCyclePatch(matrix, msaHeuristic, successors, cycles, 1.0)
 
 	if !patch.valid {
 		t.Fatal("expected a valid patch")
 	}
-	if patch.fromA != 1 || patch.fromB != 2 {
-		t.Fatalf("expected best patch from selected cycle to be 1/2, got %d/%d", patch.fromA, patch.fromB)
+	if patch.fromA != 3 || patch.fromB != 4 {
+		t.Fatalf("expected greedy patch from cycles 2/3 and 4/5 to be 3/4, got %d/%d", patch.fromA, patch.fromB)
 	}
 }
 
-func TestBestCyclePatchDoesNotReusePatchVertices(t *testing.T) {
+func TestPatchCostCacheMatchesFullScanAfterPatchUpdate(t *testing.T) {
 	matrix := [][]float64{
-		{0, 1, 1, 1},
-		{1, 0, 20, 2},
-		{1, 20, 0, 1},
-		{1, 2, 1, 0},
+		{0, 1, 10, 10, 10, 10},
+		{1, 0, 3, 10, 4, 10},
+		{10, 4, 0, 1, 10, 10},
+		{3, 10, 1, 0, 10, 5},
+		{10, 10, 3, 10, 0, 1},
+		{10, 4, 10, 10, 1, 0},
 	}
-	successors := []int{1, 0, 3, 2}
-	selectedCycle := []int{0, 1}
-	usedInPatch := []bool{true, false, true, false}
+	successors := []int{1, 0, 3, 2, 5, 4}
+	cycles := buildCycles(successors)
+	cycleIndex := vertexCycleIndexes(cycles, len(successors))
 	msaHeuristic := newZeroMatrix(len(successors))
+	cache := newPatchCostCache(matrix, msaHeuristic, successors, cycleIndex, 1.0)
 
-	patch := bestCyclePatch(matrix, msaHeuristic, successors, selectedCycle, usedInPatch, 1.0)
+	patch := cache.bestPatch()
+	expected := bestGreedyCyclePatch(matrix, msaHeuristic, successors, cycles, 1.0)
 
-	if !patch.valid {
-		t.Fatal("expected a valid patch")
+	if !samePatchEndpoints(patch, expected.fromA, expected.fromB) {
+		t.Fatalf("cached patch does not match full scan before update: cache=%+v scan=%+v", patch, expected)
 	}
-	if patch.fromA != 1 || patch.fromB != 3 {
-		t.Fatalf("expected only unused vertices 1/3 to be patched, got %d/%d", patch.fromA, patch.fromB)
+
+	fromCycle := cycleIndex[patch.fromA]
+	toCycle := cycleIndex[patch.fromB]
+	fromCycleVertices := cycles[fromCycle]
+	toCycleVertices := cycles[toCycle]
+
+	applyCyclePatch(successors, patch)
+	for _, vertex := range toCycleVertices {
+		cycleIndex[vertex] = fromCycle
 	}
+	cycles[fromCycle] = append(cycles[fromCycle], toCycleVertices...)
+	cycles[toCycle] = nil
+	cache.updateAfterPatch(patch, fromCycleVertices, toCycleVertices, fromCycle)
+
+	currentCycles := buildCycles(successors)
+	patch = cache.bestPatch()
+	expected = bestGreedyCyclePatch(matrix, msaHeuristic, successors, currentCycles, 1.0)
+
+	if !samePatchEndpoints(patch, expected.fromA, expected.fromB) {
+		t.Fatalf("cached patch does not match full scan after update: cache=%+v scan=%+v", patch, expected)
+	}
+}
+
+func TestCycleCoverMsaPatchingMatrixCacheMatchesFullScanReference(t *testing.T) {
+	for dimension := 4; dimension <= 10; dimension++ {
+		matrix := deterministicAsymmetricMatrix(dimension)
+		msaHeuristic := deterministicMsaHeuristicMatrix(dimension)
+		cycleCover := deterministicCycleCoverMatrix(dimension)
+
+		cached := BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, msaHeuristic, cycleCover, 0.75)
+		fullScan := buildCycleCoverMsaPatchingMatrixByFullScan(matrix, msaHeuristic, cycleCover, 0.75)
+
+		if !reflect.DeepEqual(cached, fullScan) {
+			t.Fatalf("cached patching differs from full scan for dimension %d\ncached: %v\nfull:   %v", dimension, cached, fullScan)
+		}
+	}
+}
+
+func TestInvalidCyclePatchNeverBeatsValidPatch(t *testing.T) {
+	valid := cyclePatch{fromA: 1, fromB: 2, score: 10, valid: true}
+	invalid := cyclePatch{}
+
+	if betterCyclePatch(invalid, valid) {
+		t.Fatal("invalid patch should not beat a valid patch")
+	}
+	if !betterCyclePatch(valid, invalid) {
+		t.Fatal("valid patch should beat an invalid patch")
+	}
+}
+
+func buildCycleCoverMsaPatchingMatrixByFullScan(matrix, msaHeuristic, cycleCover [][]float64, msaPatchBias float64) [][]float64 {
+	dimension := heuristicDimension(matrix, msaHeuristic, cycleCover)
+	successors, ok := cycleCoverSuccessors(cycleCover, dimension)
+	if !ok {
+		return copyPositiveEdges(cycleCover, dimension)
+	}
+
+	cycles := buildCycles(successors)
+	for len(cycles) > 1 {
+		patch := bestGreedyCyclePatch(matrix, msaHeuristic, successors, cycles, msaPatchBias)
+		if !patch.valid {
+			return copyPositiveEdges(cycleCover, dimension)
+		}
+
+		applyCyclePatch(successors, patch)
+		cycles = buildCycles(successors)
+	}
+
+	return buildSuccessorMatrix(successors)
+}
+
+func deterministicAsymmetricMatrix(dimension int) [][]float64 {
+	matrix := newZeroMatrix(dimension)
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < dimension; j++ {
+			if i == j {
+				continue
+			}
+
+			matrix[i][j] = float64(((i+3)*(j+5)+7*i+j*j)%23 + 1)
+		}
+	}
+	return matrix
+}
+
+func deterministicMsaHeuristicMatrix(dimension int) [][]float64 {
+	matrix := newZeroMatrix(dimension)
+	maxSupport := dimension - 1
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < dimension; j++ {
+			if i == j {
+				continue
+			}
+
+			matrix[i][j] = float64(((i+1)*(j+2) + i + 2*j) % maxSupport)
+		}
+	}
+	return matrix
+}
+
+func deterministicCycleCoverMatrix(dimension int) [][]float64 {
+	matrix := newZeroMatrix(dimension)
+	for start := 0; start < dimension; {
+		cycleLength := 2
+		if dimension-start == 3 || dimension-start >= 5 {
+			cycleLength = 3
+		}
+
+		for offset := 0; offset < cycleLength; offset++ {
+			from := start + offset
+			to := start + ((offset + 1) % cycleLength)
+			matrix[from][to] = 1
+		}
+		start += cycleLength
+	}
+	return matrix
 }
 
 func TestBuildNeutralModifiers(t *testing.T) {

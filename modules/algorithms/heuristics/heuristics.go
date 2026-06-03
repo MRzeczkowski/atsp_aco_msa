@@ -13,6 +13,16 @@ type cyclePatch struct {
 	valid        bool
 }
 
+type patchCostCache struct {
+	matrix, msaHeuristic [][]float64
+	successors           []int
+	cycleIndex           []int
+	msaPatchBias         float64
+	costs                [][]cyclePatch
+	bestInRow            []cyclePatch
+	dirtyRows            []bool
+}
+
 func BuildMsaHeuristicModifiers(msaHeuristic [][]float64, strength float64) [][]float64 {
 	dimension := len(msaHeuristic)
 	modifiers := BuildNeutralModifiers(dimension)
@@ -71,23 +81,35 @@ func BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, msaHeuristic, cycl
 		return copyPositiveEdges(cycleCover, dimension)
 	}
 
-	usedInPatch := make([]bool, dimension)
 	cycles := buildCycles(successors)
-	for len(cycles) > 1 {
-		// Modified patching process:
-		// 1. take a largest current cycle,
-		// 2. patch it to another cycle with a two-edge exchange,
-		// 3. never reuse vertices that already served as patch endpoints.
-		cycle := largestCycle(cycles)
-		patch := bestCyclePatch(matrix, msaHeuristic, successors, cycle, usedInPatch, msaPatchBias)
+	cycleIndex := vertexCycleIndexes(cycles, dimension)
+	costCache := newPatchCostCache(matrix, msaHeuristic, successors, cycleIndex, msaPatchBias)
+
+	activeCycles := len(cycles)
+	for activeCycles > 1 {
+		// GKS-style greedy patching process:
+		// 1. cache patch costs for all vertex pairs,
+		// 2. choose the best patch between two different current cycles,
+		// 3. update only costs made stale by the merged cycles and swapped successors.
+		patch := costCache.bestPatch()
 		if !patch.valid {
 			return copyPositiveEdges(cycleCover, dimension)
 		}
 
+		fromCycle := cycleIndex[patch.fromA]
+		toCycle := cycleIndex[patch.fromB]
+		fromCycleVertices := cycles[fromCycle]
+		toCycleVertices := cycles[toCycle]
+
 		applyCyclePatch(successors, patch)
-		usedInPatch[patch.fromA] = true
-		usedInPatch[patch.fromB] = true
-		cycles = buildCycles(successors)
+		for _, vertex := range toCycleVertices {
+			cycleIndex[vertex] = fromCycle
+		}
+		cycles[fromCycle] = append(cycles[fromCycle], toCycleVertices...)
+		cycles[toCycle] = nil
+		activeCycles--
+
+		costCache.updateAfterPatch(patch, fromCycleVertices, toCycleVertices, fromCycle)
 	}
 
 	return buildSuccessorMatrix(successors)
@@ -211,30 +233,13 @@ func buildCycles(successors []int) [][]int {
 	return cycles
 }
 
-func largestCycle(cycles [][]int) []int {
-	largest := cycles[0]
-	for _, cycle := range cycles[1:] {
-		if len(cycle) > len(largest) {
-			largest = cycle
-		}
-	}
-
-	return largest
-}
-
-func bestCyclePatch(matrix, msaHeuristic [][]float64, successors []int, cycle []int, usedInPatch []bool, msaPatchBias float64) cyclePatch {
+func bestGreedyCyclePatch(matrix, msaHeuristic [][]float64, successors []int, cycles [][]int, msaPatchBias float64) cyclePatch {
 	best := cyclePatch{}
-	inCycle := make([]bool, len(successors))
-	for _, vertex := range cycle {
-		inCycle[vertex] = true
-	}
+	cycleIndex := vertexCycleIndexes(cycles, len(successors))
 
-	for _, fromA := range cycle {
-		if usedInPatch[fromA] {
-			continue
-		}
-		for fromB := range successors {
-			if inCycle[fromB] || usedInPatch[fromB] {
+	for fromA := range successors {
+		for fromB := fromA + 1; fromB < len(successors); fromB++ {
+			if cycleIndex[fromA] == cycleIndex[fromB] {
 				continue
 			}
 
@@ -246,6 +251,145 @@ func bestCyclePatch(matrix, msaHeuristic [][]float64, successors []int, cycle []
 	}
 
 	return best
+}
+
+func newPatchCostCache(matrix, msaHeuristic [][]float64, successors, cycleIndex []int, msaPatchBias float64) *patchCostCache {
+	dimension := len(successors)
+	cache := &patchCostCache{
+		matrix:       matrix,
+		msaHeuristic: msaHeuristic,
+		successors:   successors,
+		cycleIndex:   cycleIndex,
+		msaPatchBias: msaPatchBias,
+		costs:        make([][]cyclePatch, dimension),
+		bestInRow:    make([]cyclePatch, dimension),
+		dirtyRows:    make([]bool, dimension),
+	}
+
+	for row := 0; row < dimension; row++ {
+		cache.costs[row] = make([]cyclePatch, row)
+		for col := 0; col < row; col++ {
+			cache.costs[row][col] = cache.newCachedPatch(row, col)
+			if betterCyclePatch(cache.costs[row][col], cache.bestInRow[row]) {
+				cache.bestInRow[row] = cache.costs[row][col]
+			}
+		}
+	}
+
+	return cache
+}
+
+func (cache *patchCostCache) bestPatch() cyclePatch {
+	cache.recalculateDirtyRows()
+
+	best := cyclePatch{}
+	for _, patch := range cache.bestInRow {
+		if betterCyclePatch(patch, best) {
+			best = patch
+		}
+	}
+	return best
+}
+
+func (cache *patchCostCache) updateAfterPatch(patch cyclePatch, fromCycleVertices, toCycleVertices []int, mergedCycle int) {
+	for _, from := range fromCycleVertices {
+		for _, to := range toCycleVertices {
+			cache.updatePair(from, to, cyclePatch{})
+		}
+	}
+
+	for vertex := range cache.successors {
+		if cache.cycleIndex[vertex] == mergedCycle {
+			continue
+		}
+
+		cache.updatePair(patch.fromA, vertex, cache.newCachedPatchForPair(patch.fromA, vertex))
+		cache.updatePair(patch.fromB, vertex, cache.newCachedPatchForPair(patch.fromB, vertex))
+	}
+
+	cache.recalculateDirtyRows()
+}
+
+func (cache *patchCostCache) updatePair(a, b int, patch cyclePatch) {
+	if a == b {
+		return
+	}
+
+	row, col := orderedPair(a, b)
+	cache.costs[row][col] = patch
+	if betterCyclePatch(patch, cache.bestInRow[row]) {
+		cache.bestInRow[row] = patch
+		return
+	}
+
+	if samePatchEndpoints(cache.bestInRow[row], a, b) {
+		cache.dirtyRows[row] = true
+	}
+}
+
+func (cache *patchCostCache) recalculateDirtyRows() {
+	for row, dirty := range cache.dirtyRows {
+		if !dirty {
+			continue
+		}
+
+		cache.recalculateRow(row)
+		cache.dirtyRows[row] = false
+	}
+}
+
+func (cache *patchCostCache) recalculateRow(row int) {
+	best := cyclePatch{}
+	for col := range cache.costs[row] {
+		if betterCyclePatch(cache.costs[row][col], best) {
+			best = cache.costs[row][col]
+		}
+	}
+	cache.bestInRow[row] = best
+}
+
+func (cache *patchCostCache) newCachedPatchForPair(a, b int) cyclePatch {
+	row, col := orderedPair(a, b)
+	return cache.newCachedPatch(row, col)
+}
+
+func (cache *patchCostCache) newCachedPatch(row, col int) cyclePatch {
+	if cache.cycleIndex[row] == cache.cycleIndex[col] {
+		return cyclePatch{}
+	}
+
+	return newCyclePatch(cache.matrix, cache.msaHeuristic, cache.successors, col, row, cache.msaPatchBias)
+}
+
+func orderedPair(a, b int) (int, int) {
+	if a > b {
+		return a, b
+	}
+	return b, a
+}
+
+func samePatchEndpoints(patch cyclePatch, a, b int) bool {
+	if !patch.valid {
+		return false
+	}
+
+	return (patch.fromA == a && patch.fromB == b) || (patch.fromA == b && patch.fromB == a)
+}
+
+func vertexCycleIndexes(cycles [][]int, dimension int) []int {
+	indexes := make([]int, dimension)
+	for i := range indexes {
+		indexes[i] = -1
+	}
+	for cycleIndex, cycle := range cycles {
+		for _, vertex := range cycle {
+			if vertex >= 0 && vertex < dimension {
+				indexes[vertex] = cycleIndex
+			}
+		}
+	}
+
+	return indexes
 }
 
 func newCyclePatch(matrix, msaHeuristic [][]float64, successors []int, fromA, fromB int, msaPatchBias float64) cyclePatch {
@@ -296,6 +440,9 @@ func msaHeuristicSignal(msaHeuristic [][]float64, from, to int) float64 {
 }
 
 func betterCyclePatch(candidate, current cyclePatch) bool {
+	if !candidate.valid {
+		return false
+	}
 	if !current.valid {
 		return true
 	}
