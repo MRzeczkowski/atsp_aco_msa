@@ -489,6 +489,65 @@ func TestSaveMsaHeuristicCycleCoverOverlapReport(t *testing.T) {
 	assertContains(t, content, "<tr><td><strong>Total</strong></td><td align=\"right\">42.86</td><td align=\"right\">33.33</td><td align=\"right\">3</td><td align=\"right\">2</td><td align=\"right\">3</td></tr>")
 }
 
+func TestTourMatrixLengthValidatesSingleTourAndCalculatesLength(t *testing.T) {
+	distanceMatrix := [][]float64{
+		{0, 2, 8},
+		{4, 0, 3},
+		{5, 6, 0},
+	}
+	tourMatrix := [][]float64{
+		{0, 1, 0},
+		{0, 0, 1},
+		{1, 0, 0},
+	}
+
+	length, err := tourMatrixLength(distanceMatrix, tourMatrix)
+	if err != nil {
+		t.Fatalf("tourMatrixLength returned unexpected error: %v", err)
+	}
+	if length != 10 {
+		t.Fatalf("expected tour length 10, got %.2f", length)
+	}
+
+	disconnected := [][]float64{
+		{0, 1, 0},
+		{1, 0, 0},
+		{0, 0, 0},
+	}
+	if _, err := tourMatrixLength(distanceMatrix, disconnected); err == nil {
+		t.Fatal("expected invalid tour matrix to be rejected")
+	}
+}
+
+func TestSaveGksDeviationReportShowsMsaPatchBiasDeviation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gks_deviation.md")
+	rows := []gksDeviationRow{
+		{instance: "sample-a", msaPatchBias: 0.0, tourLength: 110, deviation: 10},
+		{instance: "sample-a", msaPatchBias: 0.5, tourLength: 105, deviation: 5},
+		{instance: "sample-b", msaPatchBias: 0.0, tourLength: 240, deviation: 20},
+		{instance: "sample-b", msaPatchBias: 0.5, tourLength: 260, deviation: 30},
+	}
+
+	var builder strings.Builder
+	builder.WriteString("# GKS Patching Deviation\n\n")
+	writeGksDeviationTable(&builder, rows, []float64{0.0, 0.5})
+	if err := os.WriteFile(path, []byte(builder.String()), 0644); err != nil {
+		t.Fatalf("failed to write test GKS report: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read GKS report: %v", err)
+	}
+	content := string(contentBytes)
+
+	assertContains(t, content, "<tr><th>Instance</th><th>MSA patch bias</th><th>Tour length</th><th>Deviation [%]</th></tr>")
+	assertContains(t, content, "<tr><td>sample-a</td><td align=\"right\">0.50</td><td align=\"right\">105.00</td><td align=\"right\"><strong>5.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td>sample-b</td><td align=\"right\">0.00</td><td align=\"right\">240.00</td><td align=\"right\"><strong>20.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td><strong>Average</strong></td><td align=\"right\">0.00</td><td align=\"right\"></td><td align=\"right\"><strong>15.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td><strong>Average</strong></td><td align=\"right\">0.50</td><td align=\"right\"></td><td align=\"right\">17.50</td></tr>")
+}
+
 func TestSaveFinalPairwisePerformanceReport(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "pairwise_performance.md")
 	if err := saveFinalPairwisePerformanceReport(path, sampleFinalSummaryRows()); err != nil {

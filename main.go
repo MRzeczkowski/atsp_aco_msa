@@ -88,6 +88,11 @@ const (
 )
 
 const (
+	analysisScopeAll          = "all"
+	analysisScopeGksDeviation = "gks-deviation"
+)
+
+const (
 	finalNumberOfExperiments               = 50
 	finalMsaHeuristicWeight                = 0.9
 	finalCycleCoverWeight                  = 0.8
@@ -108,6 +113,8 @@ const (
 )
 
 const finalHeuristicAll = "all"
+
+var gksDeviationMsaPatchBiases = []float64{0.0, 0.25, 0.5, 0.75, 1.0}
 
 var finalResultsSummaryHeuristics = []string{
 	heuristicBaseline,
@@ -1709,6 +1716,233 @@ func saveMsaHeuristicCycleCoverOverlapReport(path string, analyses []cycleCover.
 	return os.WriteFile(path, []byte(builder.String()), 0644)
 }
 
+type gksDeviationRow struct {
+	instance     string
+	msaPatchBias float64
+	tourLength   float64
+	deviation    float64
+}
+
+func saveGksDeviationReport(path string, atspsData []AtspData, msaPatchBiases []float64) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+
+	rows, err := buildGksDeviationRows(atspsData, msaPatchBiases)
+	if err != nil {
+		return err
+	}
+
+	var builder strings.Builder
+	builder.WriteString("# GKS Patching Deviation\n\n")
+	builder.WriteString("This table runs the cycle-cover patching heuristic directly, without MMAS. `MSA patch bias = 0.00` is the pure GKS-style cost-based patching variant; positive values bias patch selection toward MSA-supported connector edges.\n\n")
+	writeGksDeviationTable(&builder, rows, msaPatchBiases)
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+func buildGksDeviationRows(atspsData []AtspData, msaPatchBiases []float64) ([]gksDeviationRow, error) {
+	rows := make([]gksDeviationRow, 0, len(atspsData)*len(msaPatchBiases))
+	for _, atspData := range atspsData {
+		msaHeuristicMatrix, err := msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
+		if err != nil {
+			return nil, fmt.Errorf("%s: failed to read MSA heuristic: %w", atspData.name, err)
+		}
+
+		cycleCoverMatrix, _, err := buildMinimumCycleCoverMatrix(atspData.matrix)
+		if err != nil {
+			return nil, fmt.Errorf("%s: failed to compute minimum cycle cover: %w", atspData.name, err)
+		}
+
+		for _, msaPatchBias := range msaPatchBiases {
+			patchingMatrix := heuristics.BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(atspData.matrix, msaHeuristicMatrix, cycleCoverMatrix, msaPatchBias)
+			tourLength, err := tourMatrixLength(atspData.matrix, patchingMatrix)
+			if err != nil {
+				return nil, fmt.Errorf("%s: invalid GKS tour for MSA patch bias %.2f: %w", atspData.name, msaPatchBias, err)
+			}
+
+			rows = append(rows, gksDeviationRow{
+				instance:     atspData.name,
+				msaPatchBias: msaPatchBias,
+				tourLength:   tourLength,
+				deviation:    100.0 * (tourLength - atspData.knownOptimal) / atspData.knownOptimal,
+			})
+		}
+	}
+
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].instance != rows[j].instance {
+			return rows[i].instance < rows[j].instance
+		}
+		return rows[i].msaPatchBias < rows[j].msaPatchBias
+	})
+
+	return rows, nil
+}
+
+func writeGksDeviationTable(builder *strings.Builder, rows []gksDeviationRow, msaPatchBiases []float64) {
+	bestBiasesByInstance := bestGksBiasesByInstance(rows)
+	averageRows := averageGksDeviationRows(rows, msaPatchBiases)
+	averageHighlights := lowestGksDeviationHighlights(averageRows)
+
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Instance</th><th>MSA patch bias</th><th>Tour length</th><th>Deviation [%]</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	for _, row := range rows {
+		key := gksDeviationRowKey(row.instance, row.msaPatchBias)
+		writeGksDeviationTableRow(builder, row.instance, row, bestBiasesByInstance[key])
+	}
+	for _, row := range averageRows {
+		key := gksDeviationRowKey(row.instance, row.msaPatchBias)
+		writeGksDeviationTableRow(builder, "Average", row, averageHighlights[key])
+	}
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+}
+
+func writeGksDeviationTableRow(builder *strings.Builder, instance string, row gksDeviationRow, highlightDeviation bool) {
+	instanceCell := html.EscapeString(instance)
+	if instance == "Average" {
+		instanceCell = "<strong>Average</strong>"
+	}
+
+	tourLengthCell := fmt.Sprintf("%.2f", row.tourLength)
+	if instance == "Average" {
+		tourLengthCell = ""
+	}
+
+	fmt.Fprintf(builder,
+		"<tr><td>%s</td><td align=\"right\">%.2f</td><td align=\"right\">%s</td><td align=\"right\">%s</td></tr>\n",
+		instanceCell,
+		row.msaPatchBias,
+		tourLengthCell,
+		finalResultsSummaryMetricCell(row.deviation, highlightDeviation))
+}
+
+func bestGksBiasesByInstance(rows []gksDeviationRow) map[string]bool {
+	bestByInstance := make(map[string]float64)
+	for _, row := range rows {
+		best, ok := bestByInstance[row.instance]
+		if !ok || row.deviation < best {
+			bestByInstance[row.instance] = row.deviation
+		}
+	}
+
+	highlights := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		if math.Abs(row.deviation-bestByInstance[row.instance]) < 1e-9 {
+			highlights[gksDeviationRowKey(row.instance, row.msaPatchBias)] = true
+		}
+	}
+	return highlights
+}
+
+func averageGksDeviationRows(rows []gksDeviationRow, msaPatchBiases []float64) []gksDeviationRow {
+	totals := make(map[float64]float64, len(msaPatchBiases))
+	counts := make(map[float64]int, len(msaPatchBiases))
+	for _, row := range rows {
+		totals[row.msaPatchBias] += row.deviation
+		counts[row.msaPatchBias]++
+	}
+
+	averageRows := make([]gksDeviationRow, 0, len(msaPatchBiases))
+	for _, msaPatchBias := range msaPatchBiases {
+		count := counts[msaPatchBias]
+		if count == 0 {
+			continue
+		}
+
+		averageRows = append(averageRows, gksDeviationRow{
+			instance:     "Average",
+			msaPatchBias: msaPatchBias,
+			deviation:    totals[msaPatchBias] / float64(count),
+		})
+	}
+	return averageRows
+}
+
+func lowestGksDeviationHighlights(rows []gksDeviationRow) map[string]bool {
+	best := math.Inf(1)
+	for _, row := range rows {
+		if row.deviation < best {
+			best = row.deviation
+		}
+	}
+
+	highlights := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		if math.Abs(row.deviation-best) < 1e-9 {
+			highlights[gksDeviationRowKey(row.instance, row.msaPatchBias)] = true
+		}
+	}
+	return highlights
+}
+
+func gksDeviationRowKey(instance string, msaPatchBias float64) string {
+	return instance + ":" + fmt.Sprintf("%.6f", msaPatchBias)
+}
+
+func tourMatrixLength(distanceMatrix, tourMatrix [][]float64) (float64, error) {
+	dimension := len(tourMatrix)
+	successors := make([]int, dimension)
+	inDegree := make([]int, dimension)
+	for vertex := range successors {
+		successors[vertex] = -1
+	}
+
+	for from, row := range tourMatrix {
+		outDegree := 0
+		for to, value := range row {
+			if value == 0 {
+				continue
+			}
+			if from == to {
+				return 0, fmt.Errorf("self-loop at vertex %d", from)
+			}
+			if from >= len(distanceMatrix) || to >= len(distanceMatrix[from]) {
+				return 0, fmt.Errorf("edge %d -> %d is outside distance matrix", from, to)
+			}
+
+			outDegree++
+			successors[from] = to
+			inDegree[to]++
+		}
+		if outDegree != 1 {
+			return 0, fmt.Errorf("vertex %d has out-degree %d", from, outDegree)
+		}
+	}
+
+	for vertex, degree := range inDegree {
+		if degree != 1 {
+			return 0, fmt.Errorf("vertex %d has in-degree %d", vertex, degree)
+		}
+	}
+
+	visited := make([]bool, dimension)
+	current := 0
+	for step := 0; step < dimension; step++ {
+		if current < 0 || current >= dimension {
+			return 0, fmt.Errorf("tour left matrix at vertex %d", current)
+		}
+		if visited[current] {
+			return 0, fmt.Errorf("tour returned to vertex %d after %d steps", current, step)
+		}
+		visited[current] = true
+		current = successors[current]
+	}
+	if current != 0 {
+		return 0, fmt.Errorf("tour ended at vertex %d instead of 0", current)
+	}
+
+	length := 0.0
+	for from, to := range successors {
+		length += distanceMatrix[from][to]
+	}
+	return length, nil
+}
+
 func writeMsaHeuristicCycleCoverOverlapFindings(builder *strings.Builder, totals msaHeuristicCycleCoverOverlapSummary) {
 	builder.WriteString("## Findings\n\n")
 	fmt.Fprintf(builder, "- **%.2f%% of MSA heuristic edges are also cycle-cover edges.**\n", 100*ratio(totals.sharedEdges, totals.msaEdges))
@@ -2694,6 +2928,10 @@ func shouldRunAnalysis(mode string) bool {
 	return mode == runModeAnalyze || mode == runModeAll
 }
 
+func isValidAnalysisScope(scope string) bool {
+	return scope == analysisScopeAll || scope == analysisScopeGksDeviation
+}
+
 func shouldRunFinalExperiments(mode string) bool {
 	return mode == runModeFinal || mode == runModeFinal3Opt
 }
@@ -2713,6 +2951,7 @@ func finalExperimentUsesThreeOpt(mode string) bool {
 func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, tiny, balanced, large, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, or final+3opt")
+	analysisScope := flag.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all or gks-deviation")
 	heuristic := flag.String("heuristic", heuristicMsaHeuristic, "ACO heuristic modifier to use in experiment mode: baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
 	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
 	flag.Parse()
@@ -2722,6 +2961,11 @@ func main() {
 
 	if !isValidRunMode(*mode) {
 		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal, runModeFinal3Opt)
+		return
+	}
+
+	if !isValidAnalysisScope(*analysisScope) {
+		fmt.Printf("Unsupported -analysis value %q; use %q or %q\n", *analysisScope, analysisScopeAll, analysisScopeGksDeviation)
 		return
 	}
 
@@ -2780,7 +3024,7 @@ func main() {
 	}
 
 	if shouldRunAnalysis(*mode) {
-		if err := runAnalysisMode(atspsData); err != nil {
+		if err := runAnalysisMode(atspsData, *analysisScope); err != nil {
 			fmt.Println(err)
 			return
 		}
@@ -3155,7 +3399,19 @@ func ensureMsaHeuristicCache(atspsData []AtspData) error {
 	return nil
 }
 
-func runAnalysisMode(atspsData []AtspData) error {
+func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
+	gksDeviationReportPath := filepath.Join(finalResultsDirectoryName, "gks_deviation.md")
+	if analysisScope == analysisScopeGksDeviation {
+		if err := ensureMsaHeuristicCache(atspsData); err != nil {
+			return err
+		}
+		if err := saveGksDeviationReport(gksDeviationReportPath, atspsData, gksDeviationMsaPatchBiases); err != nil {
+			return err
+		}
+		fmt.Printf("GKS deviation report saved to %s\n", gksDeviationReportPath)
+		return nil
+	}
+
 	if err := ensureMsaHeuristicArtifacts(atspsData); err != nil {
 		return err
 	}
@@ -3210,6 +3466,10 @@ func runAnalysisMode(atspsData []AtspData) error {
 		return err
 	}
 
+	if err := saveGksDeviationReport(gksDeviationReportPath, atspsData, gksDeviationMsaPatchBiases); err != nil {
+		return err
+	}
+
 	finalResultsSummaryPath, finalRows, finalSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses, finalResultsDirectoryName)
 	if err != nil {
 		return err
@@ -3223,6 +3483,7 @@ func runAnalysisMode(atspsData []AtspData) error {
 	fmt.Printf("Structural similarity report saved to %s\n", structuralSimilarityReportPath)
 	fmt.Printf("MSA heuristic/cycle-cover overlap report saved to %s\n", heuristicOverlapReportPath)
 	fmt.Printf("MSA count scaling report saved to %s\n", msaCountScalingReportPath)
+	fmt.Printf("GKS deviation report saved to %s\n", gksDeviationReportPath)
 	if finalSummarySaved {
 		fmt.Printf("Final results summary saved to %s\n", finalResultsSummaryPath)
 		fmt.Printf("Pairwise performance report saved to %s\n", filepath.Join(finalResultsDirectoryName, "pairwise_performance.md"))
