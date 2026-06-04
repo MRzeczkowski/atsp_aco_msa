@@ -3262,9 +3262,12 @@ func buildMinimumCycleCoverMatrix(matrix [][]float64) ([][]float64, float64, err
 	return cycleCover, cost, nil
 }
 
-var resultsDirectoryName = "results"
-var finalResultsDirectoryName = "final"
-var finalThreeOptResultsDirectoryName = "final_3opt"
+var artifactsDirectoryName = "artifacts"
+var resultsDirectoryName = filepath.Join(artifactsDirectoryName, "tuning")
+var finalResultsDirectoryName = filepath.Join(artifactsDirectoryName, "final", "no_3opt")
+var finalThreeOptResultsDirectoryName = filepath.Join(artifactsDirectoryName, "final", "with_3opt")
+var msaHeuristicArtifactsDirectoryName = filepath.Join(artifactsDirectoryName, "msa")
+var solutionArtifactsDirectoryName = filepath.Join(artifactsDirectoryName, "solutions")
 var resultFileName = "result.csv"
 
 type AtspData struct {
@@ -3293,19 +3296,22 @@ func makeAtspData(name string, matrix [][]float64, knownOptimal float64) AtspDat
 func makeAtspDataInResultsDirectory(name string, matrix [][]float64, knownOptimal float64, resultsRootPath string) AtspData {
 	name = strings.TrimSuffix(name, ".atsp")
 	resultsDirectoryPath := filepath.Join(resultsRootPath, name)
-	msaHeuristicDirectoryPath := filepath.Join(resultsDirectoryPath, "msa_heuristic")
-	plotsDirectoryPath := filepath.Join(resultsDirectoryPath, "plots")
+	resultsPlotsDirectoryPath := filepath.Join(resultsDirectoryPath, "plots")
+	msaHeuristicDirectoryPath := filepath.Join(msaHeuristicArtifactsDirectoryName, name)
+	msaHeuristicPlotsDirectoryPath := filepath.Join(msaHeuristicDirectoryPath, "plots")
+	solutionsDirectoryPath := filepath.Join(solutionArtifactsDirectoryName, name)
+	solutionsPlotsDirectoryPath := filepath.Join(solutionsDirectoryPath, "plots")
 
-	msaHeuristicHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "msa_heuristic_heatmap.png")
-	msaHeuristicHistogramPlotPath := filepath.Join(plotsDirectoryPath, "msa_heuristic_histogram.png")
+	msaHeuristicHeatmapPlotPath := filepath.Join(msaHeuristicPlotsDirectoryPath, "msa_heuristic_heatmap.png")
+	msaHeuristicHistogramPlotPath := filepath.Join(msaHeuristicPlotsDirectoryPath, "msa_heuristic_histogram.png")
 
 	resultFilePath := filepath.Join(resultsDirectoryPath, resultFileName)
-	resultPlotFilePrefix := filepath.Join(plotsDirectoryPath, "best_result")
+	resultPlotFilePrefix := filepath.Join(resultsPlotsDirectoryPath, "best_result")
 
-	optimalUniqueToursCsvPath := filepath.Join(resultsDirectoryPath, "solutions.csv")
-	toursHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "tours_heatmap.png")
-	toursHistogramPlotPath := filepath.Join(plotsDirectoryPath, "tours_histogram.png")
-	msaHeuristicToursOverlapHeatmapPlotPath := filepath.Join(plotsDirectoryPath, "msa_heuristic_tours_overlap_heatmap.png")
+	optimalUniqueToursCsvPath := filepath.Join(solutionsDirectoryPath, "solutions.csv")
+	toursHeatmapPlotPath := filepath.Join(solutionsPlotsDirectoryPath, "tours_heatmap.png")
+	toursHistogramPlotPath := filepath.Join(solutionsPlotsDirectoryPath, "tours_histogram.png")
+	msaHeuristicToursOverlapHeatmapPlotPath := filepath.Join(msaHeuristicPlotsDirectoryPath, "msa_heuristic_tours_overlap_heatmap.png")
 
 	return AtspData{
 		name,
