@@ -138,30 +138,41 @@ func TestReadStatisticsAcceptsRandomSparseSeedColumn(t *testing.T) {
 }
 
 func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.T) {
-	resultsRoot := t.TempDir()
-	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
-	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	root := t.TempDir()
+	sourceRoot := filepath.Join(root, "results")
+	finalRoot := filepath.Join(root, "final")
+	controlsRoot := finalControlsResultsRootPath(finalRoot)
+	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	finalFirst := withExperimentOutputRoot(first, finalRoot)
+	finalSecond := withExperimentOutputRoot(second, finalRoot)
+	controlFirst := withExperimentOutputRoot(first, controlsRoot)
+	controlSecond := withExperimentOutputRoot(second, controlsRoot)
 
-	saveStatistics(first.resultFilePath, heuristicMsaHeuristic, []ExperimentsDataStatistics{
-		makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 10.0),
-	})
-	saveStatistics(resultFilePathForHeuristic(first, heuristicRandomSparse), heuristicRandomSparse, []ExperimentsDataStatistics{
+	if err := saveHeuristicStatistics(finalFirst.resultFilePath, []HeuristicExperimentStatistics{
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 10.0)},
+	}); err != nil {
+		t.Fatalf("failed to write first final MSA result: %v", err)
+	}
+	saveStatistics(resultFilePathForHeuristic(controlFirst, heuristicRandomSparse), heuristicRandomSparse, []ExperimentsDataStatistics{
 		makeTestRandomSparseExperimentStatistics(1, 4.0, 0.0),
 		makeTestRandomSparseExperimentStatistics(2, 5.0, 0.0),
 		makeTestRandomSparseExperimentStatistics(3, 6.0, 0.0),
 	})
 
-	saveStatistics(second.resultFilePath, heuristicMsaHeuristic, []ExperimentsDataStatistics{
-		makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0),
-	})
-	saveStatistics(resultFilePathForHeuristic(second, heuristicRandomSparse), heuristicRandomSparse, []ExperimentsDataStatistics{
+	if err := saveHeuristicStatistics(finalSecond.resultFilePath, []HeuristicExperimentStatistics{
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0)},
+	}); err != nil {
+		t.Fatalf("failed to write second final MSA result: %v", err)
+	}
+	saveStatistics(resultFilePathForHeuristic(controlSecond, heuristicRandomSparse), heuristicRandomSparse, []ExperimentsDataStatistics{
 		makeTestRandomSparseExperimentStatistics(1, 2.0, 20.0),
 		makeTestRandomSparseExperimentStatistics(2, 3.0, 20.0),
 		makeTestRandomSparseExperimentStatistics(3, 4.0, 20.0),
 	})
 
-	reportPath := filepath.Join(resultsRoot, "random_sparse_control.md")
-	saved, err := saveRandomSparseControlReport(reportPath, []AtspData{second, first})
+	reportPath := filepath.Join(controlsRoot, "random_sparse_control.md")
+	saved, err := saveRandomSparseControlReport(reportPath, []AtspData{second, first}, finalRoot, controlsRoot)
 	if err != nil {
 		t.Fatalf("saveRandomSparseControlReport returned unexpected error: %v", err)
 	}
@@ -181,26 +192,37 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 }
 
 func TestSaveDistanceRankedSparseControlReportComparesMsaAgainstDistanceRankedSparse(t *testing.T) {
-	resultsRoot := t.TempDir()
-	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
-	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	root := t.TempDir()
+	sourceRoot := filepath.Join(root, "results")
+	finalRoot := filepath.Join(root, "final")
+	controlsRoot := finalControlsResultsRootPath(finalRoot)
+	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	finalFirst := withExperimentOutputRoot(first, finalRoot)
+	finalSecond := withExperimentOutputRoot(second, finalRoot)
+	controlFirst := withExperimentOutputRoot(first, controlsRoot)
+	controlSecond := withExperimentOutputRoot(second, controlsRoot)
 
-	saveStatistics(first.resultFilePath, heuristicMsaHeuristic, []ExperimentsDataStatistics{
-		makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 10.0),
-	})
-	saveStatistics(resultFilePathForHeuristic(first, heuristicDistanceRankedSparse), heuristicDistanceRankedSparse, []ExperimentsDataStatistics{
+	if err := saveHeuristicStatistics(finalFirst.resultFilePath, []HeuristicExperimentStatistics{
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 10.0)},
+	}); err != nil {
+		t.Fatalf("failed to write first final MSA result: %v", err)
+	}
+	saveStatistics(resultFilePathForHeuristic(controlFirst, heuristicDistanceRankedSparse), heuristicDistanceRankedSparse, []ExperimentsDataStatistics{
 		makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0),
 	})
 
-	saveStatistics(second.resultFilePath, heuristicMsaHeuristic, []ExperimentsDataStatistics{
-		makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0),
-	})
-	saveStatistics(resultFilePathForHeuristic(second, heuristicDistanceRankedSparse), heuristicDistanceRankedSparse, []ExperimentsDataStatistics{
+	if err := saveHeuristicStatistics(finalSecond.resultFilePath, []HeuristicExperimentStatistics{
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0)},
+	}); err != nil {
+		t.Fatalf("failed to write second final MSA result: %v", err)
+	}
+	saveStatistics(resultFilePathForHeuristic(controlSecond, heuristicDistanceRankedSparse), heuristicDistanceRankedSparse, []ExperimentsDataStatistics{
 		makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 20.0),
 	})
 
-	reportPath := filepath.Join(resultsRoot, "distance_ranked_sparse_control.md")
-	saved, err := saveDistanceRankedSparseControlReport(reportPath, []AtspData{second, first})
+	reportPath := filepath.Join(controlsRoot, "distance_ranked_sparse_control.md")
+	saved, err := saveDistanceRankedSparseControlReport(reportPath, []AtspData{second, first}, finalRoot, controlsRoot)
 	if err != nil {
 		t.Fatalf("saveDistanceRankedSparseControlReport returned unexpected error: %v", err)
 	}
@@ -934,23 +956,6 @@ func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
 		t.Fatalf("expected one zero-weight patching parameter set, got %d", zeroWeightCount)
 	}
 
-	randomSparseParameters := generateParameters(heuristicRandomSparse)
-	if len(randomSparseParameters) != 3 {
-		t.Fatalf("expected three random-sparse parameter sets, got %d", len(randomSparseParameters))
-	}
-	for i, parameters := range randomSparseParameters {
-		if parameters.heuristicWeight != finalMsaHeuristicWeight || parameters.msaPatchBias != 0 || parameters.randomSeed != randomSparseSeeds[i] {
-			t.Fatalf("unexpected random-sparse parameters at %d: %+v", i, parameters)
-		}
-	}
-
-	distanceRankedParameters := generateParameters(heuristicDistanceRankedSparse)
-	if len(distanceRankedParameters) != 1 {
-		t.Fatalf("expected one distance-ranked sparse parameter set, got %d", len(distanceRankedParameters))
-	}
-	if distanceRankedParameters[0].heuristicWeight != finalMsaHeuristicWeight || distanceRankedParameters[0].msaPatchBias != 0 || distanceRankedParameters[0].randomSeed != 0 {
-		t.Fatalf("unexpected distance-ranked sparse parameters: %+v", distanceRankedParameters[0])
-	}
 }
 
 func TestSelectFinalExperimentConfigurations(t *testing.T) {
@@ -960,6 +965,20 @@ func TestSelectFinalExperimentConfigurations(t *testing.T) {
 	}
 	if len(allConfigurations) != len(finalExperimentConfigurations()) {
 		t.Fatalf("expected all final configurations, got %d", len(allConfigurations))
+	}
+	if finalConfigurationsAreSparseControls(allConfigurations) {
+		t.Fatal("main final all configuration should not be treated as sparse controls")
+	}
+
+	controlConfigurations, err := selectFinalExperimentConfigurations(finalHeuristicControls)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(controls) returned error: %v", err)
+	}
+	if len(controlConfigurations) != len(finalControlExperimentConfigurations()) {
+		t.Fatalf("expected all final control configurations, got %d", len(controlConfigurations))
+	}
+	if !finalConfigurationsAreSparseControls(controlConfigurations) {
+		t.Fatal("control configurations should be treated as sparse controls")
 	}
 
 	cycleCoverConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCover)
@@ -978,8 +997,35 @@ func TestSelectFinalExperimentConfigurations(t *testing.T) {
 		t.Fatalf("expected only cycle-cover MSA-patching configuration, got %+v", patchingConfigurations)
 	}
 
+	randomSparseConfigurations, err := selectFinalExperimentConfigurations(heuristicRandomSparse)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(random-sparse) returned error: %v", err)
+	}
+	if len(randomSparseConfigurations) != 1 || randomSparseConfigurations[0].heuristic != heuristicRandomSparse || len(randomSparseConfigurations[0].parameters) != len(randomSparseSeeds) {
+		t.Fatalf("expected only random-sparse control configuration, got %+v", randomSparseConfigurations)
+	}
+
 	if _, err := selectFinalExperimentConfigurations("unknown"); err == nil {
 		t.Fatal("expected invalid final heuristic to be rejected")
+	}
+}
+
+func TestFinalExperimentOutputRootUsesControlsSubdirectoryForSparseControls(t *testing.T) {
+	mainConfigurations, err := selectFinalExperimentConfigurations(finalHeuristicAll)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(all) returned error: %v", err)
+	}
+	if finalExperimentOutputRootForConfigurations(runModeFinal, mainConfigurations) != finalResultsDirectoryName {
+		t.Fatalf("main final run should use %s", finalResultsDirectoryName)
+	}
+
+	controlConfigurations, err := selectFinalExperimentConfigurations(finalHeuristicControls)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(controls) returned error: %v", err)
+	}
+	expectedControlsRoot := filepath.Join(finalResultsDirectoryName, "controls")
+	if finalExperimentOutputRootForConfigurations(runModeFinal, controlConfigurations) != expectedControlsRoot {
+		t.Fatalf("final controls should use %s", expectedControlsRoot)
 	}
 }
 
@@ -1093,11 +1139,11 @@ func TestFinalModeAndBaselineHeuristicAreValid(t *testing.T) {
 	if !isValidHeuristic(heuristicBaseline) {
 		t.Fatal("baseline heuristic should be valid")
 	}
-	if !isValidHeuristic(heuristicRandomSparse) {
-		t.Fatal("random sparse heuristic should be valid")
+	if isValidHeuristic(heuristicRandomSparse) {
+		t.Fatal("random sparse control should not be valid in normal experiment mode")
 	}
-	if !isValidHeuristic(heuristicDistanceRankedSparse) {
-		t.Fatal("distance-ranked sparse heuristic should be valid")
+	if isValidHeuristic(heuristicDistanceRankedSparse) {
+		t.Fatal("distance-ranked sparse control should not be valid in normal experiment mode")
 	}
 }
 
