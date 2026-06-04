@@ -1162,36 +1162,13 @@ func TestFinal3OptModeUsesSeparateOutputRootAndThreeOpt(t *testing.T) {
 	}
 }
 
-func TestSelectAtspFilesSmoke(t *testing.T) {
-	paths := []string{
-		filepath.Join("tsplib_files", "ft53.atsp"),
-	}
-	for _, smokeInstanceFile := range smokeInstanceFiles {
-		paths = append(paths, filepath.Join("tsplib_files", smokeInstanceFile))
-	}
-
-	selected, err := selectAtspFiles(paths, instanceSetSmoke)
-	if err != nil {
-		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
-	}
-
-	selectedFiles := make([]string, len(selected))
-	for i, selectedPath := range selected {
-		selectedFiles[i] = filepath.Base(selectedPath)
-	}
-
-	if !reflect.DeepEqual(selectedFiles, smokeInstanceFiles) {
-		t.Fatalf("smoke selection mismatch\nwant: %v\n got: %v", smokeInstanceFiles, selectedFiles)
-	}
-}
-
-func TestSelectAtspFilesBalanced(t *testing.T) {
+func TestSelectAtspFilesTuning(t *testing.T) {
 	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
 	if err != nil {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
 
-	selected, err := selectAtspFiles(paths, instanceSetBalanced)
+	selected, err := selectAtspFiles(paths, instanceSetTuning)
 	if err != nil {
 		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
 	}
@@ -1201,18 +1178,18 @@ func TestSelectAtspFilesBalanced(t *testing.T) {
 		selectedFiles[i] = filepath.Base(selectedPath)
 	}
 
-	if !reflect.DeepEqual(selectedFiles, balancedInstanceFiles) {
-		t.Fatalf("balanced selection mismatch\nwant: %v\n got: %v", balancedInstanceFiles, selectedFiles)
+	if !reflect.DeepEqual(selectedFiles, tuningInstanceFiles) {
+		t.Fatalf("tuning selection mismatch\nwant: %v\n got: %v", tuningInstanceFiles, selectedFiles)
 	}
 }
 
-func TestSelectAtspFilesTiny(t *testing.T) {
+func TestSelectAtspFilesEvaluation(t *testing.T) {
 	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
 	if err != nil {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
 
-	selected, err := selectAtspFiles(paths, instanceSetTiny)
+	selected, err := selectAtspFiles(paths, instanceSetEvaluation)
 	if err != nil {
 		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
 	}
@@ -1222,29 +1199,8 @@ func TestSelectAtspFilesTiny(t *testing.T) {
 		selectedFiles[i] = filepath.Base(selectedPath)
 	}
 
-	if !reflect.DeepEqual(selectedFiles, tinyInstanceFiles) {
-		t.Fatalf("tiny selection mismatch\nwant: %v\n got: %v", tinyInstanceFiles, selectedFiles)
-	}
-}
-
-func TestSelectAtspFilesLarge(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
-	if err != nil {
-		t.Fatalf("failed to glob ATSP files: %v", err)
-	}
-
-	selected, err := selectAtspFiles(paths, instanceSetLarge)
-	if err != nil {
-		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
-	}
-
-	selectedFiles := make([]string, len(selected))
-	for i, selectedPath := range selected {
-		selectedFiles[i] = filepath.Base(selectedPath)
-	}
-
-	if !reflect.DeepEqual(selectedFiles, largeInstanceFiles) {
-		t.Fatalf("large selection mismatch\nwant: %v\n got: %v", largeInstanceFiles, selectedFiles)
+	if !reflect.DeepEqual(selectedFiles, evaluationInstanceFiles) {
+		t.Fatalf("evaluation selection mismatch\nwant: %v\n got: %v", evaluationInstanceFiles, selectedFiles)
 	}
 }
 
@@ -1254,7 +1210,7 @@ func TestSelectedAtspFilesHaveKnownOptima(t *testing.T) {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
 
-	for _, instanceSet := range []string{instanceSetSmoke, instanceSetTiny, instanceSetBalanced, instanceSetLarge, instanceSetAllKnown} {
+	for _, instanceSet := range []string{instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown} {
 		selected, err := selectAtspFiles(paths, instanceSet)
 		if err != nil {
 			t.Fatalf("selectAtspFiles(%s) returned unexpected error: %v", instanceSet, err)
@@ -1270,6 +1226,63 @@ func TestSelectedAtspFilesHaveKnownOptima(t *testing.T) {
 				t.Fatalf("%s selected %s without a known optimum", instanceSet, name)
 			}
 		}
+	}
+}
+
+func TestTuningAndEvaluationPartitionKnownInstances(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
+	if err != nil {
+		t.Fatalf("failed to glob ATSP files: %v", err)
+	}
+
+	tuning, err := selectAtspFiles(paths, instanceSetTuning)
+	if err != nil {
+		t.Fatalf("selectAtspFiles(tuning) returned unexpected error: %v", err)
+	}
+	evaluation, err := selectAtspFiles(paths, instanceSetEvaluation)
+	if err != nil {
+		t.Fatalf("selectAtspFiles(evaluation) returned unexpected error: %v", err)
+	}
+	allKnown, err := selectAtspFiles(paths, instanceSetAllKnown)
+	if err != nil {
+		t.Fatalf("selectAtspFiles(all-known) returned unexpected error: %v", err)
+	}
+
+	partition := make(map[string]string, len(tuning)+len(evaluation))
+	for _, path := range tuning {
+		partition[filepath.Base(path)] = instanceSetTuning
+	}
+	for _, path := range evaluation {
+		fileName := filepath.Base(path)
+		if previousSet, ok := partition[fileName]; ok {
+			t.Fatalf("%s appears in both %s and %s", fileName, previousSet, instanceSetEvaluation)
+		}
+		partition[fileName] = instanceSetEvaluation
+	}
+
+	if len(partition) != len(allKnown) {
+		t.Fatalf("tuning/evaluation partition has %d files, all-known has %d", len(partition), len(allKnown))
+	}
+	for _, path := range allKnown {
+		fileName := filepath.Base(path)
+		if _, ok := partition[fileName]; !ok {
+			t.Fatalf("%s is known but missing from tuning/evaluation partition", fileName)
+		}
+	}
+}
+
+func TestSelectedInstanceSetForMode(t *testing.T) {
+	if selected := selectedInstanceSetForMode(runModeFinal, instanceSetTuning, false); selected != instanceSetEvaluation {
+		t.Fatalf("final mode without explicit instances should default to %s, got %s", instanceSetEvaluation, selected)
+	}
+	if selected := selectedInstanceSetForMode(runModeFinal3Opt, instanceSetTuning, false); selected != instanceSetEvaluation {
+		t.Fatalf("final+3opt mode without explicit instances should default to %s, got %s", instanceSetEvaluation, selected)
+	}
+	if selected := selectedInstanceSetForMode(runModeFinal, instanceSetTuning, true); selected != instanceSetTuning {
+		t.Fatalf("final mode should respect explicit instances, got %s", selected)
+	}
+	if selected := selectedInstanceSetForMode(runModeExperiment, instanceSetTuning, false); selected != instanceSetTuning {
+		t.Fatalf("experiment mode should keep requested instances, got %s", selected)
 	}
 }
 

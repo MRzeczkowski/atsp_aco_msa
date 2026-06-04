@@ -74,11 +74,9 @@ type finalResultsSummaryRow struct {
 }
 
 const (
-	instanceSetSmoke    = "smoke"
-	instanceSetTiny     = "tiny"
-	instanceSetBalanced = "balanced"
-	instanceSetLarge    = "large"
-	instanceSetAllKnown = "all-known"
+	instanceSetTuning     = "tuning"
+	instanceSetEvaluation = "evaluation"
+	instanceSetAllKnown   = "all-known"
 )
 
 const (
@@ -131,64 +129,53 @@ var finalResultsSummaryHeuristics = []string{
 
 var msaCountScalingCounts = []int{1, 2, 4, 8, 16, 32, 64, 0}
 
-var smokeInstanceFiles = []string{
-	"ftv64.atsp",
-	"crane66_1.atsp",
-	"crane66_2.atsp",
-	"atex5.atsp",
-	"ftv90.atsp",
-}
-
-var tinyInstanceFiles = []string{
-	"atex1.atsp",
+var tuningInstanceFiles = []string{
 	"br17.atsp",
-	"atex3.atsp",
 	"ftv33.atsp",
-	"ftv35.atsp",
-	"ftv38.atsp",
 	"p43.atsp",
-	"ftv44.atsp",
-	"atex4.atsp",
-	"ftv47.atsp",
-	"ry48p.atsp",
-}
-
-var balancedInstanceFiles = []string{
 	"ft53.atsp",
-	"ftv55.atsp",
 	"ftv64.atsp",
-	"crane66_0.atsp",
 	"crane66_1.atsp",
-	"crane66_2.atsp",
-	"ft70.atsp",
-	"ftv70.atsp",
 	"atex5.atsp",
 	"ftv90.atsp",
-	"crane100_0.atsp",
 	"crane100_1.atsp",
-	"crane100_2.atsp",
-	"ftv100.atsp",
 	"td100_1.atsp",
-	"ftv110.atsp",
 	"dc112.atsp",
 	"ftv120.atsp",
-	"dc126.atsp",
-	"ftv130.atsp",
 	"dc134.atsp",
-	"ftv140.atsp",
 	"ftv150.atsp",
-	"ftv160.atsp",
-	"ftv170.atsp",
-	"dc176.atsp",
 	"dc188.atsp",
 	"code198.atsp",
 }
 
-var largeInstanceFiles = []string{
+var evaluationInstanceFiles = []string{
+	"atex1.atsp",
+	"atex3.atsp",
+	"atex4.atsp",
+	"ftv35.atsp",
+	"ftv38.atsp",
+	"ftv44.atsp",
+	"ftv47.atsp",
+	"ry48p.atsp",
+	"ftv55.atsp",
+	"crane66_0.atsp",
+	"crane66_2.atsp",
+	"ft70.atsp",
+	"ftv70.atsp",
+	"crane100_0.atsp",
+	"crane100_2.atsp",
+	"ftv100.atsp",
+	"ftv110.atsp",
+	"dc126.atsp",
+	"ftv130.atsp",
+	"ftv140.atsp",
+	"ftv160.atsp",
+	"ftv170.atsp",
+	"dc176.atsp",
 	"rbg323.atsp",
-	// "rbg358.atsp",
-	// "rbg403.atsp",
-	// "rbg443.atsp",
+	"rbg358.atsp",
+	"rbg403.atsp",
+	"rbg443.atsp",
 }
 
 var statisticsCsvHeader = []string{
@@ -3348,14 +3335,10 @@ func withExperimentOutputRoot(atspData AtspData, resultsRootPath string) AtspDat
 
 func selectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, error) {
 	switch instanceSet {
-	case instanceSetSmoke:
-		return selectConfiguredAtspFiles(atspFilePaths, smokeInstanceFiles)
-	case instanceSetTiny:
-		return selectConfiguredAtspFiles(atspFilePaths, tinyInstanceFiles)
-	case instanceSetBalanced:
-		return selectConfiguredAtspFiles(atspFilePaths, balancedInstanceFiles)
-	case instanceSetLarge:
-		return selectConfiguredAtspFiles(atspFilePaths, largeInstanceFiles)
+	case instanceSetTuning:
+		return selectConfiguredAtspFiles(atspFilePaths, tuningInstanceFiles)
+	case instanceSetEvaluation:
+		return selectConfiguredAtspFiles(atspFilePaths, evaluationInstanceFiles)
 	case instanceSetAllKnown:
 		selected := make([]string, 0, len(atspFilePaths))
 		for _, atspFilePath := range atspFilePaths {
@@ -3371,7 +3354,7 @@ func selectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, erro
 
 		return selected, nil
 	default:
-		return nil, fmt.Errorf("unsupported -instances value %q; use %q, %q, %q, %q, or %q", instanceSet, instanceSetSmoke, instanceSetTiny, instanceSetBalanced, instanceSetLarge, instanceSetAllKnown)
+		return nil, fmt.Errorf("unsupported -instances value %q; use %q, %q, or %q", instanceSet, instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown)
 	}
 }
 
@@ -3526,13 +3509,28 @@ func finalExperimentUsesThreeOpt(mode string) bool {
 	return mode == runModeFinal3Opt
 }
 
+func selectedInstanceSetForMode(mode, requestedInstanceSet string, instanceSetExplicit bool) string {
+	if shouldRunFinalExperiments(mode) && !instanceSetExplicit {
+		return instanceSetEvaluation
+	}
+
+	return requestedInstanceSet
+}
+
 func main() {
-	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, tiny, balanced, large, or all-known")
+	instances := flag.String("instances", instanceSetTuning, "ATSP instance set to run: tuning, evaluation, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, or final+3opt")
 	analysisScope := flag.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all or gks-deviation")
 	heuristic := flag.String("heuristic", heuristicMsaHeuristic, "ACO heuristic modifier to use in experiment mode: baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
 	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, controls, baseline, msa-heuristic, random-sparse, distance-ranked-sparse, cycle-cover, or cycle-cover-msa-patching")
 	flag.Parse()
+
+	instanceSetExplicit := false
+	flag.Visit(func(flag *flag.Flag) {
+		if flag.Name == "instances" {
+			instanceSetExplicit = true
+		}
+	})
 
 	selectedHeuristic := *heuristic
 	selectedFinalHeuristic := *finalHeuristic
@@ -3552,10 +3550,9 @@ func main() {
 		return
 	}
 
-	selectedInstances := *instances
+	selectedInstances := selectedInstanceSetForMode(*mode, *instances, instanceSetExplicit)
 	var finalConfigurations []finalExperimentConfiguration
 	if shouldRunFinalExperiments(*mode) {
-		selectedInstances = instanceSetBalanced
 		configurations, err := selectFinalExperimentConfigurations(selectedFinalHeuristic)
 		if err != nil {
 			fmt.Println(err)
