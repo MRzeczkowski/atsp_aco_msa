@@ -6,7 +6,7 @@ This table compares the current MSA heuristic edge set directly with the minimum
 
 - **43.09% of MSA heuristic edges are also cycle-cover edges.**
 - **28.69% of cycle-cover edges are also MSA heuristic edges.**
-- **Found-optimal edge partition: both 754, only MSA heuristic 208, only cycle cover 1069, neither 28269.**
+- **Found-optimal edge partition: both 754, only MSA heuristic 208, only cycle cover 1069, neither 28270.**
 
 <table>
 <thead>

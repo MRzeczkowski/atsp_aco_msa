@@ -8,7 +8,7 @@ This table links structural similarity to found optimal tours with final MMAS pe
 </thead>
 <tbody>
 <tr><td>MSA heuristic</td><td align="right">65.44</td><td align="right">3.17</td><td align="right">3.56</td><td align="right"><strong>6.87</strong></td></tr>
-<tr><td>Cycle cover</td><td align="right"><strong>77.15</strong></td><td align="right"><strong>6.02</strong></td><td align="right">3.27</td><td align="right">5.30</td></tr>
-<tr><td>Cycle-cover MSA patching</td><td align="right">74.57</td><td align="right">5.82</td><td align="right"><strong>3.10</strong></td><td align="right">5.22</td></tr>
+<tr><td>Cycle cover</td><td align="right">77.15</td><td align="right">6.02</td><td align="right">3.27</td><td align="right">5.30</td></tr>
+<tr><td>Cycle-cover MSA patching</td><td align="right"><strong>77.27</strong></td><td align="right"><strong>6.03</strong></td><td align="right"><strong>3.09</strong></td><td align="right">5.39</td></tr>
 </tbody>
 </table>
