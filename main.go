@@ -97,7 +97,7 @@ const (
 	finalMsaHeuristicWeight                = 0.9
 	finalCycleCoverWeight                  = 0.8
 	finalCycleCoverMsaPatchingWeight       = 0.7
-	finalCycleCoverMsaPatchingMsaPatchBias = 0.25
+	finalCycleCoverMsaPatchingMsaPatchBias = 0.5
 	defaultExperimentAlpha                 = 1.0
 	defaultExperimentBeta                  = 2.0
 	defaultExperimentRho                   = 0.8
@@ -3401,14 +3401,19 @@ func ensureMsaHeuristicCache(atspsData []AtspData) error {
 
 func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 	gksDeviationReportPath := filepath.Join(finalResultsDirectoryName, "gks_deviation.md")
+	gksDeviationAtspData, err := loadSelectedAtspData(instanceSetAllKnown)
+	if err != nil {
+		return err
+	}
+
 	if analysisScope == analysisScopeGksDeviation {
-		if err := ensureMsaHeuristicCache(atspsData); err != nil {
+		if err := ensureMsaHeuristicCache(gksDeviationAtspData); err != nil {
 			return err
 		}
-		if err := saveGksDeviationReport(gksDeviationReportPath, atspsData, gksDeviationMsaPatchBiases); err != nil {
+		if err := saveGksDeviationReport(gksDeviationReportPath, gksDeviationAtspData, gksDeviationMsaPatchBiases); err != nil {
 			return err
 		}
-		fmt.Printf("GKS deviation report saved to %s\n", gksDeviationReportPath)
+		fmt.Printf("GKS deviation report saved to %s using %d all-known instance(s)\n", gksDeviationReportPath, len(gksDeviationAtspData))
 		return nil
 	}
 
@@ -3466,7 +3471,11 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 		return err
 	}
 
-	if err := saveGksDeviationReport(gksDeviationReportPath, atspsData, gksDeviationMsaPatchBiases); err != nil {
+	if err := ensureMsaHeuristicCache(gksDeviationAtspData); err != nil {
+		return err
+	}
+
+	if err := saveGksDeviationReport(gksDeviationReportPath, gksDeviationAtspData, gksDeviationMsaPatchBiases); err != nil {
 		return err
 	}
 
@@ -3483,7 +3492,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 	fmt.Printf("Structural similarity report saved to %s\n", structuralSimilarityReportPath)
 	fmt.Printf("MSA heuristic/cycle-cover overlap report saved to %s\n", heuristicOverlapReportPath)
 	fmt.Printf("MSA count scaling report saved to %s\n", msaCountScalingReportPath)
-	fmt.Printf("GKS deviation report saved to %s\n", gksDeviationReportPath)
+	fmt.Printf("GKS deviation report saved to %s using %d all-known instance(s)\n", gksDeviationReportPath, len(gksDeviationAtspData))
 	if finalSummarySaved {
 		fmt.Printf("Final results summary saved to %s\n", finalResultsSummaryPath)
 		fmt.Printf("Pairwise performance report saved to %s\n", filepath.Join(finalResultsDirectoryName, "pairwise_performance.md"))
