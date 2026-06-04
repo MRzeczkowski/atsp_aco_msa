@@ -105,6 +105,75 @@ func TestBuildRandomSparseModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *tes
 	}
 }
 
+func TestBuildDistanceRankedSparseModifiersBoostsCheapestEdgesWithSameCountAsMsaHeuristic(t *testing.T) {
+	matrix := [][]float64{
+		{0, 8, 1, 4},
+		{3, 0, 2, 7},
+		{6, 5, 0, 9},
+		{10, 11, 12, 0},
+	}
+	msaHeuristic := [][]float64{
+		{0, 3, 0, 0},
+		{0, 0, 3, 0},
+		{0, 0, 0, 3},
+		{0, 0, 0, 0},
+	}
+
+	modifiers := BuildDistanceRankedSparseModifiers(matrix, msaHeuristic, 0.4)
+	expected := [][]float64{
+		{1, 1, 1.4, 1},
+		{1.4, 1, 1.4, 1},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected distance-ranked sparse modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildDistanceRankedSparseModifiersBreaksDistanceTiesDeterministically(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 1},
+		{1, 0, 1},
+		{1, 1, 0},
+	}
+	msaHeuristic := [][]float64{
+		{0, 2, 0},
+		{0, 0, 0},
+		{0, 2, 0},
+	}
+
+	modifiers := BuildDistanceRankedSparseModifiers(matrix, msaHeuristic, 0.5)
+	expected := [][]float64{
+		{1, 1.5, 1.5},
+		{1, 1, 1},
+		{1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected tied distance-ranked sparse modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildDistanceRankedSparseModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1},
+		{1, 0},
+	}
+	msaHeuristic := [][]float64{
+		{0, 1},
+		{1, 0},
+	}
+
+	modifiers := BuildDistanceRankedSparseModifiers(matrix, msaHeuristic, 0)
+	expected := BuildNeutralModifiers(2)
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected neutral modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
 func TestBuildCycleCoverModifiersBoostsOnlyCycleCoverEdges(t *testing.T) {
 	cycleCover := [][]float64{
 		{0, 1, 0},

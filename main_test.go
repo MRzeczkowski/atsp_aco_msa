@@ -180,6 +180,45 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 	assertContains(t, content, "<td>sample-b</td>")
 }
 
+func TestSaveDistanceRankedSparseControlReportComparesMsaAgainstDistanceRankedSparse(t *testing.T) {
+	resultsRoot := t.TempDir()
+	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+
+	saveStatistics(first.resultFilePath, heuristicMsaHeuristic, []ExperimentsDataStatistics{
+		makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 10.0),
+	})
+	saveStatistics(resultFilePathForHeuristic(first, heuristicDistanceRankedSparse), heuristicDistanceRankedSparse, []ExperimentsDataStatistics{
+		makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0),
+	})
+
+	saveStatistics(second.resultFilePath, heuristicMsaHeuristic, []ExperimentsDataStatistics{
+		makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0),
+	})
+	saveStatistics(resultFilePathForHeuristic(second, heuristicDistanceRankedSparse), heuristicDistanceRankedSparse, []ExperimentsDataStatistics{
+		makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 20.0),
+	})
+
+	reportPath := filepath.Join(resultsRoot, "distance_ranked_sparse_control.md")
+	saved, err := saveDistanceRankedSparseControlReport(reportPath, []AtspData{second, first})
+	if err != nil {
+		t.Fatalf("saveDistanceRankedSparseControlReport returned unexpected error: %v", err)
+	}
+	if !saved {
+		t.Fatal("expected distance-ranked sparse control report to be saved")
+	}
+
+	contentBytes, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatalf("failed to read distance-ranked sparse control report: %v", err)
+	}
+	content := string(contentBytes)
+	assertContains(t, content, "MSA had lower average best deviation than the distance-ranked sparse control in 1/2 instances.")
+	assertContains(t, content, "Mean average best deviation: MSA 3.00%, distance-ranked sparse 3.00%, delta +0.00 pp.")
+	assertContains(t, content, "<td>sample-a</td>")
+	assertContains(t, content, "<td>sample-b</td>")
+}
+
 func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "result.csv")
 	rows := []HeuristicExperimentStatistics{
@@ -904,6 +943,14 @@ func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
 			t.Fatalf("unexpected random-sparse parameters at %d: %+v", i, parameters)
 		}
 	}
+
+	distanceRankedParameters := generateParameters(heuristicDistanceRankedSparse)
+	if len(distanceRankedParameters) != 1 {
+		t.Fatalf("expected one distance-ranked sparse parameter set, got %d", len(distanceRankedParameters))
+	}
+	if distanceRankedParameters[0].heuristicWeight != finalMsaHeuristicWeight || distanceRankedParameters[0].msaPatchBias != 0 || distanceRankedParameters[0].randomSeed != 0 {
+		t.Fatalf("unexpected distance-ranked sparse parameters: %+v", distanceRankedParameters[0])
+	}
 }
 
 func TestSelectFinalExperimentConfigurations(t *testing.T) {
@@ -1048,6 +1095,9 @@ func TestFinalModeAndBaselineHeuristicAreValid(t *testing.T) {
 	}
 	if !isValidHeuristic(heuristicRandomSparse) {
 		t.Fatal("random sparse heuristic should be valid")
+	}
+	if !isValidHeuristic(heuristicDistanceRankedSparse) {
+		t.Fatal("distance-ranked sparse heuristic should be valid")
 	}
 }
 

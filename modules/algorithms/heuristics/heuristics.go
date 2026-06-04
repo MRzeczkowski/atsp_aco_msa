@@ -3,12 +3,18 @@ package heuristics
 import (
 	"math"
 	"math/rand"
+	"sort"
 )
 
 const msaHeuristicHighSignalThreshold = 1.0
 
 type directedEdge struct {
 	from, to int
+}
+
+type weightedDirectedEdge struct {
+	directedEdge
+	weight float64
 }
 
 type cyclePatch struct {
@@ -80,6 +86,48 @@ func BuildRandomSparseModifiers(msaHeuristic [][]float64, strength float64, seed
 		j := random.Intn(i + 1)
 		edges[i], edges[j] = edges[j], edges[i]
 	}
+
+	for _, edge := range edges[:boostedEdgeCount] {
+		modifiers[edge.from][edge.to] = 1.0 + strength
+	}
+
+	return modifiers
+}
+
+func BuildDistanceRankedSparseModifiers(matrix, msaHeuristic [][]float64, strength float64) [][]float64 {
+	dimension := heuristicDimension(matrix, msaHeuristic)
+	modifiers := BuildNeutralModifiers(dimension)
+	if dimension <= 1 || strength == 0 {
+		return modifiers
+	}
+
+	boostedEdgeCount := boostedModifierEdgeCount(BuildMsaHeuristicModifiers(msaHeuristic, 1.0))
+	if boostedEdgeCount == 0 {
+		return modifiers
+	}
+
+	edges := make([]weightedDirectedEdge, 0, dimension*(dimension-1))
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < dimension; j++ {
+			if i != j {
+				edges = append(edges, weightedDirectedEdge{
+					directedEdge: directedEdge{i, j},
+					weight:       matrix[i][j],
+				})
+			}
+		}
+	}
+
+	sort.SliceStable(edges, func(i, j int) bool {
+		left, right := edges[i], edges[j]
+		if left.weight != right.weight {
+			return left.weight < right.weight
+		}
+		if left.from != right.from {
+			return left.from < right.from
+		}
+		return left.to < right.to
+	})
 
 	for _, edge := range edges[:boostedEdgeCount] {
 		modifiers[edge.from][edge.to] = 1.0 + strength
