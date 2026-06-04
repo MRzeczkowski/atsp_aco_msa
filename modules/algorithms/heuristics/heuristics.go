@@ -1,8 +1,15 @@
 package heuristics
 
-import "math"
+import (
+	"math"
+	"math/rand"
+)
 
 const msaHeuristicHighSignalThreshold = 1.0
+
+type directedEdge struct {
+	from, to int
+}
 
 type cyclePatch struct {
 	fromA, toB   int
@@ -42,6 +49,40 @@ func BuildMsaHeuristicModifiers(msaHeuristic [][]float64, strength float64) [][]
 				modifiers[i][j] = 1.0 + msaHeuristicSignal*strength
 			}
 		}
+	}
+
+	return modifiers
+}
+
+func BuildRandomSparseModifiers(msaHeuristic [][]float64, strength float64, seed int64) [][]float64 {
+	dimension := len(msaHeuristic)
+	modifiers := BuildNeutralModifiers(dimension)
+	if dimension <= 1 || strength == 0 {
+		return modifiers
+	}
+
+	boostedEdgeCount := boostedModifierEdgeCount(BuildMsaHeuristicModifiers(msaHeuristic, 1.0))
+	if boostedEdgeCount == 0 {
+		return modifiers
+	}
+
+	edges := make([]directedEdge, 0, dimension*(dimension-1))
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < dimension; j++ {
+			if i != j {
+				edges = append(edges, directedEdge{i, j})
+			}
+		}
+	}
+
+	random := rand.New(rand.NewSource(seed))
+	for i := len(edges) - 1; i > 0; i-- {
+		j := random.Intn(i + 1)
+		edges[i], edges[j] = edges[j], edges[i]
+	}
+
+	for _, edge := range edges[:boostedEdgeCount] {
+		modifiers[edge.from][edge.to] = 1.0 + strength
 	}
 
 	return modifiers
@@ -131,6 +172,19 @@ func BuildCycleCoverModifiers(cycleCover [][]float64, strength float64) [][]floa
 	}
 
 	return modifiers
+}
+
+func boostedModifierEdgeCount(modifiers [][]float64) int {
+	count := 0
+	for i := 0; i < len(modifiers); i++ {
+		for j := 0; j < len(modifiers[i]); j++ {
+			if i != j && modifiers[i][j] > 1.0 {
+				count++
+			}
+		}
+	}
+
+	return count
 }
 
 func BuildNeutralModifiers(dimension int) [][]float64 {

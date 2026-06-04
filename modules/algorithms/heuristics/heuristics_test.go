@@ -43,6 +43,68 @@ func TestBuildMsaHeuristicModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *tes
 	}
 }
 
+func TestBuildRandomSparseModifiersBoostsSameNumberOfEdgesAsMsaHeuristic(t *testing.T) {
+	msaHeuristic := [][]float64{
+		{0, 4, 3, 0, 0},
+		{0, 0, 4, 1, 0},
+		{1, 0, 0, 4, 0},
+		{0, 0, 0, 0, 4},
+		{4, 0, 0, 0, 0},
+	}
+
+	msaModifiers := BuildMsaHeuristicModifiers(msaHeuristic, 0.9)
+	randomModifiers := BuildRandomSparseModifiers(msaHeuristic, 0.9, 17)
+
+	expectedBoostedEdges := boostedModifierEdgeCount(msaModifiers)
+	actualBoostedEdges := boostedModifierEdgeCount(randomModifiers)
+	if actualBoostedEdges != expectedBoostedEdges {
+		t.Fatalf("unexpected boosted-edge count: want %d, got %d", expectedBoostedEdges, actualBoostedEdges)
+	}
+
+	for i := range randomModifiers {
+		if randomModifiers[i][i] != 1.0 {
+			t.Fatalf("random sparse modifier boosted self-loop %d/%d", i, i)
+		}
+		for j := range randomModifiers[i] {
+			if randomModifiers[i][j] != 1.0 && randomModifiers[i][j] != 1.9 {
+				t.Fatalf("unexpected modifier at %d/%d: %f", i, j, randomModifiers[i][j])
+			}
+		}
+	}
+}
+
+func TestBuildRandomSparseModifiersIsDeterministicForSeed(t *testing.T) {
+	msaHeuristic := [][]float64{
+		{0, 4, 3, 0, 0},
+		{0, 0, 4, 1, 0},
+		{1, 0, 0, 4, 0},
+		{0, 0, 0, 0, 4},
+		{4, 0, 0, 0, 0},
+	}
+
+	first := BuildRandomSparseModifiers(msaHeuristic, 0.5, 42)
+	second := BuildRandomSparseModifiers(msaHeuristic, 0.5, 42)
+
+	if !reflect.DeepEqual(first, second) {
+		t.Fatalf("expected deterministic random sparse modifiers\nfirst:  %v\nsecond: %v", first, second)
+	}
+}
+
+func TestBuildRandomSparseModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testing.T) {
+	msaHeuristic := [][]float64{
+		{0, 2, 0},
+		{0, 0, 2},
+		{2, 0, 0},
+	}
+
+	modifiers := BuildRandomSparseModifiers(msaHeuristic, 0, 1)
+	expected := BuildNeutralModifiers(3)
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected neutral modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
 func TestBuildCycleCoverModifiersBoostsOnlyCycleCoverEdges(t *testing.T) {
 	cycleCover := [][]float64{
 		{0, 1, 0},

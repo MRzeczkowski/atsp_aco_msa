@@ -33,6 +33,7 @@ type ExperimentsData struct {
 
 type ExperimentParameters struct {
 	alpha, beta, rho, heuristicWeight, msaPatchBias float64
+	randomSeed                                      int64
 	iterations                                      int
 }
 
@@ -108,6 +109,7 @@ const (
 const (
 	heuristicBaseline              = "baseline"
 	heuristicMsaHeuristic          = "msa-heuristic"
+	heuristicRandomSparse          = "random-sparse"
 	heuristicCycleCover            = "cycle-cover"
 	heuristicCycleCoverMsaPatching = "cycle-cover-msa-patching"
 )
@@ -115,6 +117,7 @@ const (
 const finalHeuristicAll = "all"
 
 var gksDeviationMsaPatchBiases = []float64{0.0, 0.25, 0.5, 0.75, 1.0}
+var randomSparseSeeds = []int64{1, 2, 3}
 
 var finalResultsSummaryHeuristics = []string{
 	heuristicBaseline,
@@ -204,14 +207,21 @@ var statisticsCsvHeader = []string{
 }
 
 func statisticsCsvHeaderForHeuristic(heuristic string) []string {
-	if heuristic != heuristicCycleCoverMsaPatching {
-		return statisticsCsvHeader
+	if heuristic == heuristicCycleCoverMsaPatching {
+		header := append([]string{}, statisticsCsvHeader[:4]...)
+		header = append(header, "MSA patch bias")
+		header = append(header, statisticsCsvHeader[4:]...)
+		return header
 	}
 
-	header := append([]string{}, statisticsCsvHeader[:4]...)
-	header = append(header, "MSA patch bias")
-	header = append(header, statisticsCsvHeader[4:]...)
-	return header
+	if heuristic == heuristicRandomSparse {
+		header := append([]string{}, statisticsCsvHeader[:4]...)
+		header = append(header, "Random seed")
+		header = append(header, statisticsCsvHeader[4:]...)
+		return header
+	}
+
+	return statisticsCsvHeader
 }
 
 func generateMarkdownCounts(paramName string, counts map[float64]int) string {
@@ -307,7 +317,10 @@ func saveBestParametersInfo(resultsRootPath, fileName string, bestStatistics []E
 		if left.heuristicWeight != right.heuristicWeight {
 			return left.heuristicWeight < right.heuristicWeight
 		}
-		return left.msaPatchBias < right.msaPatchBias
+		if left.msaPatchBias != right.msaPatchBias {
+			return left.msaPatchBias < right.msaPatchBias
+		}
+		return left.randomSeed < right.randomSeed
 	})
 
 	for _, parameters := range sortedParameters {
@@ -392,7 +405,8 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 		return nil, fmt.Errorf("failed to read header: %w", err)
 	}
 	includeMsaPatchBias := slices.Equal(header, statisticsCsvHeaderForHeuristic(heuristicCycleCoverMsaPatching))
-	if !slices.Equal(header, statisticsCsvHeader) && !includeMsaPatchBias {
+	includeRandomSeed := slices.Equal(header, statisticsCsvHeaderForHeuristic(heuristicRandomSparse))
+	if !slices.Equal(header, statisticsCsvHeader) && !includeMsaPatchBias && !includeRandomSeed {
 		return nil, fmt.Errorf("invalid statistics header")
 	}
 	defaultMsaPatchBias := defaultMsaPatchBiasForStatisticsPath(csvFilePath)
@@ -409,12 +423,14 @@ func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 		expectedRecordLength := len(statisticsCsvHeader)
 		if includeMsaPatchBias {
 			expectedRecordLength = len(statisticsCsvHeaderForHeuristic(heuristicCycleCoverMsaPatching))
+		} else if includeRandomSeed {
+			expectedRecordLength = len(statisticsCsvHeaderForHeuristic(heuristicRandomSparse))
 		}
 		if len(record) != expectedRecordLength {
 			return nil, fmt.Errorf("invalid record length: %d", len(record))
 		}
 
-		statistic, err := parseStatisticsRecord(record, includeMsaPatchBias, defaultMsaPatchBias)
+		statistic, err := parseStatisticsRecord(record, includeMsaPatchBias, includeRandomSeed, defaultMsaPatchBias)
 		if err != nil {
 			return nil, err
 		}
@@ -433,10 +449,12 @@ func defaultMsaPatchBiasForStatisticsPath(csvFilePath string) float64 {
 	return 0.0
 }
 
-func parseStatisticsRecord(record []string, includeMsaPatchBias bool, defaultMsaPatchBias float64) (ExperimentsDataStatistics, error) {
+func parseStatisticsRecord(record []string, includeMsaPatchBias, includeRandomSeed bool, defaultMsaPatchBias float64) (ExperimentsDataStatistics, error) {
 	expectedRecordLength := len(statisticsCsvHeader)
 	if includeMsaPatchBias {
 		expectedRecordLength = len(statisticsCsvHeaderForHeuristic(heuristicCycleCoverMsaPatching))
+	} else if includeRandomSeed {
+		expectedRecordLength = len(statisticsCsvHeaderForHeuristic(heuristicRandomSparse))
 	}
 	if len(record) != expectedRecordLength {
 		return ExperimentsDataStatistics{}, fmt.Errorf("invalid record length: %d", len(record))
@@ -467,6 +485,15 @@ func parseStatisticsRecord(record []string, includeMsaPatchBias bool, defaultMsa
 			return ExperimentsDataStatistics{}, fmt.Errorf("invalid MSA patch bias: %w", err)
 		}
 		indexOffset = 1
+	}
+	randomSeed := int64(0)
+	if includeRandomSeed {
+		parsedRandomSeed, err := strconv.ParseInt(record[4+indexOffset], 10, 64)
+		if err != nil {
+			return ExperimentsDataStatistics{}, fmt.Errorf("invalid random seed: %w", err)
+		}
+		randomSeed = parsedRandomSeed
+		indexOffset++
 	}
 	iterations, err := strconv.Atoi(record[4+indexOffset])
 	if err != nil {
@@ -520,6 +547,7 @@ func parseStatisticsRecord(record []string, includeMsaPatchBias bool, defaultMsa
 			rho:             rho,
 			heuristicWeight: heuristicWeight,
 			msaPatchBias:    msaPatchBias,
+			randomSeed:      randomSeed,
 			iterations:      iterations,
 		},
 		minBestAtIteration:               minBestAtIteration,
@@ -550,11 +578,12 @@ func saveStatistics(resultCsvPath, heuristic string, statistics []ExperimentsDat
 
 	writer := csv.NewWriter(file)
 	includeMsaPatchBias := heuristic == heuristicCycleCoverMsaPatching
+	includeRandomSeed := heuristic == heuristicRandomSparse
 
 	_ = writer.Write(statisticsCsvHeaderForHeuristic(heuristic))
 
 	for _, statistic := range statistics {
-		writer.Write(statisticsCsvRecord(statistic, includeMsaPatchBias))
+		writer.Write(statisticsCsvRecord(statistic, includeMsaPatchBias, includeRandomSeed))
 	}
 
 	writer.Flush()
@@ -590,7 +619,7 @@ func saveHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperim
 	})
 
 	for _, statistic := range sortedStatistics {
-		record := append([]string{statistic.heuristic}, statisticsCsvRecord(statistic.statistics, false)...)
+		record := append([]string{statistic.heuristic}, statisticsCsvRecord(statistic.statistics, false, false)...)
 		if err := writer.Write(record); err != nil {
 			return err
 		}
@@ -653,7 +682,7 @@ func readHeuristicStatistics(resultCsvPath string) ([]HeuristicExperimentStatist
 			return nil, fmt.Errorf("invalid heuristic statistics record length: got %d want %d", len(record), expectedRecordLength)
 		}
 
-		parsed, err := parseStatisticsRecord(record[1:], extendedFormat, 0.0)
+		parsed, err := parseStatisticsRecord(record[1:], extendedFormat, false, 0.0)
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", record[0], err)
 		}
@@ -2276,6 +2305,276 @@ func maxIntValue(left, right int) int {
 	return right
 }
 
+type randomSparseControlRow struct {
+	instance                           string
+	msaAverageBestDeviation            float64
+	randomAverageBestDeviation         float64
+	randomBestAverageBestDeviation     float64
+	averageBestDeviationDelta          float64
+	msaSuccessRate                     float64
+	randomSuccessRate                  float64
+	successRateDelta                   float64
+	randomSeedCount                    int
+	randomBestAverageBestDeviationSeed int64
+}
+
+type randomSparseControlMissingData struct {
+	instance string
+	reason   string
+}
+
+func saveRandomSparseControlReport(path string, atspsData []AtspData) (bool, error) {
+	rows, missingData, err := buildRandomSparseControlRows(atspsData)
+	if err != nil {
+		return false, err
+	}
+	if len(rows) == 0 {
+		return false, nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return false, err
+	}
+
+	var builder strings.Builder
+	builder.WriteString("# Random Sparse Control\n\n")
+	builder.WriteString("This sanity check compares the real MSA heuristic against deterministic random sparse masks. Each random mask boosts the same number of directed edges as the MSA heuristic and uses the same heuristic weight. The comparison uses MSA `heuristicWeight=0.90` and averages the available random seeds for each instance.\n\n")
+	writeRandomSparseControlFindings(&builder, rows)
+	builder.WriteString("\n")
+	writeRandomSparseControlTable(&builder, rows)
+	if len(missingData) != 0 {
+		writeRandomSparseControlMissingData(&builder, missingData)
+	}
+
+	return true, os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+func buildRandomSparseControlRows(atspsData []AtspData) ([]randomSparseControlRow, []randomSparseControlMissingData, error) {
+	rows := make([]randomSparseControlRow, 0, len(atspsData))
+	missingData := make([]randomSparseControlMissingData, 0)
+
+	for _, atspData := range atspsData {
+		msaStatistics, err := readStatistics(resultFilePathForHeuristic(atspData, heuristicMsaHeuristic))
+		if err != nil {
+			if os.IsNotExist(err) {
+				missingData = append(missingData, randomSparseControlMissingData{instance: atspData.name, reason: "missing MSA result.csv"})
+				continue
+			}
+			return nil, nil, err
+		}
+
+		msaStatistic, ok := statisticsForHeuristicWeight(msaStatistics, finalMsaHeuristicWeight)
+		if !ok {
+			missingData = append(missingData, randomSparseControlMissingData{instance: atspData.name, reason: "missing MSA row for heuristic weight 0.90"})
+			continue
+		}
+
+		randomStatistics, err := readStatistics(resultFilePathForHeuristic(atspData, heuristicRandomSparse))
+		if err != nil {
+			if os.IsNotExist(err) {
+				missingData = append(missingData, randomSparseControlMissingData{instance: atspData.name, reason: "missing random-sparse result CSV"})
+				continue
+			}
+			return nil, nil, err
+		}
+		if len(randomStatistics) == 0 {
+			missingData = append(missingData, randomSparseControlMissingData{instance: atspData.name, reason: "empty random-sparse result CSV"})
+			continue
+		}
+
+		randomAverageBestDeviation := 0.0
+		randomSuccessRate := 0.0
+		randomBestAverageBestDeviation := math.Inf(1)
+		randomBestAverageBestDeviationSeed := int64(0)
+		for _, statistic := range randomStatistics {
+			randomAverageBestDeviation += statistic.averageBestDeviation
+			randomSuccessRate += statistic.successRate
+			if statistic.averageBestDeviation < randomBestAverageBestDeviation {
+				randomBestAverageBestDeviation = statistic.averageBestDeviation
+				randomBestAverageBestDeviationSeed = statistic.randomSeed
+			}
+		}
+		randomAverageBestDeviation /= float64(len(randomStatistics))
+		randomSuccessRate /= float64(len(randomStatistics))
+
+		rows = append(rows, randomSparseControlRow{
+			instance:                           atspData.name,
+			msaAverageBestDeviation:            msaStatistic.averageBestDeviation,
+			randomAverageBestDeviation:         randomAverageBestDeviation,
+			randomBestAverageBestDeviation:     randomBestAverageBestDeviation,
+			averageBestDeviationDelta:          msaStatistic.averageBestDeviation - randomAverageBestDeviation,
+			msaSuccessRate:                     msaStatistic.successRate,
+			randomSuccessRate:                  randomSuccessRate,
+			successRateDelta:                   msaStatistic.successRate - randomSuccessRate,
+			randomSeedCount:                    len(randomStatistics),
+			randomBestAverageBestDeviationSeed: randomBestAverageBestDeviationSeed,
+		})
+	}
+
+	sort.SliceStable(rows, func(i, j int) bool {
+		return rows[i].instance < rows[j].instance
+	})
+	sort.SliceStable(missingData, func(i, j int) bool {
+		return missingData[i].instance < missingData[j].instance
+	})
+
+	return rows, missingData, nil
+}
+
+func statisticsForHeuristicWeight(statistics []ExperimentsDataStatistics, heuristicWeight float64) (ExperimentsDataStatistics, bool) {
+	for _, statistic := range statistics {
+		if math.Abs(statistic.heuristicWeight-heuristicWeight) < 1e-9 {
+			return statistic, true
+		}
+	}
+
+	return ExperimentsDataStatistics{}, false
+}
+
+func writeRandomSparseControlFindings(builder *strings.Builder, rows []randomSparseControlRow) {
+	summary := randomSparseControlSummary(rows)
+
+	builder.WriteString("## Findings\n\n")
+	fmt.Fprintf(builder, "- **MSA had lower average best deviation than the random-sparse mean in %d/%d instances.**\n", summary.msaWins, len(rows))
+	fmt.Fprintf(builder, "- **Mean average best deviation: MSA %.2f%%, random sparse %.2f%%, delta %s pp.**\n",
+		summary.meanMsaAverageBestDeviation,
+		summary.meanRandomAverageBestDeviation,
+		formatSignedFloat(summary.meanAverageBestDeviationDelta))
+	fmt.Fprintf(builder, "- **Mean success rate: MSA %.2f%%, random sparse %.2f%%, delta %s pp.**\n",
+		summary.meanMsaSuccessRate,
+		summary.meanRandomSuccessRate,
+		formatSignedFloat(summary.meanSuccessRateDelta))
+	fmt.Fprintf(builder, "- MSA also beat the best random seed in %d/%d instances.\n", summary.msaWinsAgainstBestRandomSeed, len(rows))
+	fmt.Fprintf(builder, "- Two-sided sign-test p-value for average-best-deviation wins/losses: %.6f.\n", summary.signTestPValue)
+}
+
+type randomSparseControlSummaryData struct {
+	msaWins                        int
+	randomWins                     int
+	ties                           int
+	msaWinsAgainstBestRandomSeed   int
+	meanMsaAverageBestDeviation    float64
+	meanRandomAverageBestDeviation float64
+	meanAverageBestDeviationDelta  float64
+	meanMsaSuccessRate             float64
+	meanRandomSuccessRate          float64
+	meanSuccessRateDelta           float64
+	signTestPValue                 float64
+}
+
+func randomSparseControlSummary(rows []randomSparseControlRow) randomSparseControlSummaryData {
+	var summary randomSparseControlSummaryData
+	for _, row := range rows {
+		if row.averageBestDeviationDelta < -1e-9 {
+			summary.msaWins++
+		} else if row.averageBestDeviationDelta > 1e-9 {
+			summary.randomWins++
+		} else {
+			summary.ties++
+		}
+		if row.msaAverageBestDeviation < row.randomBestAverageBestDeviation {
+			summary.msaWinsAgainstBestRandomSeed++
+		}
+
+		summary.meanMsaAverageBestDeviation += row.msaAverageBestDeviation
+		summary.meanRandomAverageBestDeviation += row.randomAverageBestDeviation
+		summary.meanAverageBestDeviationDelta += row.averageBestDeviationDelta
+		summary.meanMsaSuccessRate += row.msaSuccessRate
+		summary.meanRandomSuccessRate += row.randomSuccessRate
+		summary.meanSuccessRateDelta += row.successRateDelta
+	}
+
+	count := float64(len(rows))
+	summary.meanMsaAverageBestDeviation /= count
+	summary.meanRandomAverageBestDeviation /= count
+	summary.meanAverageBestDeviationDelta /= count
+	summary.meanMsaSuccessRate /= count
+	summary.meanRandomSuccessRate /= count
+	summary.meanSuccessRateDelta /= count
+	summary.signTestPValue = twoSidedSignTestPValue(summary.msaWins, summary.randomWins)
+
+	return summary
+}
+
+func twoSidedSignTestPValue(wins, losses int) float64 {
+	n := wins + losses
+	if n == 0 {
+		return 1.0
+	}
+
+	observed := maxIntValue(wins, losses)
+	probability := 0.0
+	for k := observed; k <= n; k++ {
+		probability += binomialCoefficient(n, k) / math.Pow(2, float64(n))
+	}
+
+	probability *= 2
+	if probability > 1 {
+		return 1
+	}
+
+	return probability
+}
+
+func binomialCoefficient(n, k int) float64 {
+	if k < 0 || k > n {
+		return 0
+	}
+	if k > n-k {
+		k = n - k
+	}
+
+	coefficient := 1.0
+	for i := 1; i <= k; i++ {
+		coefficient *= float64(n-k+i) / float64(i)
+	}
+
+	return coefficient
+}
+
+func writeRandomSparseControlTable(builder *strings.Builder, rows []randomSparseControlRow) {
+	summary := randomSparseControlSummary(rows)
+
+	builder.WriteString("## Per-instance comparison\n\n")
+	builder.WriteString("Negative delta means the MSA heuristic had lower average best deviation than the random-sparse mean.\n\n")
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Instance</th><th>MSA avg best dev. [%]</th><th>Random mean avg best dev. [%]</th><th>Best random avg best dev. [%]</th><th>Delta [pp]</th><th>MSA success [%]</th><th>Random success [%]</th><th>Seeds</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	for _, row := range rows {
+		msaWins := row.averageBestDeviationDelta < 0
+		fmt.Fprintf(builder,
+			"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%.2f (seed %d)</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td></tr>\n",
+			html.EscapeString(row.instance),
+			finalResultsSummaryMetricCell(row.msaAverageBestDeviation, msaWins),
+			finalResultsSummaryMetricCell(row.randomAverageBestDeviation, !msaWins),
+			row.randomBestAverageBestDeviation,
+			row.randomBestAverageBestDeviationSeed,
+			formatSignedFloat(row.averageBestDeviationDelta),
+			row.msaSuccessRate,
+			row.randomSuccessRate,
+			row.randomSeedCount)
+	}
+	fmt.Fprintf(builder,
+		"<tr><td><strong>Average</strong></td><td align=\"right\"><strong>%.2f</strong></td><td align=\"right\"><strong>%.2f</strong></td><td></td><td align=\"right\"><strong>%s</strong></td><td align=\"right\"><strong>%.2f</strong></td><td align=\"right\"><strong>%.2f</strong></td><td></td></tr>\n",
+		summary.meanMsaAverageBestDeviation,
+		summary.meanRandomAverageBestDeviation,
+		formatSignedFloat(summary.meanAverageBestDeviationDelta),
+		summary.meanMsaSuccessRate,
+		summary.meanRandomSuccessRate)
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+}
+
+func writeRandomSparseControlMissingData(builder *strings.Builder, missingData []randomSparseControlMissingData) {
+	builder.WriteString("\n## Missing data\n\n")
+	builder.WriteString("| Instance | Reason |\n")
+	builder.WriteString("|---|---|\n")
+	for _, missing := range missingData {
+		fmt.Fprintf(builder, "| %s | %s |\n", missing.instance, missing.reason)
+	}
+}
+
 func sortedCycleCoverAnalyses(analyses []cycleCover.InstanceAnalysis) []cycleCover.InstanceAnalysis {
 	rows := append([]cycleCover.InstanceAnalysis(nil), analyses...)
 	sort.SliceStable(rows, func(i, j int) bool {
@@ -2405,6 +2704,8 @@ func heuristicDisplayName(heuristic string) string {
 		return "Baseline"
 	case heuristicMsaHeuristic:
 		return "MSA heuristic"
+	case heuristicRandomSparse:
+		return "Random sparse"
 	case heuristicCycleCover:
 		return "Cycle cover"
 	case heuristicCycleCoverMsaPatching:
@@ -2420,6 +2721,8 @@ func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover 
 		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
 	case heuristicMsaHeuristic:
 		return heuristics.BuildMsaHeuristicModifiers(msaHeuristic, parameters.heuristicWeight)
+	case heuristicRandomSparse:
+		return heuristics.BuildRandomSparseModifiers(msaHeuristic, parameters.heuristicWeight, parameters.randomSeed)
 	case heuristicCycleCover:
 		return heuristics.BuildCycleCoverModifiers(cycleCover, parameters.heuristicWeight)
 	case heuristicCycleCoverMsaPatching:
@@ -2439,7 +2742,7 @@ func heuristicMatrixDimension(matrices ...[][]float64) int {
 	return 0
 }
 
-func statisticsCsvRecord(statistic ExperimentsDataStatistics, includeMsaPatchBias bool) []string {
+func statisticsCsvRecord(statistic ExperimentsDataStatistics, includeMsaPatchBias, includeRandomSeed bool) []string {
 	floatFormat := "%.2f"
 	record := []string{
 		fmt.Sprintf(floatFormat, statistic.alpha),
@@ -2460,6 +2763,8 @@ func statisticsCsvRecord(statistic ExperimentsDataStatistics, includeMsaPatchBia
 	}
 	if includeMsaPatchBias {
 		record = append(record[:4], append([]string{fmt.Sprintf(floatFormat, statistic.msaPatchBias)}, record[4:]...)...)
+	} else if includeRandomSeed {
+		record = append(record[:4], append([]string{strconv.FormatInt(statistic.randomSeed, 10)}, record[4:]...)...)
 	}
 	return record
 }
@@ -2618,6 +2923,13 @@ func setDimensionDependantParameters(dimension int, parameters *ExperimentParame
 func generateParameters(heuristic string) []ExperimentParameters {
 	parameters := make([]ExperimentParameters, 0)
 	heuristicWeights := []float64{0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0}
+	if heuristicIsRandomSparse(heuristic) {
+		heuristicWeights = []float64{finalMsaHeuristicWeight}
+	}
+	randomSeeds := []int64{0}
+	if heuristicIsRandomSparse(heuristic) {
+		randomSeeds = randomSparseSeeds
+	}
 	msaPatchBiases := []float64{0.0}
 	if heuristic == heuristicCycleCoverMsaPatching {
 		msaPatchBiases = []float64{0.0, 0.25, 0.5, 0.75, 1.0}
@@ -2633,14 +2945,17 @@ func generateParameters(heuristic string) []ExperimentParameters {
 					}
 
 					for _, msaPatchBias := range currentMsaPatchBiases {
-						parameters = append(parameters,
-							ExperimentParameters{
-								alpha:           alpha,
-								beta:            beta,
-								rho:             rho,
-								heuristicWeight: heuristicWeight,
-								msaPatchBias:    msaPatchBias,
-							})
+						for _, randomSeed := range randomSeeds {
+							parameters = append(parameters,
+								ExperimentParameters{
+									alpha:           alpha,
+									beta:            beta,
+									rho:             rho,
+									heuristicWeight: heuristicWeight,
+									msaPatchBias:    msaPatchBias,
+									randomSeed:      randomSeed,
+								})
+						}
 					}
 				}
 			}
@@ -2858,6 +3173,7 @@ func isValidRunMode(mode string) bool {
 func isValidHeuristic(heuristic string) bool {
 	return heuristic == heuristicBaseline ||
 		heuristic == heuristicMsaHeuristic ||
+		heuristicIsRandomSparse(heuristic) ||
 		heuristic == heuristicCycleCover ||
 		heuristic == heuristicCycleCoverMsaPatching
 }
@@ -2867,7 +3183,11 @@ func heuristicUsesCycleCover(heuristic string) bool {
 }
 
 func heuristicUsesMsaHeuristic(heuristic string) bool {
-	return heuristic == heuristicMsaHeuristic || heuristic == heuristicCycleCoverMsaPatching
+	return heuristic == heuristicMsaHeuristic || heuristic == heuristicCycleCoverMsaPatching || heuristicIsRandomSparse(heuristic)
+}
+
+func heuristicIsRandomSparse(heuristic string) bool {
+	return heuristic == heuristicRandomSparse
 }
 
 func finalConfigurationsUseMsaHeuristic(configurations []finalExperimentConfiguration) bool {
@@ -2952,7 +3272,7 @@ func main() {
 	instances := flag.String("instances", instanceSetSmoke, "ATSP instance set to run: smoke, tiny, balanced, large, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, or final+3opt")
 	analysisScope := flag.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all or gks-deviation")
-	heuristic := flag.String("heuristic", heuristicMsaHeuristic, "ACO heuristic modifier to use in experiment mode: baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
+	heuristic := flag.String("heuristic", heuristicMsaHeuristic, "ACO heuristic modifier to use in experiment mode: baseline, msa-heuristic, random-sparse, cycle-cover, or cycle-cover-msa-patching")
 	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
 	flag.Parse()
 
@@ -2970,7 +3290,7 @@ func main() {
 	}
 
 	if !isValidHeuristic(selectedHeuristic) {
-		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, or %q\n", *heuristic, heuristicBaseline, heuristicMsaHeuristic, heuristicCycleCover, heuristicCycleCoverMsaPatching)
+		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, %q, or %q\n", *heuristic, heuristicBaseline, heuristicMsaHeuristic, heuristicRandomSparse, heuristicCycleCover, heuristicCycleCoverMsaPatching)
 		return
 	}
 
@@ -3170,10 +3490,15 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 			parameterStatistics := calculateStatistics([]ExperimentsData{data})
 			if len(parameterStatistics) != 0 {
 				statistic := parameterStatistics[0]
-				fmt.Printf("\t%s heuristicWeight=%.2f msaPatchBias=%.2f iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+				randomSeedLog := ""
+				if parameters.randomSeed != 0 {
+					randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.randomSeed)
+				}
+				fmt.Printf("\t%s heuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
 					config.heuristic,
 					parameters.heuristicWeight,
 					parameters.msaPatchBias,
+					randomSeedLog,
 					parameters.iterations,
 					finalNumberOfExperiments,
 					time.Since(parameterStart).Round(time.Millisecond),
@@ -3292,9 +3617,14 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 			parameterStatistics := calculateStatistics([]ExperimentsData{data})
 			if len(parameterStatistics) != 0 {
 				statistic := parameterStatistics[0]
-				fmt.Printf("\theuristicWeight=%.2f msaPatchBias=%.2f iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+				randomSeedLog := ""
+				if parameters.randomSeed != 0 {
+					randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.randomSeed)
+				}
+				fmt.Printf("\theuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
 					parameters.heuristicWeight,
 					parameters.msaPatchBias,
+					randomSeedLog,
 					parameters.iterations,
 					numberOfExperiments,
 					time.Since(parameterStart).Round(time.Millisecond),
@@ -3306,34 +3636,40 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 		statistics := calculateStatistics(experimentData)
 		if len(statistics) != 0 {
 			saveStatistics(resultFilePathForHeuristic(atspData, heuristic), heuristic, statistics)
-			if err := removeExperimentPlotsForHeuristic(atspData, heuristic); err != nil {
+			if heuristic != heuristicRandomSparse {
+				if err := removeExperimentPlotsForHeuristic(atspData, heuristic); err != nil {
+					return err
+				}
+				saveExperimentPlots(statistics, "MMAS deviation per iteration", resultPlotFilePrefixForHeuristic(atspData, heuristic))
+			}
+		}
+
+		if heuristic != heuristicRandomSparse {
+			uniqueOptimalTours, err := msaHeuristicTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
+			if err != nil {
 				return err
 			}
-			saveExperimentPlots(statistics, "MMAS deviation per iteration", resultPlotFilePrefixForHeuristic(atspData, heuristic))
-		}
 
-		uniqueOptimalTours, err := msaHeuristicTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
-		if err != nil {
-			return err
-		}
-
-		for _, data := range experimentData {
-			for _, result := range data.results {
-				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
-					msaHeuristicTours.AddUniqueTour(uniqueOptimalTours, result.bestTour)
+			for _, data := range experimentData {
+				for _, result := range data.results {
+					if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
+						msaHeuristicTours.AddUniqueTour(uniqueOptimalTours, result.bestTour)
+					}
 				}
 			}
-		}
 
-		if err := msaHeuristicTours.SaveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, atspData.msaHeuristicDirectoryPath, uniqueOptimalTours); err != nil {
-			return err
+			if err := msaHeuristicTours.SaveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, atspData.msaHeuristicDirectoryPath, uniqueOptimalTours); err != nil {
+				return err
+			}
 		}
 
 		fmt.Printf("Finished %s in %s\n", atspData.name, time.Since(instanceStart).Round(time.Millisecond))
 	}
 
-	bestStatistics := getBestStatisticsFromFiles(resultFilePathsForHeuristic(atspsData, heuristic))
-	saveBestParametersInfo(resultsRootPath, bestParametersReportPathForHeuristic(heuristic), bestStatistics, heuristic == heuristicCycleCoverMsaPatching)
+	if heuristic != heuristicRandomSparse {
+		bestStatistics := getBestStatisticsFromFiles(resultFilePathsForHeuristic(atspsData, heuristic))
+		saveBestParametersInfo(resultsRootPath, bestParametersReportPathForHeuristic(heuristic), bestStatistics, heuristic == heuristicCycleCoverMsaPatching)
+	}
 
 	return nil
 }
@@ -3471,6 +3807,12 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 		return err
 	}
 
+	randomSparseControlReportPath := filepath.Join(finalResultsDirectoryName, "random_sparse_control.md")
+	randomSparseControlReportSaved, err := saveRandomSparseControlReport(randomSparseControlReportPath, atspsData)
+	if err != nil {
+		return err
+	}
+
 	if err := ensureMsaHeuristicCache(gksDeviationAtspData); err != nil {
 		return err
 	}
@@ -3492,6 +3834,9 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 	fmt.Printf("Structural similarity report saved to %s\n", structuralSimilarityReportPath)
 	fmt.Printf("MSA heuristic/cycle-cover overlap report saved to %s\n", heuristicOverlapReportPath)
 	fmt.Printf("MSA count scaling report saved to %s\n", msaCountScalingReportPath)
+	if randomSparseControlReportSaved {
+		fmt.Printf("Random sparse control report saved to %s\n", randomSparseControlReportPath)
+	}
 	fmt.Printf("GKS deviation report saved to %s using %d all-known instance(s)\n", gksDeviationReportPath, len(gksDeviationAtspData))
 	if finalSummarySaved {
 		fmt.Printf("Final results summary saved to %s\n", finalResultsSummaryPath)

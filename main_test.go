@@ -100,6 +100,86 @@ func TestReadStatisticsAcceptsPatchingMsaPatchBiasColumn(t *testing.T) {
 	}
 }
 
+func TestReadStatisticsAcceptsRandomSparseSeedColumn(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "result_random_sparse.csv")
+	record := []string{
+		"1.00",
+		"2.00",
+		"0.80",
+		"0.90",
+		"2",
+		"5000",
+		"1",
+		"2.00",
+		"3",
+		"0",
+		"0.00",
+		"0",
+		"1.00",
+		"2.00",
+		"3.00",
+		"40.00",
+	}
+	content := strings.Join(statisticsCsvHeaderForHeuristic(heuristicRandomSparse), ",") + "\n" + strings.Join(record, ",") + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write random-sparse statistics CSV: %v", err)
+	}
+
+	statistics, err := readStatistics(path)
+	if err != nil {
+		t.Fatalf("readStatistics returned unexpected error: %v", err)
+	}
+	if len(statistics) != 1 {
+		t.Fatalf("expected one statistic, got %d", len(statistics))
+	}
+	if statistics[0].heuristicWeight != 0.90 || statistics[0].randomSeed != 2 || statistics[0].successRate != 40.00 {
+		t.Fatalf("unexpected statistic values: heuristicWeight=%f randomSeed=%d successRate=%f", statistics[0].heuristicWeight, statistics[0].randomSeed, statistics[0].successRate)
+	}
+}
+
+func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.T) {
+	resultsRoot := t.TempDir()
+	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+
+	saveStatistics(first.resultFilePath, heuristicMsaHeuristic, []ExperimentsDataStatistics{
+		makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 10.0),
+	})
+	saveStatistics(resultFilePathForHeuristic(first, heuristicRandomSparse), heuristicRandomSparse, []ExperimentsDataStatistics{
+		makeTestRandomSparseExperimentStatistics(1, 4.0, 0.0),
+		makeTestRandomSparseExperimentStatistics(2, 5.0, 0.0),
+		makeTestRandomSparseExperimentStatistics(3, 6.0, 0.0),
+	})
+
+	saveStatistics(second.resultFilePath, heuristicMsaHeuristic, []ExperimentsDataStatistics{
+		makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0),
+	})
+	saveStatistics(resultFilePathForHeuristic(second, heuristicRandomSparse), heuristicRandomSparse, []ExperimentsDataStatistics{
+		makeTestRandomSparseExperimentStatistics(1, 2.0, 20.0),
+		makeTestRandomSparseExperimentStatistics(2, 3.0, 20.0),
+		makeTestRandomSparseExperimentStatistics(3, 4.0, 20.0),
+	})
+
+	reportPath := filepath.Join(resultsRoot, "random_sparse_control.md")
+	saved, err := saveRandomSparseControlReport(reportPath, []AtspData{second, first})
+	if err != nil {
+		t.Fatalf("saveRandomSparseControlReport returned unexpected error: %v", err)
+	}
+	if !saved {
+		t.Fatal("expected random sparse control report to be saved")
+	}
+
+	contentBytes, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatalf("failed to read random sparse control report: %v", err)
+	}
+	content := string(contentBytes)
+	assertContains(t, content, "MSA had lower average best deviation than the random-sparse mean in 1/2 instances.")
+	assertContains(t, content, "Mean average best deviation: MSA 3.00%, random sparse 4.00%, delta -1.00 pp.")
+	assertContains(t, content, "<td>sample-a</td>")
+	assertContains(t, content, "<td>sample-b</td>")
+}
+
 func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "result.csv")
 	rows := []HeuristicExperimentStatistics{
@@ -814,6 +894,16 @@ func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
 	if zeroWeightCount != 1 {
 		t.Fatalf("expected one zero-weight patching parameter set, got %d", zeroWeightCount)
 	}
+
+	randomSparseParameters := generateParameters(heuristicRandomSparse)
+	if len(randomSparseParameters) != 3 {
+		t.Fatalf("expected three random-sparse parameter sets, got %d", len(randomSparseParameters))
+	}
+	for i, parameters := range randomSparseParameters {
+		if parameters.heuristicWeight != finalMsaHeuristicWeight || parameters.msaPatchBias != 0 || parameters.randomSeed != randomSparseSeeds[i] {
+			t.Fatalf("unexpected random-sparse parameters at %d: %+v", i, parameters)
+		}
+	}
 }
 
 func TestSelectFinalExperimentConfigurations(t *testing.T) {
@@ -955,6 +1045,9 @@ func TestFinalModeAndBaselineHeuristicAreValid(t *testing.T) {
 	}
 	if !isValidHeuristic(heuristicBaseline) {
 		t.Fatal("baseline heuristic should be valid")
+	}
+	if !isValidHeuristic(heuristicRandomSparse) {
+		t.Fatal("random sparse heuristic should be valid")
 	}
 }
 
@@ -1234,6 +1327,12 @@ func makeTestExperimentStatistics(heuristicWeight, averageBestDeviation, success
 		maxBestDeviation:                 averageBestDeviation,
 		successRate:                      successRate,
 	}
+}
+
+func makeTestRandomSparseExperimentStatistics(randomSeed int64, averageBestDeviation, successRate float64) ExperimentsDataStatistics {
+	statistics := makeTestExperimentStatistics(finalMsaHeuristicWeight, averageBestDeviation, successRate)
+	statistics.randomSeed = randomSeed
+	return statistics
 }
 
 func assertContains(t *testing.T, content, expected string) {
