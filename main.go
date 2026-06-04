@@ -3485,7 +3485,7 @@ func finalExperimentOutputRoot(mode string) string {
 }
 
 func finalControlsResultsRootPath(finalResultsRootPath string) string {
-	return filepath.Join(finalResultsRootPath, "controls")
+	return filepath.Join(filepath.Dir(finalResultsRootPath), "controls")
 }
 
 func finalExperimentOutputRootForConfigurations(mode string, configurations []finalExperimentConfiguration) string {

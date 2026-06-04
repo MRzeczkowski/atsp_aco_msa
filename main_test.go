@@ -1023,7 +1023,7 @@ func TestFinalExperimentOutputRootUsesControlsSubdirectoryForSparseControls(t *t
 	if err != nil {
 		t.Fatalf("selectFinalExperimentConfigurations(controls) returned error: %v", err)
 	}
-	expectedControlsRoot := filepath.Join(finalResultsDirectoryName, "controls")
+	expectedControlsRoot := filepath.Join(filepath.Dir(finalResultsDirectoryName), "controls")
 	if finalExperimentOutputRootForConfigurations(runModeFinal, controlConfigurations) != expectedControlsRoot {
 		t.Fatalf("final controls should use %s", expectedControlsRoot)
 	}
