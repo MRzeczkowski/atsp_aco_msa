@@ -20,11 +20,13 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/pprof"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -3383,12 +3385,38 @@ func selectedInstanceSetForMode(mode, requestedInstanceSet string, instanceSetEx
 	return requestedInstanceSet
 }
 
+func resolveWorkerCount(requestedWorkers, cpuCount int) (int, error) {
+	if requestedWorkers < 0 {
+		return 0, fmt.Errorf("workers must be greater than or equal to zero")
+	}
+	if requestedWorkers > 0 {
+		return requestedWorkers, nil
+	}
+	if cpuCount < 2 {
+		return 1, nil
+	}
+
+	return max(1, cpuCount/2), nil
+}
+
+func configureWorkerCount(requestedWorkers int) (int, error) {
+	workers, err := resolveWorkerCount(requestedWorkers, runtime.NumCPU())
+	if err != nil {
+		return 0, err
+	}
+
+	runtime.GOMAXPROCS(workers)
+	return workers, nil
+}
+
 func main() {
 	instances := flag.String("instances", instanceSetTuning, "ATSP instance set to run: smoke, tuning, evaluation, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, or final+3opt")
 	analysisScope := flag.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all or gks-deviation")
 	heuristic := flag.String("heuristic", "", "ACO heuristic modifier to use in experiment mode: omit or use all to run all; otherwise baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
 	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, controls, baseline, msa-heuristic, random-sparse, distance-ranked-sparse, cycle-cover, or cycle-cover-msa-patching")
+	workers := flag.Int("workers", 0, "Maximum concurrent instance workers. 0 uses half of available logical CPUs; 1 preserves serial execution")
+	cpuProfilePath := flag.String("cpuprofile", "", "Optional CPU profile output path. Disabled when empty")
 	flag.Parse()
 
 	instanceSetExplicit := false
@@ -3419,6 +3447,13 @@ func main() {
 		return
 	}
 
+	effectiveWorkers, err := configureWorkerCount(*workers)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("Using %d worker(s); GOMAXPROCS=%d\n", effectiveWorkers, runtime.GOMAXPROCS(0))
+
 	selectedInstances := selectedInstanceSetForMode(*mode, *instances, instanceSetExplicit)
 	var finalConfigurations []finalExperimentConfiguration
 	if shouldRunFinalExperiments(*mode) {
@@ -3438,13 +3473,13 @@ func main() {
 	fmt.Printf("Selected %d ATSP instance(s) with -instances=%s\n", len(atspsData), selectedInstances)
 
 	if shouldRunExperiments(*mode) {
-		stopProfiling, err := startCPUProfile()
+		stopProfiling, err := startCPUProfile(*cpuProfilePath)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		err = runExperimentMode(atspsData, selectedExperimentHeuristics)
+		err = runExperimentMode(atspsData, selectedExperimentHeuristics, effectiveWorkers)
 		stopProfiling()
 		if err != nil {
 			fmt.Println(err)
@@ -3453,13 +3488,13 @@ func main() {
 	}
 
 	if shouldRunFinalExperiments(*mode) {
-		stopProfiling, err := startCPUProfile()
+		stopProfiling, err := startCPUProfile(*cpuProfilePath)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		err = runFinalExperimentMode(atspsData, finalExperimentOutputRootForConfigurations(*mode, finalConfigurations), finalExperimentUsesThreeOpt(*mode), finalConfigurations)
+		err = runFinalExperimentMode(atspsData, finalExperimentOutputRootForConfigurations(*mode, finalConfigurations), finalExperimentUsesThreeOpt(*mode), finalConfigurations, effectiveWorkers)
 		stopProfiling()
 		if err != nil {
 			fmt.Println(err)
@@ -3467,7 +3502,7 @@ func main() {
 		}
 
 		if shouldRunAnalysisAfterFinalExperiments(*mode, selectedFinalHeuristic) {
-			if err := runAnalysisMode(atspsData, *analysisScope); err != nil {
+			if err := runAnalysisMode(atspsData, *analysisScope, effectiveWorkers); err != nil {
 				fmt.Println(err)
 				return
 			}
@@ -3475,7 +3510,7 @@ func main() {
 	}
 
 	if shouldRunAnalysis(*mode) {
-		if err := runAnalysisMode(atspsData, *analysisScope); err != nil {
+		if err := runAnalysisMode(atspsData, *analysisScope, effectiveWorkers); err != nil {
 			fmt.Println(err)
 			return
 		}
@@ -3510,8 +3545,16 @@ func loadSelectedAtspData(instances string) ([]AtspData, error) {
 	return atspsData, nil
 }
 
-func startCPUProfile() (func(), error) {
-	cf, err := os.Create("cpu.prof")
+func startCPUProfile(profilePath string) (func(), error) {
+	if profilePath == "" {
+		return func() {}, nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(profilePath), 0700); err != nil {
+		return nil, err
+	}
+
+	cf, err := os.Create(profilePath)
 	if err != nil {
 		return nil, err
 	}
@@ -3527,14 +3570,61 @@ func startCPUProfile() (func(), error) {
 	}, nil
 }
 
-func runExperimentMode(atspsData []AtspData, heuristics []string) error {
-	if err := ensureMsaHeuristicArtifacts(atspsData); err != nil {
+func runBoundedInstanceJobs(atspsData []AtspData, workers int, job func(AtspData) error) error {
+	if len(atspsData) == 0 {
+		return nil
+	}
+	if workers < 1 {
+		return fmt.Errorf("workers must be at least one")
+	}
+
+	effectiveWorkers := min(workers, len(atspsData))
+	nextIndex := 0
+	var firstErr error
+	var mutex sync.Mutex
+	var waitGroup sync.WaitGroup
+
+	runWorker := func() {
+		defer waitGroup.Done()
+
+		for {
+			mutex.Lock()
+			if firstErr != nil || nextIndex >= len(atspsData) {
+				mutex.Unlock()
+				return
+			}
+			atspData := atspsData[nextIndex]
+			nextIndex++
+			mutex.Unlock()
+
+			if err := job(atspData); err != nil {
+				mutex.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				mutex.Unlock()
+				return
+			}
+		}
+	}
+
+	waitGroup.Add(effectiveWorkers)
+	for i := 0; i < effectiveWorkers; i++ {
+		go runWorker()
+	}
+	waitGroup.Wait()
+
+	return firstErr
+}
+
+func runExperimentMode(atspsData []AtspData, heuristics []string, workers int) error {
+	if err := ensureMsaHeuristicArtifacts(atspsData, workers); err != nil {
 		return err
 	}
 
 	for _, heuristic := range heuristics {
 		fmt.Printf("Running tuning heuristic %s\n", heuristic)
-		if err := runExperimentSet(atspsData, heuristic, generateParameters(heuristic), defaultExperimentRunCount); err != nil {
+		if err := runExperimentSet(atspsData, heuristic, generateParameters(heuristic), defaultExperimentRunCount, workers); err != nil {
 			return err
 		}
 	}
@@ -3590,10 +3680,10 @@ func readTuningSummaryStatistics(path string) ([]tuningSummary.Statistic, error)
 	return statistics, nil
 }
 
-func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration) error {
+func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration, workers int) error {
 	needsMsaHeuristic := finalConfigurationsUseMsaHeuristic(configurations)
 	if needsMsaHeuristic {
-		if err := ensureMsaHeuristicCache(atspsData); err != nil {
+		if err := ensureMsaHeuristicCache(atspsData, workers); err != nil {
 			return err
 		}
 	}
@@ -3602,14 +3692,10 @@ func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThr
 		return err
 	}
 
-	for _, atspData := range atspsData {
+	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
 		finalAtspData := withExperimentOutputRoot(atspData, resultsRootPath)
-		if err := runFinalExperimentForInstance(finalAtspData, useThreeOpt, configurations, needsMsaHeuristic); err != nil {
-			return err
-		}
-	}
-
-	return nil
+		return runFinalExperimentForInstance(finalAtspData, useThreeOpt, configurations, needsMsaHeuristic)
+	})
 }
 
 func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configurations []finalExperimentConfiguration, needsMsaHeuristic bool) error {
@@ -3646,10 +3732,10 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 		}
 	}
 
-	fmt.Printf("[%s] Starting %s %s (dimension=%d, heuristics=%d, runs/heuristic=%d)\n",
+	fmt.Printf("[%s][%s] Starting %s (dimension=%d, heuristics=%d, runs/heuristic=%d)\n",
 		logTimestamp(instanceStart),
-		finalRunName,
 		atspData.name,
+		finalRunName,
 		dimension,
 		len(configurations),
 		finalNumberOfExperiments)
@@ -3667,7 +3753,8 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 				return cycleCoverErr
 			}
 			cycleCoverReady = true
-			fmt.Printf("\tMinimum cycle cover cost=%.2f gap=%.2f%%\n",
+			fmt.Printf("\t[%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
+				atspData.name,
 				cycleCoverCost,
 				100*(knownOptimal-cycleCoverCost)/knownOptimal)
 		}
@@ -3688,7 +3775,8 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 				if parameters.randomSeed != 0 {
 					randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.randomSeed)
 				}
-				fmt.Printf("\t%s heuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+				fmt.Printf("\t[%s][%s] heuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+					atspData.name,
 					config.heuristic,
 					parameters.heuristicWeight,
 					parameters.msaPatchBias,
@@ -3727,7 +3815,7 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 		}
 	}
 
-	fmt.Printf("[%s] Finished %s %s in %s\n", logTimestamp(time.Now()), finalRunName, atspData.name, time.Since(instanceStart).Round(time.Millisecond))
+	fmt.Printf("[%s][%s] Finished %s in %s\n", logTimestamp(time.Now()), atspData.name, finalRunName, time.Since(instanceStart).Round(time.Millisecond))
 	return nil
 }
 
@@ -3771,8 +3859,8 @@ func removeFileIfExists(path string) error {
 	return nil
 }
 
-func runExperimentSet(atspsData []AtspData, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments int) error {
-	for _, atspData := range atspsData {
+func runExperimentSet(atspsData []AtspData, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments, workers int) error {
+	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
 		matrix := atspData.matrix
 		knownOptimal := atspData.knownOptimal
 		dimension := len(matrix)
@@ -3783,11 +3871,11 @@ func runExperimentSet(atspsData []AtspData, heuristic string, experimentParamete
 			return err
 		}
 
-		fmt.Printf("[%s] Starting %s (dimension=%d, heuristic=%s, parameters=%d, runs/parameter=%d)\n",
+		fmt.Printf("[%s][%s][%s] Starting (dimension=%d, parameters=%d, runs/parameter=%d)\n",
 			logTimestamp(instanceStart),
 			atspData.name,
-			dimension,
 			heuristic,
+			dimension,
 			len(experimentParameters),
 			numberOfExperiments)
 
@@ -3798,7 +3886,9 @@ func runExperimentSet(atspsData []AtspData, heuristic string, experimentParamete
 			if err != nil {
 				return err
 			}
-			fmt.Printf("\tMinimum cycle cover cost=%.2f gap=%.2f%%\n",
+			fmt.Printf("\t[%s][%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
+				atspData.name,
+				heuristic,
 				cycleCoverCost,
 				100*(knownOptimal-cycleCoverCost)/knownOptimal)
 		}
@@ -3821,7 +3911,9 @@ func runExperimentSet(atspsData []AtspData, heuristic string, experimentParamete
 				if parameters.randomSeed != 0 {
 					randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.randomSeed)
 				}
-				fmt.Printf("\theuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+				fmt.Printf("\t[%s][%s] heuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+					atspData.name,
+					heuristic,
 					parameters.heuristicWeight,
 					parameters.msaPatchBias,
 					randomSeedLog,
@@ -3863,18 +3955,17 @@ func runExperimentSet(atspsData []AtspData, heuristic string, experimentParamete
 			}
 		}
 
-		fmt.Printf("[%s] Finished %s in %s\n", logTimestamp(time.Now()), atspData.name, time.Since(instanceStart).Round(time.Millisecond))
-	}
-
-	return nil
+		fmt.Printf("[%s][%s][%s] Finished in %s\n", logTimestamp(time.Now()), atspData.name, heuristic, time.Since(instanceStart).Round(time.Millisecond))
+		return nil
+	})
 }
 
 func readMsaHeuristicMatrixForHeuristic(atspData AtspData, heuristic string) ([][]float64, error) {
 	return msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
 }
 
-func ensureMsaHeuristicArtifacts(atspsData []AtspData) error {
-	for _, atspData := range atspsData {
+func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int) error {
+	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
 		name := atspData.name
 		matrix := atspData.matrix
 		msaHeuristicDirectoryPath := atspData.msaHeuristicDirectoryPath
@@ -3886,7 +3977,7 @@ func ensureMsaHeuristicArtifacts(atspsData []AtspData) error {
 			msaHeuristicMatrix, err = msaHeuristic.Create(matrix, msaHeuristicDirectoryPath)
 			elapsed := time.Since(start)
 
-			fmt.Printf("\tCreating %s took: %d ms\n", msaHeuristicDirectoryPath, elapsed.Milliseconds())
+			fmt.Printf("\t[%s] Creating %s took: %d ms\n", name, msaHeuristicDirectoryPath, elapsed.Milliseconds())
 
 			if err != nil {
 				return fmt.Errorf("error saving MSA heuristic: %w", err)
@@ -3908,15 +3999,14 @@ func ensureMsaHeuristicArtifacts(atspsData []AtspData) error {
 		if err != nil {
 			return err
 		}
-	}
-
-	return nil
+		return nil
+	})
 }
 
-func ensureMsaHeuristicCache(atspsData []AtspData) error {
-	for _, atspData := range atspsData {
+func ensureMsaHeuristicCache(atspsData []AtspData, workers int) error {
+	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
 		if _, err := msaHeuristic.Read(atspData.msaHeuristicDirectoryPath); err == nil {
-			continue
+			return nil
 		}
 
 		start := time.Now()
@@ -3924,13 +4014,12 @@ func ensureMsaHeuristicCache(atspsData []AtspData) error {
 			return fmt.Errorf("error saving MSA heuristic: %w", err)
 		}
 
-		fmt.Printf("\tCreating %s took: %d ms\n", atspData.msaHeuristicDirectoryPath, time.Since(start).Milliseconds())
-	}
-
-	return nil
+		fmt.Printf("\t[%s] Creating %s took: %d ms\n", atspData.name, atspData.msaHeuristicDirectoryPath, time.Since(start).Milliseconds())
+		return nil
+	})
 }
 
-func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
+func runAnalysisMode(atspsData []AtspData, analysisScope string, workers int) error {
 	gksDeviationReportPath := filepath.Join(finalResultsDirectoryName, "gks_deviation.md")
 	gksDeviationAtspData, err := loadSelectedAtspData(instanceSetAllKnown)
 	if err != nil {
@@ -3938,7 +4027,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 	}
 
 	if analysisScope == analysisScopeGksDeviation {
-		if err := ensureMsaHeuristicCache(gksDeviationAtspData); err != nil {
+		if err := ensureMsaHeuristicCache(gksDeviationAtspData, workers); err != nil {
 			return err
 		}
 		if err := saveGksDeviationReport(gksDeviationReportPath, gksDeviationAtspData, gksDeviationMsaPatchBiases); err != nil {
@@ -3948,7 +4037,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 		return nil
 	}
 
-	if err := ensureMsaHeuristicArtifacts(atspsData); err != nil {
+	if err := ensureMsaHeuristicArtifacts(atspsData, workers); err != nil {
 		return err
 	}
 
@@ -4020,7 +4109,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 		return err
 	}
 
-	if err := ensureMsaHeuristicCache(gksDeviationAtspData); err != nil {
+	if err := ensureMsaHeuristicCache(gksDeviationAtspData, workers); err != nil {
 		return err
 	}
 

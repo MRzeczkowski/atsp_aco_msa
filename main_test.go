@@ -8,7 +8,9 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
@@ -1215,6 +1217,134 @@ func TestFullFinalRunsTriggerAnalysis(t *testing.T) {
 	}
 	if shouldRunAnalysisAfterFinalExperiments(runModeExperiment, finalHeuristicAll) {
 		t.Fatal("experiment mode should not trigger final analysis")
+	}
+}
+
+func TestResolveWorkerCount(t *testing.T) {
+	tests := []struct {
+		name             string
+		requestedWorkers int
+		cpuCount         int
+		expectedWorkers  int
+		expectError      bool
+	}{
+		{name: "default uses half CPUs", requestedWorkers: 0, cpuCount: 8, expectedWorkers: 4},
+		{name: "default keeps at least one worker", requestedWorkers: 0, cpuCount: 1, expectedWorkers: 1},
+		{name: "explicit one is serial", requestedWorkers: 1, cpuCount: 8, expectedWorkers: 1},
+		{name: "explicit positive value is used", requestedWorkers: 3, cpuCount: 8, expectedWorkers: 3},
+		{name: "negative rejected", requestedWorkers: -1, cpuCount: 8, expectError: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			workers, err := resolveWorkerCount(test.requestedWorkers, test.cpuCount)
+			if test.expectError {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if workers != test.expectedWorkers {
+				t.Fatalf("expected %d workers, got %d", test.expectedWorkers, workers)
+			}
+		})
+	}
+}
+
+func TestRunBoundedInstanceJobsRespectsWorkerLimit(t *testing.T) {
+	atspsData := []AtspData{
+		makeAtspDataInResultsDirectory("a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		makeAtspDataInResultsDirectory("b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		makeAtspDataInResultsDirectory("c.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		makeAtspDataInResultsDirectory("d.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		makeAtspDataInResultsDirectory("e.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+	}
+
+	var activeWorkers int32
+	var maxActiveWorkers int32
+	var processedJobs int32
+
+	err := runBoundedInstanceJobs(atspsData, 2, func(atspData AtspData) error {
+		currentActiveWorkers := atomic.AddInt32(&activeWorkers, 1)
+		for {
+			currentMax := atomic.LoadInt32(&maxActiveWorkers)
+			if currentActiveWorkers <= currentMax || atomic.CompareAndSwapInt32(&maxActiveWorkers, currentMax, currentActiveWorkers) {
+				break
+			}
+		}
+
+		time.Sleep(10 * time.Millisecond)
+		atomic.AddInt32(&processedJobs, 1)
+		atomic.AddInt32(&activeWorkers, -1)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("runBoundedInstanceJobs returned unexpected error: %v", err)
+	}
+
+	if processedJobs != int32(len(atspsData)) {
+		t.Fatalf("expected %d processed jobs, got %d", len(atspsData), processedJobs)
+	}
+	if maxActiveWorkers > 2 {
+		t.Fatalf("expected at most two active workers, got %d", maxActiveWorkers)
+	}
+}
+
+func TestRunBoundedInstanceJobsReturnsFirstError(t *testing.T) {
+	atspsData := []AtspData{
+		makeAtspDataInResultsDirectory("ok.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		makeAtspDataInResultsDirectory("bad.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+	}
+
+	err := runBoundedInstanceJobs(atspsData, 1, func(atspData AtspData) error {
+		if atspData.name == "bad" {
+			return os.ErrInvalid
+		}
+		return nil
+	})
+	if err != os.ErrInvalid {
+		t.Fatalf("expected %v, got %v", os.ErrInvalid, err)
+	}
+}
+
+func TestRunBoundedInstanceJobsHandlesEmptyInput(t *testing.T) {
+	called := false
+	err := runBoundedInstanceJobs(nil, 2, func(atspData AtspData) error {
+		called = true
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("runBoundedInstanceJobs returned unexpected error: %v", err)
+	}
+	if called {
+		t.Fatal("job should not be called for empty input")
+	}
+}
+
+func TestStartCPUProfileIsOptional(t *testing.T) {
+	stopProfiling, err := startCPUProfile("")
+	if err != nil {
+		t.Fatalf("startCPUProfile returned unexpected error: %v", err)
+	}
+	stopProfiling()
+}
+
+func TestStartCPUProfileWritesRequestedPath(t *testing.T) {
+	profilePath := filepath.Join(t.TempDir(), "profiles", "cpu.prof")
+	stopProfiling, err := startCPUProfile(profilePath)
+	if err != nil {
+		t.Fatalf("startCPUProfile returned unexpected error: %v", err)
+	}
+	for i := 0; i < 10000; i++ {
+		_ = i * i
+	}
+	stopProfiling()
+
+	if _, err := os.Stat(profilePath); err != nil {
+		t.Fatalf("expected CPU profile to be written: %v", err)
 	}
 }
 
