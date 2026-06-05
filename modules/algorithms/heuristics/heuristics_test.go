@@ -105,6 +105,68 @@ func TestBuildRandomSparseModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *tes
 	}
 }
 
+func TestBuildShuffledMsaModifiersPreservesBoostedEdgeCount(t *testing.T) {
+	msaHeuristic := [][]float64{
+		{0, 4, 3, 0, 0},
+		{0, 0, 4, 1, 0},
+		{1, 0, 0, 4, 0},
+		{0, 0, 0, 0, 4},
+		{4, 0, 0, 0, 0},
+	}
+
+	msaModifiers := BuildMsaHeuristicModifiers(msaHeuristic, 0.9)
+	shuffledModifiers := BuildShuffledMsaModifiers(msaHeuristic, 0.9, 17)
+
+	expectedBoostedEdges := boostedModifierEdgeCount(msaModifiers)
+	actualBoostedEdges := boostedModifierEdgeCount(shuffledModifiers)
+	if actualBoostedEdges != expectedBoostedEdges {
+		t.Fatalf("unexpected boosted-edge count: want %d, got %d", expectedBoostedEdges, actualBoostedEdges)
+	}
+
+	for i := range shuffledModifiers {
+		if shuffledModifiers[i][i] != 1.0 {
+			t.Fatalf("shuffled MSA modifier boosted self-loop %d/%d", i, i)
+		}
+		for j := range shuffledModifiers[i] {
+			if shuffledModifiers[i][j] != 1.0 && shuffledModifiers[i][j] != 1.9 {
+				t.Fatalf("unexpected modifier at %d/%d: %f", i, j, shuffledModifiers[i][j])
+			}
+		}
+	}
+}
+
+func TestBuildShuffledMsaModifiersIsDeterministicForSeed(t *testing.T) {
+	msaHeuristic := [][]float64{
+		{0, 4, 3, 0, 0},
+		{0, 0, 4, 1, 0},
+		{1, 0, 0, 4, 0},
+		{0, 0, 0, 0, 4},
+		{4, 0, 0, 0, 0},
+	}
+
+	first := BuildShuffledMsaModifiers(msaHeuristic, 0.5, 42)
+	second := BuildShuffledMsaModifiers(msaHeuristic, 0.5, 42)
+
+	if !reflect.DeepEqual(first, second) {
+		t.Fatalf("expected deterministic shuffled MSA modifiers\nfirst:  %v\nsecond: %v", first, second)
+	}
+}
+
+func TestBuildShuffledMsaModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testing.T) {
+	msaHeuristic := [][]float64{
+		{0, 2, 0},
+		{0, 0, 2},
+		{2, 0, 0},
+	}
+
+	modifiers := BuildShuffledMsaModifiers(msaHeuristic, 0, 1)
+	expected := BuildNeutralModifiers(3)
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected neutral modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
 func TestBuildDistanceRankedSparseModifiersBoostsCheapestEdgesWithSameCountAsMsaHeuristic(t *testing.T) {
 	matrix := [][]float64{
 		{0, 8, 1, 4},

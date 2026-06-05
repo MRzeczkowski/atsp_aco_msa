@@ -243,6 +243,60 @@ func TestSaveDistanceRankedSparseControlReportComparesMsaAgainstDistanceRankedSp
 	assertContains(t, content, "<td>sample-b</td>")
 }
 
+func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T) {
+	root := t.TempDir()
+	sourceRoot := filepath.Join(root, "results")
+	finalRoot := filepath.Join(root, "final")
+	controlsRoot := finalControlsResultsRootPath(finalRoot)
+	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	finalFirst := withExperimentOutputRoot(first, finalRoot)
+	finalSecond := withExperimentOutputRoot(second, finalRoot)
+	controlFirst := withExperimentOutputRoot(first, controlsRoot)
+	controlSecond := withExperimentOutputRoot(second, controlsRoot)
+
+	if err := saveHeuristicStatistics(finalFirst.resultFilePath, []HeuristicExperimentStatistics{
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 10.0)},
+	}); err != nil {
+		t.Fatalf("failed to write first final MSA result: %v", err)
+	}
+	saveStatistics(resultFilePathForHeuristic(controlFirst, heuristicShuffledMsa), heuristicShuffledMsa, []ExperimentsDataStatistics{
+		makeTestRandomSparseExperimentStatistics(1, 4.0, 0.0),
+		makeTestRandomSparseExperimentStatistics(2, 5.0, 0.0),
+		makeTestRandomSparseExperimentStatistics(3, 6.0, 0.0),
+	})
+
+	if err := saveHeuristicStatistics(finalSecond.resultFilePath, []HeuristicExperimentStatistics{
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0)},
+	}); err != nil {
+		t.Fatalf("failed to write second final MSA result: %v", err)
+	}
+	saveStatistics(resultFilePathForHeuristic(controlSecond, heuristicShuffledMsa), heuristicShuffledMsa, []ExperimentsDataStatistics{
+		makeTestRandomSparseExperimentStatistics(1, 2.0, 20.0),
+		makeTestRandomSparseExperimentStatistics(2, 3.0, 20.0),
+		makeTestRandomSparseExperimentStatistics(3, 4.0, 20.0),
+	})
+
+	reportPath := filepath.Join(controlsRoot, "shuffled_msa_control.md")
+	saved, err := saveShuffledMsaControlReport(reportPath, []AtspData{second, first}, finalRoot, controlsRoot)
+	if err != nil {
+		t.Fatalf("saveShuffledMsaControlReport returned unexpected error: %v", err)
+	}
+	if !saved {
+		t.Fatal("expected shuffled MSA control report to be saved")
+	}
+
+	contentBytes, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatalf("failed to read shuffled MSA control report: %v", err)
+	}
+	content := string(contentBytes)
+	assertContains(t, content, "MSA had lower average best deviation than the shuffled MSA mean in 1/2 instances.")
+	assertContains(t, content, "Mean average best deviation: MSA 3.00%, shuffled MSA 4.00%, delta -1.00 pp.")
+	assertContains(t, content, "<td>sample-a</td>")
+	assertContains(t, content, "<td>sample-b</td>")
+}
+
 func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "result.csv")
 	rows := []HeuristicExperimentStatistics{
@@ -1045,6 +1099,14 @@ func TestSelectFinalExperimentConfigurations(t *testing.T) {
 		t.Fatalf("expected only random-sparse control configuration, got %+v", randomSparseConfigurations)
 	}
 
+	shuffledMsaConfigurations, err := selectFinalExperimentConfigurations(heuristicShuffledMsa)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(shuffled-msa) returned error: %v", err)
+	}
+	if len(shuffledMsaConfigurations) != 1 || shuffledMsaConfigurations[0].heuristic != heuristicShuffledMsa || len(shuffledMsaConfigurations[0].parameters) != len(shuffledMsaSeeds) {
+		t.Fatalf("expected only shuffled-MSA control configuration, got %+v", shuffledMsaConfigurations)
+	}
+
 	if _, err := selectFinalExperimentConfigurations("unknown"); err == nil {
 		t.Fatal("expected invalid final heuristic to be rejected")
 	}
@@ -1184,6 +1246,9 @@ func TestFinalModeAndBaselineHeuristicAreValid(t *testing.T) {
 	}
 	if isValidHeuristic(heuristicDistanceRankedSparse) {
 		t.Fatal("distance-ranked sparse control should not be valid in normal experiment mode")
+	}
+	if isValidHeuristic(heuristicShuffledMsa) {
+		t.Fatal("shuffled MSA control should not be valid in normal experiment mode")
 	}
 }
 

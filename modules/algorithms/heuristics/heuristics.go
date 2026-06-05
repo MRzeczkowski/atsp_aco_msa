@@ -94,6 +94,49 @@ func BuildRandomSparseModifiers(msaHeuristic [][]float64, strength float64, seed
 	return modifiers
 }
 
+func BuildShuffledMsaModifiers(msaHeuristic [][]float64, strength float64, seed int64) [][]float64 {
+	dimension := len(msaHeuristic)
+	modifiers := BuildNeutralModifiers(dimension)
+	if dimension <= 1 || strength == 0 {
+		return modifiers
+	}
+
+	msaModifiers := BuildMsaHeuristicModifiers(msaHeuristic, strength)
+	boostedValues := make([]float64, 0)
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < dimension; j++ {
+			if i != j && msaModifiers[i][j] > 1.0 {
+				boostedValues = append(boostedValues, msaModifiers[i][j])
+			}
+		}
+	}
+	if len(boostedValues) == 0 {
+		return modifiers
+	}
+
+	edges := make([]directedEdge, 0, dimension*(dimension-1))
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < dimension; j++ {
+			if i != j {
+				edges = append(edges, directedEdge{i, j})
+			}
+		}
+	}
+
+	random := rand.New(rand.NewSource(seed))
+	for i := len(edges) - 1; i > 0; i-- {
+		j := random.Intn(i + 1)
+		edges[i], edges[j] = edges[j], edges[i]
+	}
+
+	for i, value := range boostedValues {
+		edge := edges[i]
+		modifiers[edge.from][edge.to] = value
+	}
+
+	return modifiers
+}
+
 func BuildDistanceRankedSparseModifiers(matrix, msaHeuristic [][]float64, strength float64) [][]float64 {
 	dimension := heuristicDimension(matrix, msaHeuristic)
 	modifiers := BuildNeutralModifiers(dimension)
