@@ -226,172 +226,6 @@ func statisticsCsvHeaderForHeuristic(heuristic string) []string {
 	return statisticsCsvHeader
 }
 
-func generateMarkdownCounts(paramName string, counts map[float64]int) string {
-	markdown := fmt.Sprintf("### %s\n\n", paramName)
-	markdown += "| Value | Count |\n"
-	markdown += "|-------|-------|\n"
-
-	// Sort the keys
-	keys := make([]float64, 0, len(counts))
-	for key := range counts {
-		keys = append(keys, key)
-	}
-	sort.Float64s(keys)
-
-	// Add rows
-	for _, key := range keys {
-		markdown += fmt.Sprintf("| %.2f | %d |\n", key, counts[key])
-	}
-
-	markdown += "\n"
-	return markdown
-}
-
-func saveBestParametersInfo(resultsRootPath, fileName string, bestStatistics []ExperimentsDataStatistics, includeMsaPatchBias bool) {
-	sort.SliceStable(bestStatistics, func(i, j int) bool {
-		if bestStatistics[i].averageBestDeviation != bestStatistics[j].averageBestDeviation {
-			return bestStatistics[i].averageBestDeviation < bestStatistics[j].averageBestDeviation
-		}
-
-		if bestStatistics[i].successRate != bestStatistics[j].successRate {
-			return bestStatistics[i].successRate > bestStatistics[j].successRate
-		}
-
-		return bestStatistics[i].averageBestAtIteration < bestStatistics[j].averageBestAtIteration
-	})
-
-	uniqueParameters := map[ExperimentParameters]int{}
-
-	for _, statistic := range bestStatistics {
-		parameters := statistic.ExperimentParameters
-		parameters.iterations = 0
-		uniqueParameters[parameters]++
-	}
-
-	alphaCounts := make(map[float64]int)
-	betaCounts := make(map[float64]int)
-	rhoCounts := make(map[float64]int)
-	heuristicWeightCounts := make(map[float64]int)
-	msaPatchBiasCounts := make(map[float64]int)
-
-	// Count the occurrences
-	for params := range uniqueParameters {
-		alphaCounts[params.alpha]++
-		betaCounts[params.beta]++
-		rhoCounts[params.rho]++
-		heuristicWeightCounts[params.heuristicWeight]++
-		if includeMsaPatchBias {
-			msaPatchBiasCounts[params.msaPatchBias]++
-		}
-	}
-
-	// Markdown content
-	markdown := "# Best Parameters Report\n\n"
-
-	// Unique combinations count
-	markdown += fmt.Sprintf("Found **%d** best unique parameter combinations.\n\n", len(uniqueParameters))
-
-	// Best parameters
-	markdown += "## Best Parameters\n\n"
-	if includeMsaPatchBias {
-		markdown += "| Alpha | Beta | Rho | Heuristic weight | MSA patch bias | Times used |\n"
-		markdown += "|-------|------|-----|------------------|----------------|------------|\n"
-	} else {
-		markdown += "| Alpha | Beta | Rho | Heuristic weight | Times used |\n"
-		markdown += "|-------|------|-----|------------------|------------|\n"
-	}
-
-	sortedParameters := make([]ExperimentParameters, 0, len(uniqueParameters))
-	for parameters := range uniqueParameters {
-		sortedParameters = append(sortedParameters, parameters)
-	}
-	sort.Slice(sortedParameters, func(i, j int) bool {
-		left, right := sortedParameters[i], sortedParameters[j]
-		if left.alpha != right.alpha {
-			return left.alpha < right.alpha
-		}
-		if left.beta != right.beta {
-			return left.beta < right.beta
-		}
-		if left.rho != right.rho {
-			return left.rho < right.rho
-		}
-		if left.heuristicWeight != right.heuristicWeight {
-			return left.heuristicWeight < right.heuristicWeight
-		}
-		if left.msaPatchBias != right.msaPatchBias {
-			return left.msaPatchBias < right.msaPatchBias
-		}
-		return left.randomSeed < right.randomSeed
-	})
-
-	for _, parameters := range sortedParameters {
-		timesUsed := uniqueParameters[parameters]
-		if includeMsaPatchBias {
-			markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %.2f | %d |\n",
-				parameters.alpha, parameters.beta, parameters.rho, parameters.heuristicWeight, parameters.msaPatchBias, timesUsed)
-		} else {
-			markdown += fmt.Sprintf("| %.2f | %.2f | %.2f | %.2f | %d |\n",
-				parameters.alpha, parameters.beta, parameters.rho, parameters.heuristicWeight, timesUsed)
-		}
-	}
-	markdown += "\n"
-
-	// Parameter occurrences
-	markdown += "## Parameter Values Occurrences\n\n"
-	markdown += generateMarkdownCounts("Alpha", alphaCounts)
-	markdown += generateMarkdownCounts("Beta", betaCounts)
-	markdown += generateMarkdownCounts("Rho", rhoCounts)
-	markdown += generateMarkdownCounts("Heuristic weight", heuristicWeightCounts)
-	if includeMsaPatchBias {
-		markdown += generateMarkdownCounts("MSA patch bias", msaPatchBiasCounts)
-	}
-
-	// Parameter ranges
-	markdown += "## Parameter Ranges\n\n"
-	minAlpha, maxAlpha := findMinMax(alphaCounts)
-	minBeta, maxBeta := findMinMax(betaCounts)
-	minRho, maxRho := findMinMax(rhoCounts)
-	minHeuristicWeight, maxHeuristicWeight := findMinMax(heuristicWeightCounts)
-
-	markdown += fmt.Sprintf("- **Alpha**: %.2f - %.2f\n", minAlpha, maxAlpha)
-	markdown += fmt.Sprintf("- **Beta**: %.2f - %.2f\n", minBeta, maxBeta)
-	markdown += fmt.Sprintf("- **Rho**: %.2f - %.2f\n", minRho, maxRho)
-	markdown += fmt.Sprintf("- **Heuristic weight**: %.2f - %.2f\n", minHeuristicWeight, maxHeuristicWeight)
-	if includeMsaPatchBias {
-		minMsaPatchBias, maxMsaPatchBias := findMinMax(msaPatchBiasCounts)
-		markdown += fmt.Sprintf("- **MSA patch bias**: %.2f - %.2f\n", minMsaPatchBias, maxMsaPatchBias)
-	}
-
-	// Save to a file
-	reportPath := filepath.Join(resultsRootPath, fileName)
-	if err := os.MkdirAll(filepath.Dir(reportPath), 0700); err != nil {
-		fmt.Printf("Failed to create report directory: %v\n", err)
-		return
-	}
-
-	err := os.WriteFile(reportPath, []byte(markdown), 0644)
-	if err != nil {
-		fmt.Printf("Failed to save report: %v\n", err)
-	}
-}
-
-func findMinMax(counts map[float64]int) (float64, float64) {
-	min := math.MaxFloat64
-	max := -math.MaxFloat64
-
-	for value := range counts {
-		if value < min {
-			min = value
-		}
-		if value > max {
-			max = value
-		}
-	}
-
-	return min, max
-}
-
 func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
 	file, err := os.Open(csvFilePath)
 	if err != nil {
@@ -3477,18 +3311,6 @@ func resultPlotFilePrefixForHeuristic(atspData AtspData, heuristic string) strin
 	return atspData.resultPlotFilePrefix + heuristicFileSuffix(heuristic)
 }
 
-func bestParametersReportPathForHeuristic(heuristic string) string {
-	return "best_parameters_report" + heuristicFileSuffix(heuristic) + ".md"
-}
-
-func resultFilePathsForHeuristic(atspsData []AtspData, heuristic string) []string {
-	paths := make([]string, 0, len(atspsData))
-	for _, atspData := range atspsData {
-		paths = append(paths, resultFilePathForHeuristic(atspData, heuristic))
-	}
-	return paths
-}
-
 func shouldRunExperiments(mode string) bool {
 	return mode == runModeExperiment || mode == runModeAll
 }
@@ -3711,12 +3533,12 @@ func runExperimentMode(atspsData []AtspData, heuristics []string) error {
 
 	for _, heuristic := range heuristics {
 		fmt.Printf("Running tuning heuristic %s\n", heuristic)
-		if err := runExperimentSet(atspsData, resultsDirectoryName, heuristic, generateParameters(heuristic), defaultExperimentRunCount); err != nil {
+		if err := runExperimentSet(atspsData, heuristic, generateParameters(heuristic), defaultExperimentRunCount); err != nil {
 			return err
 		}
 	}
 
-	return nil
+	return saveTuningSummary(resultsDirectoryName, atspsData, heuristics)
 }
 
 func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration) error {
@@ -3861,11 +3683,9 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 }
 
 func removeLegacyFinalReports(resultsRootPath string) error {
-	legacyReports := []string{
-		filepath.Join(resultsRootPath, bestParametersReportPathForHeuristic(heuristicBaseline)),
-		filepath.Join(resultsRootPath, bestParametersReportPathForHeuristic(heuristicMsaHeuristic)),
-		filepath.Join(resultsRootPath, bestParametersReportPathForHeuristic(heuristicCycleCover)),
-		filepath.Join(resultsRootPath, bestParametersReportPathForHeuristic(heuristicCycleCoverMsaPatching)),
+	legacyReports, err := filepath.Glob(filepath.Join(resultsRootPath, "best_parameters_report*.md"))
+	if err != nil {
+		return err
 	}
 
 	for _, path := range legacyReports {
@@ -3902,7 +3722,7 @@ func removeFileIfExists(path string) error {
 	return nil
 }
 
-func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments int) error {
+func runExperimentSet(atspsData []AtspData, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments int) error {
 	for _, atspData := range atspsData {
 		matrix := atspData.matrix
 		knownOptimal := atspData.knownOptimal
@@ -3995,11 +3815,6 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 		}
 
 		fmt.Printf("[%s] Finished %s in %s\n", logTimestamp(time.Now()), atspData.name, time.Since(instanceStart).Round(time.Millisecond))
-	}
-
-	if !heuristicIsSparseControl(heuristic) {
-		bestStatistics := getBestStatisticsFromFiles(resultFilePathsForHeuristic(atspsData, heuristic))
-		saveBestParametersInfo(resultsRootPath, bestParametersReportPathForHeuristic(heuristic), bestStatistics, heuristic == heuristicCycleCoverMsaPatching)
 	}
 
 	return nil
@@ -4317,29 +4132,6 @@ func removeExperimentPlotsForHeuristic(atspData AtspData, heuristic string) erro
 	}
 
 	return nil
-}
-
-func getBestStatisticsFromFiles(resultsFilePaths []string) []ExperimentsDataStatistics {
-	topNumber := 3
-	bestStatistics := make([]ExperimentsDataStatistics, 0)
-
-	for _, path := range resultsFilePaths {
-		statistics, err := readStatistics(path)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		statisticsCount := len(statistics)
-		if statisticsCount < topNumber {
-			topNumber = len(statistics)
-		}
-
-		top := statistics[:topNumber]
-		bestStatistics = append(bestStatistics, top...)
-	}
-
-	return bestStatistics
 }
 
 func filterZeroes(data []float64) []float64 {
