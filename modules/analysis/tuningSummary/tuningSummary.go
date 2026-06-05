@@ -1,4 +1,4 @@
-package main
+package tuningSummary
 
 import (
 	"errors"
@@ -11,25 +11,50 @@ import (
 )
 
 const (
-	tuningSummaryReportFileName = "tuning_summary.md"
-	tuningNearBestTolerance     = 0.25
+	ReportFileName    = "tuning_summary.md"
+	nearBestTolerance = 0.25
 )
 
-type tuningSummaryKey struct {
+type Statistic struct {
+	HeuristicWeight      float64
+	MsaPatchBias         float64
+	AverageBestDeviation float64
+	SuccessRate          float64
+}
+
+type ResultFile struct {
+	Instance string
+	Path     string
+}
+
+type HeuristicConfig struct {
+	Name                string
+	DisplayName         string
+	IncludeMsaPatchBias bool
+	ResultFiles         []ResultFile
+}
+
+type Config struct {
+	ResultsRootPath string
+	Heuristics      []HeuristicConfig
+	ReadStatistics  func(path string) ([]Statistic, error)
+}
+
+type summaryKey struct {
 	heuristicWeight float64
 	msaPatchBias    float64
 }
 
-type tuningSummaryAggregate struct {
-	key            tuningSummaryKey
+type summaryAggregate struct {
+	key            summaryKey
 	results        []float64
 	successRates   []float64
 	exactBestCount int
 	nearBestCount  int
 }
 
-type tuningSummaryRow struct {
-	key            tuningSummaryKey
+type summaryRow struct {
+	key            summaryKey
 	meanResult     float64
 	medianResult   float64
 	meanSuccess    float64
@@ -37,12 +62,15 @@ type tuningSummaryRow struct {
 	nearBestCount  int
 }
 
-func saveTuningSummary(resultsRootPath string, atspsData []AtspData, heuristics []string) error {
-	if err := removeLegacyBestParametersReports(resultsRootPath); err != nil {
+func Save(config Config) error {
+	if config.ReadStatistics == nil {
+		return fmt.Errorf("statistics reader is required")
+	}
+	if err := removeLegacyBestParametersReports(config.ResultsRootPath); err != nil {
 		return err
 	}
 
-	reportPath := filepath.Join(resultsRootPath, tuningSummaryReportFileName)
+	reportPath := filepath.Join(config.ResultsRootPath, ReportFileName)
 	if err := os.MkdirAll(filepath.Dir(reportPath), 0700); err != nil {
 		return err
 	}
@@ -50,14 +78,10 @@ func saveTuningSummary(resultsRootPath string, atspsData []AtspData, heuristics 
 	var builder strings.Builder
 	builder.WriteString("# Tuning Summary\n\n")
 	builder.WriteString("Result means average best deviation from `result.csv`; lower is better. ")
-	builder.WriteString(fmt.Sprintf("Near-best means within %.2f percentage points of the best result for the same instance.\n\n", tuningNearBestTolerance))
+	builder.WriteString(fmt.Sprintf("Near-best means within %.2f percentage points of the best result for the same instance.\n\n", nearBestTolerance))
 
-	for _, heuristic := range heuristics {
-		if heuristicIsSparseControl(heuristic) {
-			continue
-		}
-
-		if err := appendTuningHeuristicSummary(&builder, atspsData, heuristic); err != nil {
+	for _, heuristic := range config.Heuristics {
+		if err := appendHeuristicSummary(&builder, heuristic, config.ReadStatistics); err != nil {
 			return err
 		}
 	}
@@ -65,14 +89,19 @@ func saveTuningSummary(resultsRootPath string, atspsData []AtspData, heuristics 
 	return os.WriteFile(reportPath, []byte(builder.String()), 0644)
 }
 
-func appendTuningHeuristicSummary(builder *strings.Builder, atspsData []AtspData, heuristic string) error {
-	rows, instanceCount, missingInstances, err := buildTuningSummaryRows(atspsData, heuristic)
+func appendHeuristicSummary(builder *strings.Builder, heuristic HeuristicConfig, readStatistics func(path string) ([]Statistic, error)) error {
+	rows, instanceCount, missingInstances, err := buildSummaryRows(heuristic, readStatistics)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(builder, "## %s\n\n", heuristicDisplayName(heuristic))
-	fmt.Fprintf(builder, "Instances used: %d/%d\n\n", instanceCount, len(atspsData))
+	displayName := heuristic.DisplayName
+	if displayName == "" {
+		displayName = heuristic.Name
+	}
+
+	fmt.Fprintf(builder, "## %s\n\n", displayName)
+	fmt.Fprintf(builder, "Instances used: %d/%d\n\n", instanceCount, len(heuristic.ResultFiles))
 	if len(missingInstances) != 0 {
 		fmt.Fprintf(builder, "Missing result files: %s\n\n", strings.Join(missingInstances, ", "))
 	}
@@ -81,8 +110,7 @@ func appendTuningHeuristicSummary(builder *strings.Builder, atspsData []AtspData
 		return nil
 	}
 
-	includeMsaPatchBias := heuristic == heuristicCycleCoverMsaPatching
-	if includeMsaPatchBias {
+	if heuristic.IncludeMsaPatchBias {
 		builder.WriteString("| Heuristic weight | MSA patch bias | Mean result [%] | Median result [%] | Exact best | Near best | Mean success [%] |\n")
 		builder.WriteString("|------------------|----------------|-----------------|-------------------|------------|-----------|------------------|\n")
 	} else {
@@ -91,7 +119,7 @@ func appendTuningHeuristicSummary(builder *strings.Builder, atspsData []AtspData
 	}
 
 	for _, row := range rows {
-		if includeMsaPatchBias {
+		if heuristic.IncludeMsaPatchBias {
 			fmt.Fprintf(builder, "| %.2f | %.2f | %.2f | %.2f | %d | %d | %.2f |\n",
 				row.key.heuristicWeight,
 				row.key.msaPatchBias,
@@ -115,87 +143,87 @@ func appendTuningHeuristicSummary(builder *strings.Builder, atspsData []AtspData
 	return nil
 }
 
-func buildTuningSummaryRows(atspsData []AtspData, heuristic string) ([]tuningSummaryRow, int, []string, error) {
-	aggregates := map[tuningSummaryKey]*tuningSummaryAggregate{}
+func buildSummaryRows(heuristic HeuristicConfig, readStatistics func(path string) ([]Statistic, error)) ([]summaryRow, int, []string, error) {
+	aggregates := map[summaryKey]*summaryAggregate{}
 	missingInstances := make([]string, 0)
 	instanceCount := 0
 
-	for _, atspData := range atspsData {
-		statistics, err := readStatistics(resultFilePathForHeuristic(atspData, heuristic))
+	for _, resultFile := range heuristic.ResultFiles {
+		statistics, err := readStatistics(resultFile.Path)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				missingInstances = append(missingInstances, atspData.name)
+				missingInstances = append(missingInstances, resultFile.Instance)
 				continue
 			}
 			return nil, 0, nil, err
 		}
 		if len(statistics) == 0 {
-			missingInstances = append(missingInstances, atspData.name)
+			missingInstances = append(missingInstances, resultFile.Instance)
 			continue
 		}
 
 		instanceCount++
-		instanceBestResult := bestTuningResult(statistics)
+		instanceBestResult := bestResult(statistics)
 		for _, statistic := range statistics {
-			key := tuningSummaryKey{
-				heuristicWeight: statistic.heuristicWeight,
-				msaPatchBias:    statistic.msaPatchBias,
+			key := summaryKey{
+				heuristicWeight: statistic.HeuristicWeight,
+				msaPatchBias:    statistic.MsaPatchBias,
 			}
-			if heuristic != heuristicCycleCoverMsaPatching {
+			if !heuristic.IncludeMsaPatchBias {
 				key.msaPatchBias = 0
 			}
 
 			aggregate, ok := aggregates[key]
 			if !ok {
-				aggregate = &tuningSummaryAggregate{key: key}
+				aggregate = &summaryAggregate{key: key}
 				aggregates[key] = aggregate
 			}
 
-			aggregate.results = append(aggregate.results, statistic.averageBestDeviation)
-			aggregate.successRates = append(aggregate.successRates, statistic.successRate)
-			if tuningFloatEqual(statistic.averageBestDeviation, instanceBestResult) {
+			aggregate.results = append(aggregate.results, statistic.AverageBestDeviation)
+			aggregate.successRates = append(aggregate.successRates, statistic.SuccessRate)
+			if floatEqual(statistic.AverageBestDeviation, instanceBestResult) {
 				aggregate.exactBestCount++
 			}
-			if statistic.averageBestDeviation <= instanceBestResult+tuningNearBestTolerance {
+			if statistic.AverageBestDeviation <= instanceBestResult+nearBestTolerance {
 				aggregate.nearBestCount++
 			}
 		}
 	}
 
 	sort.Strings(missingInstances)
-	rows := make([]tuningSummaryRow, 0, len(aggregates))
+	rows := make([]summaryRow, 0, len(aggregates))
 	for _, aggregate := range aggregates {
-		rows = append(rows, tuningSummaryRow{
+		rows = append(rows, summaryRow{
 			key:            aggregate.key,
-			meanResult:     averageFloat64(aggregate.results),
-			medianResult:   medianFloat64(aggregate.results),
-			meanSuccess:    averageFloat64(aggregate.successRates),
+			meanResult:     average(aggregate.results),
+			medianResult:   median(aggregate.results),
+			meanSuccess:    average(aggregate.successRates),
 			exactBestCount: aggregate.exactBestCount,
 			nearBestCount:  aggregate.nearBestCount,
 		})
 	}
 
-	sortTuningSummaryRows(rows)
+	sortSummaryRows(rows)
 	return rows, instanceCount, missingInstances, nil
 }
 
-func bestTuningResult(statistics []ExperimentsDataStatistics) float64 {
+func bestResult(statistics []Statistic) float64 {
 	best := math.Inf(1)
 	for _, statistic := range statistics {
-		if statistic.averageBestDeviation < best {
-			best = statistic.averageBestDeviation
+		if statistic.AverageBestDeviation < best {
+			best = statistic.AverageBestDeviation
 		}
 	}
 	return best
 }
 
-func sortTuningSummaryRows(rows []tuningSummaryRow) {
+func sortSummaryRows(rows []summaryRow) {
 	sort.SliceStable(rows, func(i, j int) bool {
 		left, right := rows[i], rows[j]
-		if !tuningFloatEqual(left.meanResult, right.meanResult) {
+		if !floatEqual(left.meanResult, right.meanResult) {
 			return left.meanResult < right.meanResult
 		}
-		if !tuningFloatEqual(left.medianResult, right.medianResult) {
+		if !floatEqual(left.medianResult, right.medianResult) {
 			return left.medianResult < right.medianResult
 		}
 		if left.exactBestCount != right.exactBestCount {
@@ -204,17 +232,17 @@ func sortTuningSummaryRows(rows []tuningSummaryRow) {
 		if left.nearBestCount != right.nearBestCount {
 			return left.nearBestCount > right.nearBestCount
 		}
-		if !tuningFloatEqual(left.meanSuccess, right.meanSuccess) {
+		if !floatEqual(left.meanSuccess, right.meanSuccess) {
 			return left.meanSuccess > right.meanSuccess
 		}
-		if !tuningFloatEqual(left.key.heuristicWeight, right.key.heuristicWeight) {
+		if !floatEqual(left.key.heuristicWeight, right.key.heuristicWeight) {
 			return left.key.heuristicWeight < right.key.heuristicWeight
 		}
 		return left.key.msaPatchBias < right.key.msaPatchBias
 	})
 }
 
-func averageFloat64(values []float64) float64 {
+func average(values []float64) float64 {
 	if len(values) == 0 {
 		return 0
 	}
@@ -226,7 +254,7 @@ func averageFloat64(values []float64) float64 {
 	return sum / float64(len(values))
 }
 
-func medianFloat64(values []float64) float64 {
+func median(values []float64) float64 {
 	if len(values) == 0 {
 		return 0
 	}
@@ -241,7 +269,7 @@ func medianFloat64(values []float64) float64 {
 	return (sortedValues[middle-1] + sortedValues[middle]) / 2
 }
 
-func tuningFloatEqual(left, right float64) bool {
+func floatEqual(left, right float64) bool {
 	return math.Abs(left-right) < 1e-9
 }
 
@@ -252,7 +280,7 @@ func removeLegacyBestParametersReports(resultsRootPath string) error {
 	}
 
 	for _, match := range matches {
-		if err := removeFileIfExists(match); err != nil {
+		if err := os.Remove(match); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}

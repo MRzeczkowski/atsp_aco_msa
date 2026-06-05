@@ -5,8 +5,9 @@ import (
 	"atsp_aco_msa/modules/algorithms/heuristics"
 	"atsp_aco_msa/modules/algorithms/hungarian"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
-	"atsp_aco_msa/modules/analysis/cycleCover"
 	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
+	"atsp_aco_msa/modules/analysis/structuralComparison"
+	"atsp_aco_msa/modules/analysis/tuningSummary"
 	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/parsing"
 	"atsp_aco_msa/modules/utilities"
@@ -1206,12 +1207,12 @@ func signalRemainingPercent(without, with float64) float64 {
 	return 100.0 * math.Abs(with) / math.Abs(without)
 }
 
-func saveStructuralPerformanceLinkReport(path string, rows []finalResultsSummaryRow, analyses []cycleCover.InstanceAnalysis) error {
+func saveStructuralPerformanceLinkReport(path string, rows []finalResultsSummaryRow, analyses []structuralComparison.InstanceAnalysis) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
 
-	structuralRows := filterAnalysesWithFoundOptimalEdges(sortedCycleCoverAnalyses(analyses))
+	structuralRows := filterAnalysesWithFoundOptimalEdges(sortedStructuralAnalyses(analyses))
 	structuralTotals := structuralSimilarityTotals(structuralRows)
 	allowedInstances := make(map[string]struct{}, len(structuralRows))
 	for _, row := range structuralRows {
@@ -1381,12 +1382,12 @@ func formatSignedFloat(value float64) string {
 	return fmt.Sprintf("%+.2f", value)
 }
 
-func saveStructuralSimilarityReport(path string, analyses []cycleCover.InstanceAnalysis) error {
+func saveStructuralSimilarityReport(path string, analyses []structuralComparison.InstanceAnalysis) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
 
-	rows := filterAnalysesWithFoundOptimalEdges(sortedCycleCoverAnalyses(analyses))
+	rows := filterAnalysesWithFoundOptimalEdges(sortedStructuralAnalyses(analyses))
 	totals := structuralSimilarityTotals(rows)
 
 	var builder strings.Builder
@@ -1427,7 +1428,7 @@ func writeStructuralSimilarityFindings(builder *strings.Builder, totals structur
 		totals.instanceCount)
 }
 
-func writeStructuralSimilarityTable(builder *strings.Builder, rows []cycleCover.InstanceAnalysis, totals structuralSimilaritySummary) {
+func writeStructuralSimilarityTable(builder *strings.Builder, rows []structuralComparison.InstanceAnalysis, totals structuralSimilaritySummary) {
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
 	builder.WriteString("<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">MSA heuristic</th><th colspan=\"2\">Cycle cover</th><th colspan=\"2\">Cycle-cover MSA patching</th></tr>\n")
@@ -1444,7 +1445,7 @@ func writeStructuralSimilarityTable(builder *strings.Builder, rows []cycleCover.
 	builder.WriteString("</table>\n")
 }
 
-func writeStructuralSimilarityRow(builder *strings.Builder, analysis cycleCover.InstanceAnalysis) {
+func writeStructuralSimilarityRow(builder *strings.Builder, analysis structuralComparison.InstanceAnalysis) {
 	metrics := analysis.Metrics
 	msaMetrics := metrics.HighMsaHeuristicMetrics
 	cycleCoverMetrics := metrics.CycleCoverMetrics
@@ -1519,7 +1520,7 @@ type structuralSimilaritySummary struct {
 	patchingRecallWins      int
 }
 
-func structuralSimilarityTotals(rows []cycleCover.InstanceAnalysis) structuralSimilaritySummary {
+func structuralSimilarityTotals(rows []structuralComparison.InstanceAnalysis) structuralSimilaritySummary {
 	var totals structuralSimilaritySummary
 	totals.instanceCount = len(rows)
 
@@ -1563,12 +1564,12 @@ func structuralSimilarityTotals(rows []cycleCover.InstanceAnalysis) structuralSi
 	return totals
 }
 
-func saveMsaHeuristicCycleCoverOverlapReport(path string, analyses []cycleCover.InstanceAnalysis) error {
+func saveMsaHeuristicCycleCoverOverlapReport(path string, analyses []structuralComparison.InstanceAnalysis) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
 
-	rows := sortedCycleCoverAnalyses(analyses)
+	rows := sortedStructuralAnalyses(analyses)
 	totals := msaHeuristicCycleCoverOverlapTotals(rows)
 
 	var builder strings.Builder
@@ -1820,7 +1821,7 @@ func writeMsaHeuristicCycleCoverOverlapFindings(builder *strings.Builder, totals
 		totals.optimalNeither)
 }
 
-func writeMsaHeuristicCycleCoverOverlapTable(builder *strings.Builder, rows []cycleCover.InstanceAnalysis, totals msaHeuristicCycleCoverOverlapSummary) {
+func writeMsaHeuristicCycleCoverOverlapTable(builder *strings.Builder, rows []structuralComparison.InstanceAnalysis, totals msaHeuristicCycleCoverOverlapSummary) {
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
 	builder.WriteString("<tr><th>Instance</th><th>MSA in CC [%]</th><th>CC in MSA [%]</th><th>Optimal both</th><th>Optimal only MSA</th><th>Optimal only CC</th></tr>\n")
@@ -1836,7 +1837,7 @@ func writeMsaHeuristicCycleCoverOverlapTable(builder *strings.Builder, rows []cy
 	builder.WriteString("</table>\n")
 }
 
-func writeMsaHeuristicCycleCoverOverlapRow(builder *strings.Builder, analysis cycleCover.InstanceAnalysis) {
+func writeMsaHeuristicCycleCoverOverlapRow(builder *strings.Builder, analysis structuralComparison.InstanceAnalysis) {
 	metrics := analysis.Metrics
 	msaEdges := metrics.HighMsaHeuristicMetrics.EdgeCount
 	cycleCoverEdges := metrics.CycleCoverMetrics.EdgeCount
@@ -1872,7 +1873,7 @@ type msaHeuristicCycleCoverOverlapSummary struct {
 	optimalNeither        int
 }
 
-func msaHeuristicCycleCoverOverlapTotals(rows []cycleCover.InstanceAnalysis) msaHeuristicCycleCoverOverlapSummary {
+func msaHeuristicCycleCoverOverlapTotals(rows []structuralComparison.InstanceAnalysis) msaHeuristicCycleCoverOverlapSummary {
 	var totals msaHeuristicCycleCoverOverlapSummary
 	for _, analysis := range rows {
 		metrics := analysis.Metrics
@@ -2612,8 +2613,8 @@ func writeDistanceRankedSparseControlMissingData(builder *strings.Builder, missi
 	}
 }
 
-func sortedCycleCoverAnalyses(analyses []cycleCover.InstanceAnalysis) []cycleCover.InstanceAnalysis {
-	rows := append([]cycleCover.InstanceAnalysis(nil), analyses...)
+func sortedStructuralAnalyses(analyses []structuralComparison.InstanceAnalysis) []structuralComparison.InstanceAnalysis {
+	rows := append([]structuralComparison.InstanceAnalysis(nil), analyses...)
 	sort.SliceStable(rows, func(i, j int) bool {
 		return rows[i].Instance < rows[j].Instance
 	})
@@ -2621,8 +2622,8 @@ func sortedCycleCoverAnalyses(analyses []cycleCover.InstanceAnalysis) []cycleCov
 	return rows
 }
 
-func filterAnalysesWithFoundOptimalEdges(analyses []cycleCover.InstanceAnalysis) []cycleCover.InstanceAnalysis {
-	rows := make([]cycleCover.InstanceAnalysis, 0, len(analyses))
+func filterAnalysesWithFoundOptimalEdges(analyses []structuralComparison.InstanceAnalysis) []structuralComparison.InstanceAnalysis {
+	rows := make([]structuralComparison.InstanceAnalysis, 0, len(analyses))
 	for _, analysis := range analyses {
 		if analysis.Metrics.UniqueFoundOptimalEdgeCount == 0 {
 			continue
@@ -3541,6 +3542,54 @@ func runExperimentMode(atspsData []AtspData, heuristics []string) error {
 	return saveTuningSummary(resultsDirectoryName, atspsData, heuristics)
 }
 
+func saveTuningSummary(resultsRootPath string, atspsData []AtspData, heuristics []string) error {
+	heuristicConfigs := make([]tuningSummary.HeuristicConfig, 0, len(heuristics))
+	for _, heuristic := range heuristics {
+		if heuristicIsSparseControl(heuristic) {
+			continue
+		}
+
+		resultFiles := make([]tuningSummary.ResultFile, 0, len(atspsData))
+		for _, atspData := range atspsData {
+			resultFiles = append(resultFiles, tuningSummary.ResultFile{
+				Instance: atspData.name,
+				Path:     resultFilePathForHeuristic(atspData, heuristic),
+			})
+		}
+
+		heuristicConfigs = append(heuristicConfigs, tuningSummary.HeuristicConfig{
+			Name:                heuristic,
+			DisplayName:         heuristicDisplayName(heuristic),
+			IncludeMsaPatchBias: heuristic == heuristicCycleCoverMsaPatching,
+			ResultFiles:         resultFiles,
+		})
+	}
+
+	return tuningSummary.Save(tuningSummary.Config{
+		ResultsRootPath: resultsRootPath,
+		Heuristics:      heuristicConfigs,
+		ReadStatistics:  readTuningSummaryStatistics,
+	})
+}
+
+func readTuningSummaryStatistics(path string) ([]tuningSummary.Statistic, error) {
+	experimentStatistics, err := readStatistics(path)
+	if err != nil {
+		return nil, err
+	}
+
+	statistics := make([]tuningSummary.Statistic, 0, len(experimentStatistics))
+	for _, statistic := range experimentStatistics {
+		statistics = append(statistics, tuningSummary.Statistic{
+			HeuristicWeight:      statistic.heuristicWeight,
+			MsaPatchBias:         statistic.msaPatchBias,
+			AverageBestDeviation: statistic.averageBestDeviation,
+			SuccessRate:          statistic.successRate,
+		})
+	}
+	return statistics, nil
+}
+
 func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration) error {
 	needsMsaHeuristic := finalConfigurationsUseMsaHeuristic(configurations)
 	if needsMsaHeuristic {
@@ -3904,7 +3953,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 	}
 
 	msaHeuristicTourConfigs := make([]msaHeuristicTours.InstanceConfig, 0, len(atspsData))
-	cycleCoverConfigs := make([]cycleCover.InstanceConfig, 0, len(atspsData))
+	structuralConfigs := make([]structuralComparison.InstanceConfig, 0, len(atspsData))
 	for _, atspData := range atspsData {
 		msaHeuristicTourConfigs = append(msaHeuristicTourConfigs, msaHeuristicTours.InstanceConfig{
 			Name:                                atspData.name,
@@ -3916,7 +3965,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 			MsaHeuristicToursOverlapHeatmapPath: atspData.msaHeuristicToursOverlapHeatmapPlotPath,
 		})
 
-		cycleCoverConfigs = append(cycleCoverConfigs, cycleCover.InstanceConfig{
+		structuralConfigs = append(structuralConfigs, structuralComparison.InstanceConfig{
 			Name:                      atspData.name,
 			Dimension:                 len(atspData.matrix),
 			Matrix:                    atspData.matrix,
@@ -3929,8 +3978,8 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 		return err
 	}
 
-	cycleCoverAnalyses, err := cycleCover.AnalyzeInstances(cycleCover.Config{
-		Instances:     cycleCoverConfigs,
+	structuralAnalyses, err := structuralComparison.AnalyzeInstances(structuralComparison.Config{
+		Instances:     structuralConfigs,
 		HighThreshold: 1.0,
 		MsaPatchBias:  finalCycleCoverMsaPatchingMsaPatchBias,
 	})
@@ -3939,12 +3988,12 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 	}
 
 	structuralSimilarityReportPath := filepath.Join(finalResultsDirectoryName, "structural_similarity.md")
-	if err := saveStructuralSimilarityReport(structuralSimilarityReportPath, cycleCoverAnalyses); err != nil {
+	if err := saveStructuralSimilarityReport(structuralSimilarityReportPath, structuralAnalyses); err != nil {
 		return err
 	}
 
 	heuristicOverlapReportPath := filepath.Join(finalResultsDirectoryName, "msa_cycle_cover_overlap.md")
-	if err := saveMsaHeuristicCycleCoverOverlapReport(heuristicOverlapReportPath, cycleCoverAnalyses); err != nil {
+	if err := saveMsaHeuristicCycleCoverOverlapReport(heuristicOverlapReportPath, structuralAnalyses); err != nil {
 		return err
 	}
 
@@ -3979,12 +4028,12 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 		return err
 	}
 
-	finalResultsSummaryPath, finalRows, finalSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses, finalResultsDirectoryName)
+	finalResultsSummaryPath, finalRows, finalSummarySaved, err := runFinalResultsAnalysis(atspsData, structuralAnalyses, finalResultsDirectoryName)
 	if err != nil {
 		return err
 	}
 
-	finalThreeOptResultsSummaryPath, finalThreeOptRows, finalThreeOptSummarySaved, err := runFinalResultsAnalysis(atspsData, cycleCoverAnalyses, finalThreeOptResultsDirectoryName)
+	finalThreeOptResultsSummaryPath, finalThreeOptRows, finalThreeOptSummarySaved, err := runFinalResultsAnalysis(atspsData, structuralAnalyses, finalThreeOptResultsDirectoryName)
 	if err != nil {
 		return err
 	}
@@ -4021,7 +4070,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string) error {
 	return nil
 }
 
-func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCover.InstanceAnalysis, resultsRootPath string) (string, []finalResultsSummaryRow, bool, error) {
+func runFinalResultsAnalysis(atspsData []AtspData, structuralAnalyses []structuralComparison.InstanceAnalysis, resultsRootPath string) (string, []finalResultsSummaryRow, bool, error) {
 	finalAtspsData := make([]AtspData, 0, len(atspsData))
 	missingInstances := make([]string, 0)
 
@@ -4063,8 +4112,8 @@ func runFinalResultsAnalysis(atspsData []AtspData, cycleCoverAnalyses []cycleCov
 	if err := saveFinalConvergenceSummaryReport(filepath.Join(resultsRootPath, "convergence_summary.md"), finalRows); err != nil {
 		return "", nil, false, err
 	}
-	if len(cycleCoverAnalyses) != 0 {
-		if err := saveStructuralPerformanceLinkReport(filepath.Join(resultsRootPath, "structural_performance_link.md"), finalRows, cycleCoverAnalyses); err != nil {
+	if len(structuralAnalyses) != 0 {
+		if err := saveStructuralPerformanceLinkReport(filepath.Join(resultsRootPath, "structural_performance_link.md"), finalRows, structuralAnalyses); err != nil {
 			return "", nil, false, err
 		}
 	}

@@ -1,4 +1,4 @@
-package cycleCover
+package structuralComparison
 
 import (
 	"atsp_aco_msa/modules/algorithms/heuristics"

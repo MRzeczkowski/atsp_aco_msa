@@ -1,4 +1,4 @@
-package cycleCover
+package structuralComparison
 
 import (
 	"os"

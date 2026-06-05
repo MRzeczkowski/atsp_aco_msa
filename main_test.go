@@ -1,7 +1,7 @@
 package main
 
 import (
-	"atsp_aco_msa/modules/analysis/cycleCover"
+	"atsp_aco_msa/modules/analysis/structuralComparison"
 	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/parsing"
 	"os"
@@ -593,7 +593,7 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 
 func TestSaveStructuralSimilarityReport(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "structural_similarity.md")
-	if err := saveStructuralSimilarityReport(path, sampleCycleCoverAnalyses()); err != nil {
+	if err := saveStructuralSimilarityReport(path, sampleStructuralAnalyses()); err != nil {
 		t.Fatalf("saveStructuralSimilarityReport returned unexpected error: %v", err)
 	}
 
@@ -612,7 +612,7 @@ func TestSaveStructuralSimilarityReport(t *testing.T) {
 
 func TestSaveMsaHeuristicCycleCoverOverlapReport(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "msa_cycle_cover_overlap.md")
-	if err := saveMsaHeuristicCycleCoverOverlapReport(path, sampleCycleCoverAnalyses()); err != nil {
+	if err := saveMsaHeuristicCycleCoverOverlapReport(path, sampleStructuralAnalyses()); err != nil {
 		t.Fatalf("saveMsaHeuristicCycleCoverOverlapReport returned unexpected error: %v", err)
 	}
 
@@ -725,7 +725,7 @@ func TestSaveFinalConvergenceSummaryReport(t *testing.T) {
 
 func TestSaveStructuralPerformanceLinkReport(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "structural_performance_link.md")
-	if err := saveStructuralPerformanceLinkReport(path, sampleFinalSummaryRows(), sampleCycleCoverAnalyses()); err != nil {
+	if err := saveStructuralPerformanceLinkReport(path, sampleFinalSummaryRows(), sampleStructuralAnalyses()); err != nil {
 		t.Fatalf("saveStructuralPerformanceLinkReport returned unexpected error: %v", err)
 	}
 
@@ -1376,27 +1376,27 @@ func TestSelectedInstanceSetForMode(t *testing.T) {
 	}
 }
 
-func sampleCycleCoverAnalyses() []cycleCover.InstanceAnalysis {
-	return []cycleCover.InstanceAnalysis{
+func sampleStructuralAnalyses() []structuralComparison.InstanceAnalysis {
+	return []structuralComparison.InstanceAnalysis{
 		{
 			Instance:  "b",
 			Dimension: 5,
-			Metrics: cycleCover.InstanceMetrics{
+			Metrics: structuralComparison.InstanceMetrics{
 				FoundOptimalTourCount:       2,
 				UniqueFoundOptimalEdgeCount: 10,
-				HighMsaHeuristicMetrics: cycleCover.EdgeSetMetrics{
+				HighMsaHeuristicMetrics: structuralComparison.EdgeSetMetrics{
 					EdgeCount:        5,
 					OptimalEdgeCount: 4,
 					Precision:        0.8,
 					Recall:           0.4,
 				},
-				CycleCoverMetrics: cycleCover.EdgeSetMetrics{
+				CycleCoverMetrics: structuralComparison.EdgeSetMetrics{
 					EdgeCount:        5,
 					OptimalEdgeCount: 3,
 					Precision:        0.6,
 					Recall:           0.3,
 				},
-				CycleCoverMsaPatchingMetrics: cycleCover.EdgeSetMetrics{
+				CycleCoverMsaPatchingMetrics: structuralComparison.EdgeSetMetrics{
 					EdgeCount:        6,
 					OptimalEdgeCount: 4,
 					Precision:        4.0 / 6.0,
@@ -1412,22 +1412,22 @@ func sampleCycleCoverAnalyses() []cycleCover.InstanceAnalysis {
 		{
 			Instance:  "a",
 			Dimension: 4,
-			Metrics: cycleCover.InstanceMetrics{
+			Metrics: structuralComparison.InstanceMetrics{
 				FoundOptimalTourCount:       1,
 				UniqueFoundOptimalEdgeCount: 4,
-				HighMsaHeuristicMetrics: cycleCover.EdgeSetMetrics{
+				HighMsaHeuristicMetrics: structuralComparison.EdgeSetMetrics{
 					EdgeCount:        2,
 					OptimalEdgeCount: 1,
 					Precision:        0.5,
 					Recall:           0.25,
 				},
-				CycleCoverMetrics: cycleCover.EdgeSetMetrics{
+				CycleCoverMetrics: structuralComparison.EdgeSetMetrics{
 					EdgeCount:        4,
 					OptimalEdgeCount: 3,
 					Precision:        0.75,
 					Recall:           0.75,
 				},
-				CycleCoverMsaPatchingMetrics: cycleCover.EdgeSetMetrics{
+				CycleCoverMsaPatchingMetrics: structuralComparison.EdgeSetMetrics{
 					EdgeCount:        5,
 					OptimalEdgeCount: 3,
 					Precision:        0.6,
