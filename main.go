@@ -98,10 +98,10 @@ const (
 
 const (
 	finalNumberOfExperiments               = 50
-	finalMsaHeuristicWeight                = 0.9
-	finalCycleCoverWeight                  = 0.8
-	finalCycleCoverMsaPatchingWeight       = 0.7
-	finalCycleCoverMsaPatchingMsaPatchBias = 0.5
+	finalMsaHeuristicWeight                = 1.0
+	finalCycleCoverWeight                  = 0.6
+	finalCycleCoverMsaPatchingWeight       = 0.6
+	finalCycleCoverMsaPatchingMsaPatchBias = 1.0
 	defaultExperimentAlpha                 = 1.0
 	defaultExperimentBeta                  = 2.0
 	defaultExperimentRho                   = 0.8
