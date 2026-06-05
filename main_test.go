@@ -928,6 +928,14 @@ func TestFinalExperimentConfigurationsUseFixedBalancedComparison(t *testing.T) {
 }
 
 func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
+	baselineParameters := generateParameters(heuristicBaseline)
+	if len(baselineParameters) != 1 {
+		t.Fatalf("expected one baseline parameter set, got %d", len(baselineParameters))
+	}
+	if baselineParameters[0].heuristicWeight != defaultBaselineHeuristicWeight {
+		t.Fatalf("unexpected baseline heuristic weight: %+v", baselineParameters[0])
+	}
+
 	msaParameters := generateParameters(heuristicMsaHeuristic)
 	if len(msaParameters) != 11 {
 		t.Fatalf("expected 11 MSA heuristic parameter sets, got %d", len(msaParameters))
@@ -956,6 +964,36 @@ func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
 		t.Fatalf("expected one zero-weight patching parameter set, got %d", zeroWeightCount)
 	}
 
+}
+
+func TestSelectExperimentHeuristics(t *testing.T) {
+	selected, err := selectExperimentHeuristics("", false)
+	if err != nil {
+		t.Fatalf("selectExperimentHeuristics omitted returned error: %v", err)
+	}
+	if !reflect.DeepEqual(selected, experimentHeuristics) {
+		t.Fatalf("omitted heuristic should select all experiment heuristics\nwant: %v\n got: %v", experimentHeuristics, selected)
+	}
+
+	selected, err = selectExperimentHeuristics(experimentHeuristicAll, true)
+	if err != nil {
+		t.Fatalf("selectExperimentHeuristics(all) returned error: %v", err)
+	}
+	if !reflect.DeepEqual(selected, experimentHeuristics) {
+		t.Fatalf("all heuristic should select all experiment heuristics\nwant: %v\n got: %v", experimentHeuristics, selected)
+	}
+
+	selected, err = selectExperimentHeuristics(heuristicCycleCover, true)
+	if err != nil {
+		t.Fatalf("selectExperimentHeuristics(cycle-cover) returned error: %v", err)
+	}
+	if !reflect.DeepEqual(selected, []string{heuristicCycleCover}) {
+		t.Fatalf("explicit heuristic should select only that heuristic, got %v", selected)
+	}
+
+	if _, err := selectExperimentHeuristics("unknown", true); err == nil {
+		t.Fatal("expected unknown experiment heuristic to be rejected")
+	}
 }
 
 func TestSelectFinalExperimentConfigurations(t *testing.T) {
@@ -1162,6 +1200,24 @@ func TestFinal3OptModeUsesSeparateOutputRootAndThreeOpt(t *testing.T) {
 	}
 }
 
+func TestFullFinalRunsTriggerAnalysis(t *testing.T) {
+	if !shouldRunAnalysisAfterFinalExperiments(runModeFinal, finalHeuristicAll) {
+		t.Fatal("full final run should trigger analysis")
+	}
+	if !shouldRunAnalysisAfterFinalExperiments(runModeFinal3Opt, finalHeuristicAll) {
+		t.Fatal("full final+3opt run should trigger analysis")
+	}
+	if shouldRunAnalysisAfterFinalExperiments(runModeFinal, heuristicMsaHeuristic) {
+		t.Fatal("single final heuristic should not trigger analysis")
+	}
+	if shouldRunAnalysisAfterFinalExperiments(runModeFinal, finalHeuristicControls) {
+		t.Fatal("final controls should not trigger analysis")
+	}
+	if shouldRunAnalysisAfterFinalExperiments(runModeExperiment, finalHeuristicAll) {
+		t.Fatal("experiment mode should not trigger final analysis")
+	}
+}
+
 func TestSelectAtspFilesTuning(t *testing.T) {
 	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
 	if err != nil {
@@ -1180,6 +1236,27 @@ func TestSelectAtspFilesTuning(t *testing.T) {
 
 	if !reflect.DeepEqual(selectedFiles, tuningInstanceFiles) {
 		t.Fatalf("tuning selection mismatch\nwant: %v\n got: %v", tuningInstanceFiles, selectedFiles)
+	}
+}
+
+func TestSelectAtspFilesSmoke(t *testing.T) {
+	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
+	if err != nil {
+		t.Fatalf("failed to glob ATSP files: %v", err)
+	}
+
+	selected, err := selectAtspFiles(paths, instanceSetSmoke)
+	if err != nil {
+		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
+	}
+
+	selectedFiles := make([]string, len(selected))
+	for i, selectedPath := range selected {
+		selectedFiles[i] = filepath.Base(selectedPath)
+	}
+
+	if !reflect.DeepEqual(selectedFiles, smokeInstanceFiles) {
+		t.Fatalf("smoke selection mismatch\nwant: %v\n got: %v", smokeInstanceFiles, selectedFiles)
 	}
 }
 
@@ -1210,7 +1287,7 @@ func TestSelectedAtspFilesHaveKnownOptima(t *testing.T) {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
 
-	for _, instanceSet := range []string{instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown} {
+	for _, instanceSet := range []string{instanceSetSmoke, instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown} {
 		selected, err := selectAtspFiles(paths, instanceSet)
 		if err != nil {
 			t.Fatalf("selectAtspFiles(%s) returned unexpected error: %v", instanceSet, err)
@@ -1247,6 +1324,10 @@ func TestTuningAndEvaluationPartitionKnownInstances(t *testing.T) {
 	if err != nil {
 		t.Fatalf("selectAtspFiles(all-known) returned unexpected error: %v", err)
 	}
+	smoke, err := selectAtspFiles(paths, instanceSetSmoke)
+	if err != nil {
+		t.Fatalf("selectAtspFiles(smoke) returned unexpected error: %v", err)
+	}
 
 	partition := make(map[string]string, len(tuning)+len(evaluation))
 	for _, path := range tuning {
@@ -1260,11 +1341,20 @@ func TestTuningAndEvaluationPartitionKnownInstances(t *testing.T) {
 		partition[fileName] = instanceSetEvaluation
 	}
 
-	if len(partition) != len(allKnown) {
-		t.Fatalf("tuning/evaluation partition has %d files, all-known has %d", len(partition), len(allKnown))
+	smokeFiles := make(map[string]struct{}, len(smoke))
+	for _, path := range smoke {
+		smokeFiles[filepath.Base(path)] = struct{}{}
+	}
+
+	expectedKnownCount := len(allKnown) - len(smokeFiles)
+	if len(partition) != expectedKnownCount {
+		t.Fatalf("tuning/evaluation partition has %d files, all-known excluding smoke has %d", len(partition), expectedKnownCount)
 	}
 	for _, path := range allKnown {
 		fileName := filepath.Base(path)
+		if _, ok := smokeFiles[fileName]; ok {
+			continue
+		}
 		if _, ok := partition[fileName]; !ok {
 			t.Fatalf("%s is known but missing from tuning/evaluation partition", fileName)
 		}

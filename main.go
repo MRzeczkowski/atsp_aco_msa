@@ -74,6 +74,7 @@ type finalResultsSummaryRow struct {
 }
 
 const (
+	instanceSetSmoke      = "smoke"
 	instanceSetTuning     = "tuning"
 	instanceSetEvaluation = "evaluation"
 	instanceSetAllKnown   = "all-known"
@@ -116,9 +117,17 @@ const (
 
 const finalHeuristicAll = "all"
 const finalHeuristicControls = "controls"
+const experimentHeuristicAll = "all"
 
 var gksDeviationMsaPatchBiases = []float64{0.0, 0.25, 0.5, 0.75, 1.0}
 var randomSparseSeeds = []int64{1, 2, 3}
+
+var experimentHeuristics = []string{
+	heuristicBaseline,
+	heuristicMsaHeuristic,
+	heuristicCycleCover,
+	heuristicCycleCoverMsaPatching,
+}
 
 var finalResultsSummaryHeuristics = []string{
 	heuristicBaseline,
@@ -129,8 +138,11 @@ var finalResultsSummaryHeuristics = []string{
 
 var msaCountScalingCounts = []int{1, 2, 4, 8, 16, 32, 64, 0}
 
-var tuningInstanceFiles = []string{
+var smokeInstanceFiles = []string{
 	"br17.atsp",
+}
+
+var tuningInstanceFiles = []string{
 	"ftv33.atsp",
 	"p43.atsp",
 	"ft53.atsp",
@@ -138,14 +150,15 @@ var tuningInstanceFiles = []string{
 	"crane66_1.atsp",
 	"atex5.atsp",
 	"ftv90.atsp",
+	"ry48p.atsp",
 	"crane100_1.atsp",
 	"td100_1.atsp",
-	"dc112.atsp",
 	"ftv120.atsp",
 	"dc134.atsp",
 	"ftv150.atsp",
 	"dc188.atsp",
 	"code198.atsp",
+	"rbg323.atsp",
 }
 
 var evaluationInstanceFiles = []string{
@@ -156,7 +169,6 @@ var evaluationInstanceFiles = []string{
 	"ftv38.atsp",
 	"ftv44.atsp",
 	"ftv47.atsp",
-	"ry48p.atsp",
 	"ftv55.atsp",
 	"crane66_0.atsp",
 	"crane66_2.atsp",
@@ -166,13 +178,13 @@ var evaluationInstanceFiles = []string{
 	"crane100_2.atsp",
 	"ftv100.atsp",
 	"ftv110.atsp",
+	"dc112.atsp",
 	"dc126.atsp",
 	"ftv130.atsp",
 	"ftv140.atsp",
 	"ftv160.atsp",
 	"ftv170.atsp",
 	"dc176.atsp",
-	"rbg323.atsp",
 	"rbg358.atsp",
 	"rbg403.atsp",
 	"rbg443.atsp",
@@ -3118,6 +3130,9 @@ func setDimensionDependantParameters(dimension int, parameters *ExperimentParame
 func generateParameters(heuristic string) []ExperimentParameters {
 	parameters := make([]ExperimentParameters, 0)
 	heuristicWeights := []float64{0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0}
+	if heuristic == heuristicBaseline {
+		heuristicWeights = []float64{defaultBaselineHeuristicWeight}
+	}
 	msaPatchBiases := []float64{0.0}
 	if heuristic == heuristicCycleCoverMsaPatching {
 		msaPatchBiases = []float64{0.0, 0.25, 0.5, 0.75, 1.0}
@@ -3341,6 +3356,8 @@ func withExperimentOutputRoot(atspData AtspData, resultsRootPath string) AtspDat
 
 func selectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, error) {
 	switch instanceSet {
+	case instanceSetSmoke:
+		return selectConfiguredAtspFiles(atspFilePaths, smokeInstanceFiles)
 	case instanceSetTuning:
 		return selectConfiguredAtspFiles(atspFilePaths, tuningInstanceFiles)
 	case instanceSetEvaluation:
@@ -3360,7 +3377,7 @@ func selectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, erro
 
 		return selected, nil
 	default:
-		return nil, fmt.Errorf("unsupported -instances value %q; use %q, %q, or %q", instanceSet, instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown)
+		return nil, fmt.Errorf("unsupported -instances value %q; use %q, %q, %q, or %q", instanceSet, instanceSetSmoke, instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown)
 	}
 }
 
@@ -3392,6 +3409,18 @@ func isValidHeuristic(heuristic string) bool {
 		heuristic == heuristicMsaHeuristic ||
 		heuristic == heuristicCycleCover ||
 		heuristic == heuristicCycleCoverMsaPatching
+}
+
+func selectExperimentHeuristics(heuristic string, heuristicExplicit bool) ([]string, error) {
+	if !heuristicExplicit || heuristic == "" || heuristic == experimentHeuristicAll {
+		return append([]string{}, experimentHeuristics...), nil
+	}
+
+	if !isValidHeuristic(heuristic) {
+		return nil, fmt.Errorf("unsupported -heuristic value %q; omit it or use %q, %q, %q, %q, or %q", heuristic, experimentHeuristicAll, heuristicBaseline, heuristicMsaHeuristic, heuristicCycleCover, heuristicCycleCoverMsaPatching)
+	}
+
+	return []string{heuristic}, nil
 }
 
 func heuristicUsesCycleCover(heuristic string) bool {
@@ -3468,6 +3497,10 @@ func shouldRunAnalysis(mode string) bool {
 	return mode == runModeAnalyze || mode == runModeAll
 }
 
+func shouldRunAnalysisAfterFinalExperiments(mode, finalHeuristic string) bool {
+	return shouldRunFinalExperiments(mode) && finalHeuristic == finalHeuristicAll
+}
+
 func isValidAnalysisScope(scope string) bool {
 	return scope == analysisScopeAll || scope == analysisScopeGksDeviation
 }
@@ -3515,6 +3548,10 @@ func finalExperimentUsesThreeOpt(mode string) bool {
 	return mode == runModeFinal3Opt
 }
 
+func logTimestamp(timestamp time.Time) string {
+	return timestamp.Format("2006-01-02 15:04:05")
+}
+
 func selectedInstanceSetForMode(mode, requestedInstanceSet string, instanceSetExplicit bool) string {
 	if shouldRunFinalExperiments(mode) && !instanceSetExplicit {
 		return instanceSetEvaluation
@@ -3524,21 +3561,29 @@ func selectedInstanceSetForMode(mode, requestedInstanceSet string, instanceSetEx
 }
 
 func main() {
-	instances := flag.String("instances", instanceSetTuning, "ATSP instance set to run: tuning, evaluation, or all-known")
+	instances := flag.String("instances", instanceSetTuning, "ATSP instance set to run: smoke, tuning, evaluation, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, or final+3opt")
 	analysisScope := flag.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all or gks-deviation")
-	heuristic := flag.String("heuristic", heuristicMsaHeuristic, "ACO heuristic modifier to use in experiment mode: baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
+	heuristic := flag.String("heuristic", "", "ACO heuristic modifier to use in experiment mode: omit or use all to run all; otherwise baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
 	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, controls, baseline, msa-heuristic, random-sparse, distance-ranked-sparse, cycle-cover, or cycle-cover-msa-patching")
 	flag.Parse()
 
 	instanceSetExplicit := false
+	heuristicExplicit := false
 	flag.Visit(func(flag *flag.Flag) {
 		if flag.Name == "instances" {
 			instanceSetExplicit = true
 		}
+		if flag.Name == "heuristic" {
+			heuristicExplicit = true
+		}
 	})
 
-	selectedHeuristic := *heuristic
+	selectedExperimentHeuristics, err := selectExperimentHeuristics(*heuristic, heuristicExplicit)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	selectedFinalHeuristic := *finalHeuristic
 
 	if !isValidRunMode(*mode) {
@@ -3548,11 +3593,6 @@ func main() {
 
 	if !isValidAnalysisScope(*analysisScope) {
 		fmt.Printf("Unsupported -analysis value %q; use %q or %q\n", *analysisScope, analysisScopeAll, analysisScopeGksDeviation)
-		return
-	}
-
-	if !isValidHeuristic(selectedHeuristic) {
-		fmt.Printf("Unsupported -heuristic value %q; use %q, %q, %q, or %q\n", *heuristic, heuristicBaseline, heuristicMsaHeuristic, heuristicCycleCover, heuristicCycleCoverMsaPatching)
 		return
 	}
 
@@ -3581,7 +3621,7 @@ func main() {
 			return
 		}
 
-		err = runExperimentMode(atspsData, selectedHeuristic)
+		err = runExperimentMode(atspsData, selectedExperimentHeuristics)
 		stopProfiling()
 		if err != nil {
 			fmt.Println(err)
@@ -3601,6 +3641,13 @@ func main() {
 		if err != nil {
 			fmt.Println(err)
 			return
+		}
+
+		if shouldRunAnalysisAfterFinalExperiments(*mode, selectedFinalHeuristic) {
+			if err := runAnalysisMode(atspsData, *analysisScope); err != nil {
+				fmt.Println(err)
+				return
+			}
 		}
 	}
 
@@ -3657,12 +3704,19 @@ func startCPUProfile() (func(), error) {
 	}, nil
 }
 
-func runExperimentMode(atspsData []AtspData, heuristic string) error {
+func runExperimentMode(atspsData []AtspData, heuristics []string) error {
 	if err := ensureMsaHeuristicArtifacts(atspsData); err != nil {
 		return err
 	}
 
-	return runExperimentSet(atspsData, resultsDirectoryName, heuristic, generateParameters(heuristic), defaultExperimentRunCount)
+	for _, heuristic := range heuristics {
+		fmt.Printf("Running tuning heuristic %s\n", heuristic)
+		if err := runExperimentSet(atspsData, resultsDirectoryName, heuristic, generateParameters(heuristic), defaultExperimentRunCount); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration) error {
@@ -3721,7 +3775,8 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 		}
 	}
 
-	fmt.Printf("Starting %s %s (dimension=%d, heuristics=%d, runs/heuristic=%d)\n",
+	fmt.Printf("[%s] Starting %s %s (dimension=%d, heuristics=%d, runs/heuristic=%d)\n",
+		logTimestamp(instanceStart),
 		finalRunName,
 		atspData.name,
 		dimension,
@@ -3801,7 +3856,7 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 		}
 	}
 
-	fmt.Printf("Finished %s %s in %s\n", finalRunName, atspData.name, time.Since(instanceStart).Round(time.Millisecond))
+	fmt.Printf("[%s] Finished %s %s in %s\n", logTimestamp(time.Now()), finalRunName, atspData.name, time.Since(instanceStart).Round(time.Millisecond))
 	return nil
 }
 
@@ -3859,7 +3914,8 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 			return err
 		}
 
-		fmt.Printf("Starting %s (dimension=%d, heuristic=%s, parameters=%d, runs/parameter=%d)\n",
+		fmt.Printf("[%s] Starting %s (dimension=%d, heuristic=%s, parameters=%d, runs/parameter=%d)\n",
+			logTimestamp(instanceStart),
 			atspData.name,
 			dimension,
 			heuristic,
@@ -3938,7 +3994,7 @@ func runExperimentSet(atspsData []AtspData, resultsRootPath, heuristic string, e
 			}
 		}
 
-		fmt.Printf("Finished %s in %s\n", atspData.name, time.Since(instanceStart).Round(time.Millisecond))
+		fmt.Printf("[%s] Finished %s in %s\n", logTimestamp(time.Now()), atspData.name, time.Since(instanceStart).Round(time.Millisecond))
 	}
 
 	if !heuristicIsSparseControl(heuristic) {
