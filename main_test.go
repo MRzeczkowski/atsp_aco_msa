@@ -1313,6 +1313,38 @@ func TestFullFinalRunsTriggerAnalysis(t *testing.T) {
 	}
 }
 
+func TestAnalysisScopeTuningIsValid(t *testing.T) {
+	if !isValidAnalysisScope(analysisScopeTuning) {
+		t.Fatal("tuning analysis scope should be valid")
+	}
+}
+
+func TestRunAnalysisModeTuningRegeneratesTuningSummary(t *testing.T) {
+	originalResultsDirectoryName := resultsDirectoryName
+	resultsDirectoryName = t.TempDir()
+	t.Cleanup(func() {
+		resultsDirectoryName = originalResultsDirectoryName
+	})
+
+	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsDirectoryName)
+	saveStatistics(resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching), heuristicCycleCoverMsaPatching, []ExperimentsDataStatistics{
+		makeTestExperimentStatistics(0.6, 2.0, 20.0),
+	})
+
+	if err := runAnalysisMode([]AtspData{atspData}, analysisScopeTuning, []string{heuristicCycleCoverMsaPatching}, 1); err != nil {
+		t.Fatalf("runAnalysisMode(tuning) returned unexpected error: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(filepath.Join(resultsDirectoryName, "tuning_summary.md"))
+	if err != nil {
+		t.Fatalf("expected tuning summary to be regenerated: %v", err)
+	}
+	content := string(contentBytes)
+	assertContains(t, content, "# Tuning Summary")
+	assertContains(t, content, "Cycle-cover MSA patching")
+	assertContains(t, content, "| 0.60 | 0.00 | 2.00 | 2.00 | 1 | 1 | 20.00 |")
+}
+
 func TestResolveWorkerCount(t *testing.T) {
 	tests := []struct {
 		name             string

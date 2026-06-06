@@ -94,14 +94,15 @@ const (
 const (
 	analysisScopeAll          = "all"
 	analysisScopeGksDeviation = "gks-deviation"
+	analysisScopeTuning       = "tuning"
 )
 
 const (
 	finalNumberOfExperiments               = 50
-	finalMsaHeuristicWeight                = 1.0
+	finalMsaHeuristicWeight                = 0.7
 	finalCycleCoverWeight                  = 0.6
-	finalCycleCoverMsaPatchingWeight       = 0.6
-	finalCycleCoverMsaPatchingMsaPatchBias = 1.0
+	finalCycleCoverMsaPatchingWeight       = 0.3
+	finalCycleCoverMsaPatchingMsaPatchBias = 0.25
 	defaultExperimentAlpha                 = 1.0
 	defaultExperimentBeta                  = 2.0
 	defaultExperimentRho                   = 0.8
@@ -3580,7 +3581,7 @@ func shouldRunAnalysisAfterFinalExperiments(mode, finalHeuristic string) bool {
 }
 
 func isValidAnalysisScope(scope string) bool {
-	return scope == analysisScopeAll || scope == analysisScopeGksDeviation
+	return scope == analysisScopeAll || scope == analysisScopeGksDeviation || scope == analysisScopeTuning
 }
 
 func shouldRunFinalExperiments(mode string) bool {
@@ -3665,7 +3666,7 @@ func configureWorkerCount(requestedWorkers int) (int, error) {
 func main() {
 	instances := flag.String("instances", instanceSetTuning, "ATSP instance set to run: smoke, tuning, evaluation, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, or final+3opt")
-	analysisScope := flag.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all or gks-deviation")
+	analysisScope := flag.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all, tuning, or gks-deviation")
 	heuristic := flag.String("heuristic", "", "ACO heuristic modifier to use in experiment mode: omit or use all to run all; otherwise baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
 	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, controls, baseline, msa-heuristic, random-sparse, distance-ranked-sparse, shuffled-msa, cycle-cover, or cycle-cover-msa-patching")
 	workers := flag.Int("workers", 0, "Maximum concurrent instance workers. 0 uses half of available logical CPUs; 1 preserves serial execution")
@@ -3696,7 +3697,7 @@ func main() {
 	}
 
 	if !isValidAnalysisScope(*analysisScope) {
-		fmt.Printf("Unsupported -analysis value %q; use %q or %q\n", *analysisScope, analysisScopeAll, analysisScopeGksDeviation)
+		fmt.Printf("Unsupported -analysis value %q; use %q, %q, or %q\n", *analysisScope, analysisScopeAll, analysisScopeTuning, analysisScopeGksDeviation)
 		return
 	}
 
@@ -3755,7 +3756,7 @@ func main() {
 		}
 
 		if shouldRunAnalysisAfterFinalExperiments(*mode, selectedFinalHeuristic) {
-			if err := runAnalysisMode(atspsData, *analysisScope, effectiveWorkers); err != nil {
+			if err := runAnalysisMode(atspsData, *analysisScope, selectedExperimentHeuristics, effectiveWorkers); err != nil {
 				fmt.Println(err)
 				return
 			}
@@ -3763,7 +3764,7 @@ func main() {
 	}
 
 	if shouldRunAnalysis(*mode) {
-		if err := runAnalysisMode(atspsData, *analysisScope, effectiveWorkers); err != nil {
+		if err := runAnalysisMode(atspsData, *analysisScope, selectedExperimentHeuristics, effectiveWorkers); err != nil {
 			fmt.Println(err)
 			return
 		}
@@ -4299,7 +4300,22 @@ func ensureMsaHeuristicCache(atspsData []AtspData, workers int) error {
 	})
 }
 
-func runAnalysisMode(atspsData []AtspData, analysisScope string, workers int) error {
+func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristics []string, workers int) error {
+	if analysisScope == analysisScopeTuning {
+		if err := saveTuningSummary(resultsDirectoryName, atspsData, tuningHeuristics); err != nil {
+			return err
+		}
+		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(resultsDirectoryName, tuningSummary.ReportFileName))
+		return nil
+	}
+
+	if analysisScope == analysisScopeAll {
+		if err := saveTuningSummary(resultsDirectoryName, atspsData, tuningHeuristics); err != nil {
+			return err
+		}
+		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(resultsDirectoryName, tuningSummary.ReportFileName))
+	}
+
 	gksDeviationReportPath := filepath.Join(finalResultsDirectoryName, "gks_deviation.md")
 	gksDeviationAtspData, err := loadSelectedAtspData(instanceSetAllKnown)
 	if err != nil {
