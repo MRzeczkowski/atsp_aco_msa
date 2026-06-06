@@ -1386,6 +1386,51 @@ func TestRunBoundedInstanceJobsRespectsWorkerLimit(t *testing.T) {
 	}
 }
 
+func TestRunBoundedIndexJobsRespectsWorkerLimitAndKeepsIndexedResults(t *testing.T) {
+	result := make([]int, 6)
+	var activeWorkers int32
+	var maxActiveWorkers int32
+
+	err := runBoundedIndexJobs(len(result), 3, func(index int) error {
+		currentActiveWorkers := atomic.AddInt32(&activeWorkers, 1)
+		for {
+			currentMax := atomic.LoadInt32(&maxActiveWorkers)
+			if currentActiveWorkers <= currentMax || atomic.CompareAndSwapInt32(&maxActiveWorkers, currentMax, currentActiveWorkers) {
+				break
+			}
+		}
+
+		time.Sleep(10 * time.Millisecond)
+		result[index] = index + 100
+		atomic.AddInt32(&activeWorkers, -1)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("runBoundedIndexJobs returned unexpected error: %v", err)
+	}
+
+	if maxActiveWorkers > 3 {
+		t.Fatalf("expected at most three active workers, got %d", maxActiveWorkers)
+	}
+	for index, value := range result {
+		if value != index+100 {
+			t.Fatalf("expected indexed result %d to be %d, got %d", index, index+100, value)
+		}
+	}
+}
+
+func TestRunBoundedIndexJobsReturnsFirstError(t *testing.T) {
+	err := runBoundedIndexJobs(3, 1, func(index int) error {
+		if index == 1 {
+			return os.ErrInvalid
+		}
+		return nil
+	})
+	if err != os.ErrInvalid {
+		t.Fatalf("expected %v, got %v", os.ErrInvalid, err)
+	}
+}
+
 func TestRunBoundedInstanceJobsReturnsFirstError(t *testing.T) {
 	atspsData := []AtspData{
 		makeAtspDataInResultsDirectory("ok.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
