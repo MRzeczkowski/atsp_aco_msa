@@ -168,20 +168,7 @@ func (aco *ACO) Run() {
 		aco.updateLimits()
 		aco.evaporatePheromones()
 
-		var useGlobal bool
-
-		switch {
-		case aco.currentIteration < 25:
-			useGlobal = false
-		case aco.currentIteration < 75:
-			useGlobal = aco.currentIteration%5 == 0
-		case aco.currentIteration < 125:
-			useGlobal = aco.currentIteration%3 == 0
-		case aco.currentIteration < 250:
-			useGlobal = aco.currentIteration%2 == 0
-		default:
-			useGlobal = true
-		}
+		useGlobal := useGlobalBestPheromoneUpdate(aco.currentIteration, aco.iterations)
 
 		var depositTour []int
 		var pheromoneDeposit float64
@@ -196,7 +183,26 @@ func (aco *ACO) Run() {
 
 		aco.depositPheromones(depositTour, pheromoneDeposit)
 	}
+}
 
+func useGlobalBestPheromoneUpdate(currentIteration, iterations int) bool {
+	if iterations <= 0 {
+		return false
+	}
+
+	progress := float64(currentIteration) / float64(iterations)
+	switch {
+	case progress < 0.05:
+		return false
+	case progress < 0.30:
+		return currentIteration%5 == 0
+	case progress < 0.70:
+		return currentIteration%3 == 0
+	case progress < 0.95:
+		return currentIteration%2 == 0
+	default:
+		return true
+	}
 }
 
 // Function to construct tour for each ant

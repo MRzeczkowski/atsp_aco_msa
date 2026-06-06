@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -1020,6 +1021,33 @@ func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
 		t.Fatalf("expected one zero-weight patching parameter set, got %d", zeroWeightCount)
 	}
 
+}
+
+func TestSetDimensionDependantParametersScalesIterationsLinearly(t *testing.T) {
+	tests := []struct {
+		dimension          int
+		expectedIterations int
+	}{
+		{dimension: 17, expectedIterations: 100},
+		{dimension: 49, expectedIterations: 100},
+		{dimension: 50, expectedIterations: 1500},
+		{dimension: 66, expectedIterations: 1980},
+		{dimension: 100, expectedIterations: 3000},
+		{dimension: 171, expectedIterations: 5130},
+		{dimension: 323, expectedIterations: 9690},
+		{dimension: 443, expectedIterations: 13290},
+	}
+
+	for _, test := range tests {
+		t.Run(strconv.Itoa(test.dimension), func(t *testing.T) {
+			parameters := ExperimentParameters{iterations: 1}
+			setDimensionDependantParameters(test.dimension, &parameters)
+
+			if parameters.iterations != test.expectedIterations {
+				t.Fatalf("expected %d iterations, got %d", test.expectedIterations, parameters.iterations)
+			}
+		})
+	}
 }
 
 func TestSelectExperimentHeuristics(t *testing.T) {

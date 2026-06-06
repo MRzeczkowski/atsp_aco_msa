@@ -155,6 +155,36 @@ func TestNewACODisablesThreeOptByDefault(t *testing.T) {
 	}
 }
 
+func TestUseGlobalBestPheromoneUpdateUsesIterationBudgetPercentages(t *testing.T) {
+	tests := []struct {
+		name             string
+		currentIteration int
+		iterations       int
+		expected         bool
+	}{
+		{name: "before first boundary uses iteration best", currentIteration: 249, iterations: 5000, expected: false},
+		{name: "first boundary enters every fifth phase", currentIteration: 250, iterations: 5000, expected: true},
+		{name: "every fifth phase skips non-multiple", currentIteration: 251, iterations: 5000, expected: false},
+		{name: "second boundary enters every third phase", currentIteration: 1500, iterations: 5000, expected: true},
+		{name: "every third phase skips non-multiple", currentIteration: 1501, iterations: 5000, expected: false},
+		{name: "third boundary enters every second phase", currentIteration: 3500, iterations: 5000, expected: true},
+		{name: "every second phase skips odd iteration", currentIteration: 3501, iterations: 5000, expected: false},
+		{name: "final boundary uses global best only", currentIteration: 4750, iterations: 5000, expected: true},
+		{name: "final phase ignores modulo", currentIteration: 4751, iterations: 5000, expected: true},
+		{name: "non-positive budget uses iteration best", currentIteration: 0, iterations: 0, expected: false},
+		{name: "same schedule scales to short runs", currentIteration: 95, iterations: 100, expected: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual := useGlobalBestPheromoneUpdate(test.currentIteration, test.iterations)
+			if actual != test.expected {
+				t.Fatalf("expected %t, got %t", test.expected, actual)
+			}
+		})
+	}
+}
+
 func newNeutralHeuristicModifiers(dimension int) [][]float64 {
 	modifiers := make([][]float64, dimension)
 	for i := range modifiers {

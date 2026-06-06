@@ -3194,22 +3194,10 @@ func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOpti
 }
 
 func setDimensionDependantParameters(dimension int, parameters *ExperimentParameters) {
-	var iterations = 100
-
-	// https://sci-hub.se/10.1109/ICICTA.2010.731
-	// "If the number of cities is less than 50, t_max=100; if it is between 50 and 100, t_max=500; and if the problem has more than 100 cities, t_max is set to 5000."
-	if dimension < 50 {
-		iterations = 100
+	iterations := 100
+	if dimension >= 50 {
+		iterations = int(math.Round(30.0 * float64(dimension)))
 	}
-
-	if 50 <= dimension && dimension < 100 {
-		iterations = 500
-	}
-
-	if dimension >= 100 {
-		iterations = 5000
-	}
-
 	parameters.iterations = iterations
 }
 
