@@ -80,7 +80,9 @@ const (
 	instanceSetSmoke      = "smoke"
 	instanceSetTuning     = "tuning"
 	instanceSetEvaluation = "evaluation"
-	instanceSetAllKnown   = "all-known"
+	// Temporary prototype set for fast MSA impact experiments. Remove with the msa-impact pipeline.
+	instanceSetMsaImpact = "msa-impact"
+	instanceSetAllKnown  = "all-known"
 )
 
 const (
@@ -89,6 +91,8 @@ const (
 	runModeAll        = "all"
 	runModeFinal      = "final"
 	runModeFinal3Opt  = "final+3opt"
+	// Temporary prototype mode for fast MSA impact experiments. Remove after MSA integration is settled.
+	runModeMsaImpact = "msa-impact"
 )
 
 const (
@@ -99,15 +103,17 @@ const (
 
 const (
 	finalNumberOfExperiments               = 50
-	finalMsaHeuristicWeight                = 0.7
-	finalCycleCoverWeight                  = 0.6
-	finalCycleCoverMsaPatchingWeight       = 0.3
-	finalCycleCoverMsaPatchingMsaPatchBias = 0.25
+	finalMsaHeuristicWeight                = 0.4
+	finalCycleCoverWeight                  = 0.9
+	finalCycleCoverMsaPatchingWeight       = 1.0
+	finalCycleCoverMsaPatchingMsaPatchBias = 0.0
 	defaultExperimentAlpha                 = 1.0
 	defaultExperimentBeta                  = 2.0
 	defaultExperimentRho                   = 0.8
 	defaultExperimentRunCount              = 30
 	defaultBaselineHeuristicWeight         = 0.0
+	// Temporary prototype run count for msa-impact; final/evaluation runs keep their own budgets.
+	msaImpactNumberOfExperiments = defaultExperimentRunCount
 )
 
 const (
@@ -146,6 +152,19 @@ var msaCountScalingCounts = []int{1, 2, 4, 8, 16, 32, 64, 0}
 
 var smokeInstanceFiles = []string{
 	"br17.atsp",
+}
+
+// Temporary prototype instance set for quick MSA impact checks. It is not intended
+// as a final benchmark set and should be removed with the msa-impact mode.
+var msaImpactInstanceFiles = []string{
+	"atex5.atsp",
+	"ftv64.atsp",
+	"ftv90.atsp",
+	"crane100_1.atsp",
+	"td100_1.atsp",
+	"ry48p.atsp",
+	"dc134.atsp",
+	"code198.atsp",
 }
 
 var tuningInstanceFiles = []string{
@@ -3363,6 +3382,11 @@ var artifactsDirectoryName = "artifacts"
 var resultsDirectoryName = filepath.Join(artifactsDirectoryName, "tuning")
 var finalResultsDirectoryName = filepath.Join(artifactsDirectoryName, "final", "no_3opt")
 var finalThreeOptResultsDirectoryName = filepath.Join(artifactsDirectoryName, "final", "with_3opt")
+
+// Temporary prototype artifact roots for msa-impact runs. These outputs are for
+// heuristic development only and are expected to be deleted later.
+var msaImpactResultsDirectoryName = filepath.Join(artifactsDirectoryName, "msa_impact", "results")
+var msaImpactControlsDirectoryName = filepath.Join(artifactsDirectoryName, "msa_impact", "controls")
 var msaHeuristicArtifactsDirectoryName = filepath.Join(artifactsDirectoryName, "msa")
 var solutionArtifactsDirectoryName = filepath.Join(artifactsDirectoryName, "solutions")
 var resultFileName = "result.csv"
@@ -3440,6 +3464,8 @@ func selectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, erro
 	switch instanceSet {
 	case instanceSetSmoke:
 		return selectConfiguredAtspFiles(atspFilePaths, smokeInstanceFiles)
+	case instanceSetMsaImpact:
+		return selectConfiguredAtspFiles(atspFilePaths, msaImpactInstanceFiles)
 	case instanceSetTuning:
 		return selectConfiguredAtspFiles(atspFilePaths, tuningInstanceFiles)
 	case instanceSetEvaluation:
@@ -3459,7 +3485,7 @@ func selectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, erro
 
 		return selected, nil
 	default:
-		return nil, fmt.Errorf("unsupported -instances value %q; use %q, %q, %q, or %q", instanceSet, instanceSetSmoke, instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown)
+		return nil, fmt.Errorf("unsupported -instances value %q; use %q, %q, %q, %q, or %q", instanceSet, instanceSetSmoke, instanceSetMsaImpact, instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown)
 	}
 }
 
@@ -3483,7 +3509,7 @@ func selectConfiguredAtspFiles(atspFilePaths, configuredFiles []string) ([]strin
 }
 
 func isValidRunMode(mode string) bool {
-	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeFinal || mode == runModeFinal3Opt
+	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeFinal || mode == runModeFinal3Opt || mode == runModeMsaImpact
 }
 
 func isValidHeuristic(heuristic string) bool {
@@ -3583,6 +3609,10 @@ func shouldRunFinalExperiments(mode string) bool {
 	return mode == runModeFinal || mode == runModeFinal3Opt
 }
 
+func shouldRunMsaImpact(mode string) bool {
+	return mode == runModeMsaImpact
+}
+
 func finalExperimentOutputRoot(mode string) string {
 	if mode == runModeFinal3Opt {
 		return finalThreeOptResultsDirectoryName
@@ -3630,6 +3660,9 @@ func selectedInstanceSetForMode(mode, requestedInstanceSet string, instanceSetEx
 	if shouldRunFinalExperiments(mode) && !instanceSetExplicit {
 		return instanceSetEvaluation
 	}
+	if shouldRunMsaImpact(mode) && !instanceSetExplicit {
+		return instanceSetMsaImpact
+	}
 
 	return requestedInstanceSet
 }
@@ -3659,8 +3692,8 @@ func configureWorkerCount(requestedWorkers int) (int, error) {
 }
 
 func main() {
-	instances := flag.String("instances", instanceSetTuning, "ATSP instance set to run: smoke, tuning, evaluation, or all-known")
-	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, or final+3opt")
+	instances := flag.String("instances", instanceSetTuning, "ATSP instance set to run: smoke, msa-impact, tuning, evaluation, or all-known")
+	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, final+3opt, or msa-impact")
 	analysisScope := flag.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all, tuning, or gks-deviation")
 	heuristic := flag.String("heuristic", "", "ACO heuristic modifier to use in experiment mode: omit or use all to run all; otherwise baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
 	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, controls, baseline, msa-heuristic, random-sparse, distance-ranked-sparse, shuffled-msa, cycle-cover, or cycle-cover-msa-patching")
@@ -3687,7 +3720,7 @@ func main() {
 	selectedFinalHeuristic := *finalHeuristic
 
 	if !isValidRunMode(*mode) {
-		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal, runModeFinal3Opt)
+		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal, runModeFinal3Opt, runModeMsaImpact)
 		return
 	}
 
@@ -3721,6 +3754,22 @@ func main() {
 	}
 	fmt.Printf("Selected %d ATSP instance(s) with -instances=%s\n", len(atspsData), selectedInstances)
 
+	if shouldRunMsaImpact(*mode) {
+		stopProfiling, err := startCPUProfile(*cpuProfilePath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		err = runMsaImpactMode(atspsData, effectiveWorkers)
+		stopProfiling()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		return
+	}
+
 	if shouldRunExperiments(*mode) {
 		stopProfiling, err := startCPUProfile(*cpuProfilePath)
 		if err != nil {
@@ -3743,7 +3792,7 @@ func main() {
 			return
 		}
 
-		err = runFinalExperimentMode(atspsData, finalExperimentOutputRootForConfigurations(*mode, finalConfigurations), finalExperimentUsesThreeOpt(*mode), finalConfigurations, effectiveWorkers)
+		err = runFinalExperimentMode(atspsData, finalExperimentOutputRootForConfigurations(*mode, finalConfigurations), finalExperimentUsesThreeOpt(*mode), finalConfigurations, effectiveWorkers, finalNumberOfExperiments)
 		stopProfiling()
 		if err != nil {
 			fmt.Println(err)
@@ -3939,7 +3988,7 @@ func readTuningSummaryStatistics(path string) ([]tuningSummary.Statistic, error)
 	return statistics, nil
 }
 
-func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration, workers int) error {
+func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration, workers, numberOfExperiments int) error {
 	needsMsaHeuristic := finalConfigurationsUseMsaHeuristic(configurations)
 	if needsMsaHeuristic {
 		if err := ensureMsaHeuristicCache(atspsData, workers); err != nil {
@@ -3953,11 +4002,11 @@ func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThr
 
 	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
 		finalAtspData := withExperimentOutputRoot(atspData, resultsRootPath)
-		return runFinalExperimentForInstance(finalAtspData, useThreeOpt, configurations, needsMsaHeuristic)
+		return runFinalExperimentForInstance(finalAtspData, useThreeOpt, configurations, needsMsaHeuristic, numberOfExperiments)
 	})
 }
 
-func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configurations []finalExperimentConfiguration, needsMsaHeuristic bool) error {
+func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configurations []finalExperimentConfiguration, needsMsaHeuristic bool, numberOfExperiments int) error {
 	matrix := atspData.matrix
 	knownOptimal := atspData.knownOptimal
 	dimension := len(matrix)
@@ -3997,7 +4046,7 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 		finalRunName,
 		dimension,
 		len(configurations),
-		finalNumberOfExperiments)
+		numberOfExperiments)
 
 	var cycleCover [][]float64
 	var cycleCoverErr error
@@ -4023,7 +4072,7 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 			setDimensionDependantParameters(dimension, &parameters)
 			parameterStart := time.Now()
 			heuristicModifiers := buildHeuristicModifiers(config.heuristic, matrix, heuristicMatrix, cycleCover, parameters)
-			results := runExperiments(finalNumberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, useThreeOpt)
+			results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, useThreeOpt)
 			data := ExperimentsData{parameters, results}
 			experimentData = append(experimentData, data)
 
@@ -4041,7 +4090,7 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 					parameters.msaPatchBias,
 					randomSeedLog,
 					parameters.iterations,
-					finalNumberOfExperiments,
+					numberOfExperiments,
 					time.Since(parameterStart).Round(time.Millisecond),
 					statistic.minBestDeviation,
 					statistic.averageBestDeviation)
@@ -4076,6 +4125,349 @@ func runFinalExperimentForInstance(atspData AtspData, useThreeOpt bool, configur
 
 	fmt.Printf("[%s][%s] Finished %s in %s\n", logTimestamp(time.Now()), atspData.name, finalRunName, time.Since(instanceStart).Round(time.Millisecond))
 	return nil
+}
+
+// Temporary prototype pipeline for quick MSA heuristic experiments and controls.
+// This is deliberately separate from tuning/final runs and should be removed
+// together with artifacts/msa_impact after the MSA integration experiments end.
+func runMsaImpactMode(atspsData []AtspData, workers int) error {
+	configurations := []finalExperimentConfiguration{
+		{
+			heuristic: heuristicBaseline,
+			parameters: []ExperimentParameters{
+				newDefaultExperimentParameters(defaultBaselineHeuristicWeight),
+			},
+		},
+		{
+			heuristic: heuristicMsaHeuristic,
+			parameters: []ExperimentParameters{
+				newDefaultExperimentParameters(finalMsaHeuristicWeight),
+			},
+		},
+	}
+
+	if err := removeMsaImpactResultFiles(atspsData); err != nil {
+		return err
+	}
+
+	fmt.Printf("Running MSA impact pipeline with %d run(s) per configuration\n", msaImpactNumberOfExperiments)
+	if err := runFinalExperimentMode(atspsData, msaImpactResultsDirectoryName, false, configurations, workers, msaImpactNumberOfExperiments); err != nil {
+		return err
+	}
+	if err := runFinalExperimentMode(atspsData, msaImpactControlsDirectoryName, false, finalControlExperimentConfigurations(), workers, msaImpactNumberOfExperiments); err != nil {
+		return err
+	}
+
+	return saveMsaImpactReports(atspsData)
+}
+
+func removeMsaImpactResultFiles(atspsData []AtspData) error {
+	for _, atspData := range atspsData {
+		if err := removeFileIfExists(withExperimentOutputRoot(atspData, msaImpactResultsDirectoryName).resultFilePath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func saveMsaImpactReports(atspsData []AtspData) error {
+	summaryPath := filepath.Join(msaImpactResultsDirectoryName, "msa_impact_summary.md")
+	if err := saveMsaImpactSummary(summaryPath, atspsData); err != nil {
+		return err
+	}
+	fmt.Printf("MSA impact summary saved to %s\n", summaryPath)
+
+	structureReportPath := filepath.Join(msaImpactResultsDirectoryName, "msa_impact_structure.md")
+	if err := saveMsaImpactStructureReport(structureReportPath, atspsData); err != nil {
+		return err
+	}
+	fmt.Printf("MSA impact structure report saved to %s\n", structureReportPath)
+
+	randomSparseControlReportPath := filepath.Join(msaImpactControlsDirectoryName, "random_sparse_control.md")
+	randomSparseControlReportSaved, err := saveRandomSparseControlReport(randomSparseControlReportPath, atspsData, msaImpactResultsDirectoryName, msaImpactControlsDirectoryName)
+	if err != nil {
+		return err
+	}
+	distanceRankedSparseControlReportPath := filepath.Join(msaImpactControlsDirectoryName, "distance_ranked_sparse_control.md")
+	distanceRankedSparseControlReportSaved, err := saveDistanceRankedSparseControlReport(distanceRankedSparseControlReportPath, atspsData, msaImpactResultsDirectoryName, msaImpactControlsDirectoryName)
+	if err != nil {
+		return err
+	}
+	shuffledMsaControlReportPath := filepath.Join(msaImpactControlsDirectoryName, "shuffled_msa_control.md")
+	shuffledMsaControlReportSaved, err := saveShuffledMsaControlReport(shuffledMsaControlReportPath, atspsData, msaImpactResultsDirectoryName, msaImpactControlsDirectoryName)
+	if err != nil {
+		return err
+	}
+
+	if randomSparseControlReportSaved {
+		fmt.Printf("Random sparse control report saved to %s\n", randomSparseControlReportPath)
+	}
+	if distanceRankedSparseControlReportSaved {
+		fmt.Printf("Distance-ranked sparse control report saved to %s\n", distanceRankedSparseControlReportPath)
+	}
+	if shuffledMsaControlReportSaved {
+		fmt.Printf("Shuffled MSA control report saved to %s\n", shuffledMsaControlReportPath)
+	}
+	return nil
+}
+
+func saveMsaImpactSummary(path string, atspsData []AtspData) error {
+	impactAtspsData := make([]AtspData, 0, len(atspsData))
+	for _, atspData := range atspsData {
+		impactAtspsData = append(impactAtspsData, withExperimentOutputRoot(atspData, msaImpactResultsDirectoryName))
+	}
+
+	rows, err := readFinalResultsSummaryRows(impactAtspsData)
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return fmt.Errorf("no MSA impact rows to summarize")
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+
+	var baselineDeviationTotal, msaDeviationTotal, baselineSuccessTotal, msaSuccessTotal float64
+	var wins, ties, losses int
+	const epsilon = 1e-9
+
+	for _, row := range rows {
+		baselineMetric, baselineOk := row.metrics[heuristicBaseline]
+		msaMetric, msaOk := row.metrics[heuristicMsaHeuristic]
+		if !baselineOk || !msaOk {
+			return fmt.Errorf("%s: missing baseline or MSA heuristic metric", row.instance)
+		}
+
+		baselineDeviationTotal += baselineMetric.averageMinDeviation
+		msaDeviationTotal += msaMetric.averageMinDeviation
+		baselineSuccessTotal += baselineMetric.successRate
+		msaSuccessTotal += msaMetric.successRate
+
+		delta := msaMetric.averageMinDeviation - baselineMetric.averageMinDeviation
+		if math.Abs(delta) < epsilon {
+			ties++
+		} else if delta < 0 {
+			wins++
+		} else {
+			losses++
+		}
+	}
+
+	instanceCount := len(rows)
+	averageBaselineDeviation := baselineDeviationTotal / float64(instanceCount)
+	averageMsaDeviation := msaDeviationTotal / float64(instanceCount)
+	averageDeviationDelta := averageMsaDeviation - averageBaselineDeviation
+	averageBaselineSuccess := baselineSuccessTotal / float64(instanceCount)
+	averageMsaSuccess := msaSuccessTotal / float64(instanceCount)
+	averageSuccessDelta := averageMsaSuccess - averageBaselineSuccess
+
+	var builder strings.Builder
+	builder.WriteString("# MSA Impact Summary\n\n")
+	builder.WriteString("Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline.\n\n")
+	builder.WriteString("## Findings\n\n")
+	fmt.Fprintf(&builder, "- **MSA improved average best deviation in %d/%d instances, tied in %d, and was worse in %d.**\n", wins, instanceCount, ties, losses)
+	fmt.Fprintf(&builder, "- **Mean average best deviation: baseline %.2f%%, MSA %.2f%%, delta %s pp.**\n", averageBaselineDeviation, averageMsaDeviation, formatSignedFloat(averageDeviationDelta))
+	fmt.Fprintf(&builder, "- **Mean success-rate delta: %s pp.**\n\n", formatSignedFloat(averageSuccessDelta))
+
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Instance</th><th>Baseline avg best dev. [%]</th><th>MSA avg best dev. [%]</th><th>Delta [pp]</th><th>Baseline success [%]</th><th>MSA success [%]</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	for _, row := range rows {
+		baselineMetric := row.metrics[heuristicBaseline]
+		msaMetric := row.metrics[heuristicMsaHeuristic]
+		delta := msaMetric.averageMinDeviation - baselineMetric.averageMinDeviation
+		fmt.Fprintf(&builder,
+			"<tr><td>%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
+			html.EscapeString(row.instance),
+			baselineMetric.averageMinDeviation,
+			msaMetric.averageMinDeviation,
+			formatSignedFloat(delta),
+			baselineMetric.successRate,
+			msaMetric.successRate)
+	}
+	fmt.Fprintf(&builder,
+		"<tr><td><strong>Average</strong></td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
+		averageBaselineDeviation,
+		averageMsaDeviation,
+		formatSignedFloat(averageDeviationDelta),
+		averageBaselineSuccess,
+		averageMsaSuccess)
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+type msaImpactStructureRow struct {
+	instance                  string
+	dimension                 int
+	boostedEdges              int
+	boostedEdgesPerTreeEdge   float64
+	missingOutgoingVertices   int
+	missingIncomingVertices   int
+	averageBestDeviationDelta float64
+	successRateDelta          float64
+}
+
+func saveMsaImpactStructureReport(path string, atspsData []AtspData) error {
+	rows, err := readMsaImpactStructureRows(atspsData)
+	if err != nil {
+		return err
+	}
+	if len(rows) == 0 {
+		return fmt.Errorf("no MSA impact structure rows to summarize")
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+
+	var boostedRatioTotal, missingOutgoingTotal, missingIncomingTotal float64
+	var improvedMissingTotal, nonImprovedMissingTotal float64
+	var improvedCount, nonImprovedCount int
+	const epsilon = 1e-9
+
+	for _, row := range rows {
+		boostedRatioTotal += row.boostedEdgesPerTreeEdge
+		missingOutgoingTotal += float64(row.missingOutgoingVertices)
+		missingIncomingTotal += float64(row.missingIncomingVertices)
+		missingEndpoints := float64(row.missingOutgoingVertices + row.missingIncomingVertices)
+
+		if row.averageBestDeviationDelta < -epsilon {
+			improvedMissingTotal += missingEndpoints
+			improvedCount++
+		} else {
+			nonImprovedMissingTotal += missingEndpoints
+			nonImprovedCount++
+		}
+	}
+
+	count := float64(len(rows))
+	averageBoostedRatio := boostedRatioTotal / count
+	averageMissingOutgoing := missingOutgoingTotal / count
+	averageMissingIncoming := missingIncomingTotal / count
+	averageImprovedMissing := safeAverage(improvedMissingTotal, improvedCount)
+	averageNonImprovedMissing := safeAverage(nonImprovedMissingTotal, nonImprovedCount)
+
+	var builder strings.Builder
+	builder.WriteString("# MSA Impact Structure\n\n")
+	builder.WriteString("This report describes the active MSA heuristic modifier matrix used by the MSA impact pipeline. Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline.\n\n")
+	builder.WriteString("## Findings\n\n")
+	fmt.Fprintf(&builder, "- **Average boosted-edge ratio against n-1: %.2f.**\n", averageBoostedRatio)
+	fmt.Fprintf(&builder, "- **Average missing outgoing vertices: %.2f; average missing incoming vertices: %.2f.**\n", averageMissingOutgoing, averageMissingIncoming)
+	if improvedCount != 0 || nonImprovedCount != 0 {
+		fmt.Fprintf(&builder, "- **Average missing endpoints: improved cases %.2f, tied/worse cases %.2f.**\n", averageImprovedMissing, averageNonImprovedMissing)
+	}
+	builder.WriteString("\n")
+
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Instance</th><th>n</th><th>Boosted edges</th><th>Boosted/(n-1)</th><th>Missing outgoing</th><th>Missing incoming</th><th>Dev. delta [pp]</th><th>Success delta [pp]</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	for _, row := range rows {
+		fmt.Fprintf(&builder,
+			"<tr><td>%s</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%s</td><td align=\"right\">%s</td></tr>\n",
+			html.EscapeString(row.instance),
+			row.dimension,
+			row.boostedEdges,
+			row.boostedEdgesPerTreeEdge,
+			row.missingOutgoingVertices,
+			row.missingIncomingVertices,
+			formatSignedFloat(row.averageBestDeviationDelta),
+			formatSignedFloat(row.successRateDelta))
+	}
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+func readMsaImpactStructureRows(atspsData []AtspData) ([]msaImpactStructureRow, error) {
+	rows := make([]msaImpactStructureRow, 0, len(atspsData))
+	for _, atspData := range atspsData {
+		msaHeuristicMatrix, err := readMsaHeuristicMatrixForHeuristic(atspData, heuristicMsaHeuristic)
+		if err != nil {
+			return nil, fmt.Errorf("%s: failed to read MSA heuristic matrix: %w", atspData.name, err)
+		}
+
+		modifiers := heuristics.BuildMsaHeuristicModifiers(msaHeuristicMatrix, finalMsaHeuristicWeight)
+		boostedEdges, missingOutgoingVertices, missingIncomingVertices := msaModifierStructure(modifiers)
+
+		impactAtspData := withExperimentOutputRoot(atspData, msaImpactResultsDirectoryName)
+		metrics, err := readFinalResultSummaryMetrics(impactAtspData.resultFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("%s: failed to read MSA impact result metrics: %w", atspData.name, err)
+		}
+
+		baselineMetric, baselineOk := metrics[heuristicBaseline]
+		msaMetric, msaOk := metrics[heuristicMsaHeuristic]
+		if !baselineOk || !msaOk {
+			return nil, fmt.Errorf("%s: missing baseline or MSA heuristic metric", atspData.name)
+		}
+
+		rows = append(rows, msaImpactStructureRow{
+			instance:                  atspData.name,
+			dimension:                 len(atspData.matrix),
+			boostedEdges:              boostedEdges,
+			boostedEdgesPerTreeEdge:   boostedEdgesPerTreeEdge(boostedEdges, len(atspData.matrix)),
+			missingOutgoingVertices:   missingOutgoingVertices,
+			missingIncomingVertices:   missingIncomingVertices,
+			averageBestDeviationDelta: msaMetric.averageMinDeviation - baselineMetric.averageMinDeviation,
+			successRateDelta:          msaMetric.successRate - baselineMetric.successRate,
+		})
+	}
+
+	return rows, nil
+}
+
+func msaModifierStructure(modifiers [][]float64) (boostedEdges, missingOutgoingVertices, missingIncomingVertices int) {
+	dimension := len(modifiers)
+	hasOutgoing := make([]bool, dimension)
+	hasIncoming := make([]bool, dimension)
+
+	for from := 0; from < dimension; from++ {
+		for to := 0; to < len(modifiers[from]); to++ {
+			if from == to || modifiers[from][to] <= 1.0 {
+				continue
+			}
+
+			boostedEdges++
+			hasOutgoing[from] = true
+			if to < dimension {
+				hasIncoming[to] = true
+			}
+		}
+	}
+
+	for vertex := 0; vertex < dimension; vertex++ {
+		if !hasOutgoing[vertex] {
+			missingOutgoingVertices++
+		}
+		if !hasIncoming[vertex] {
+			missingIncomingVertices++
+		}
+	}
+
+	return boostedEdges, missingOutgoingVertices, missingIncomingVertices
+}
+
+func boostedEdgesPerTreeEdge(boostedEdges, dimension int) float64 {
+	if dimension <= 1 {
+		return 0
+	}
+	return float64(boostedEdges) / float64(dimension-1)
+}
+
+func safeAverage(total float64, count int) float64 {
+	if count == 0 {
+		return 0
+	}
+	return total / float64(count)
 }
 
 func removeLegacyFinalReports(resultsRootPath string) error {
