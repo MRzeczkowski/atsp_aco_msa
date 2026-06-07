@@ -3204,7 +3204,7 @@ func setDimensionDependantParameters(dimension int, parameters *ExperimentParame
 
 func generateParameters(heuristic string) []ExperimentParameters {
 	parameters := make([]ExperimentParameters, 0)
-	heuristicWeights := []float64{0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0}
+	heuristicWeights := []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0}
 	if heuristic == heuristicBaseline {
 		heuristicWeights = []float64{defaultBaselineHeuristicWeight}
 	}
@@ -3217,12 +3217,7 @@ func generateParameters(heuristic string) []ExperimentParameters {
 		for _, beta := range utilities.GenerateRange(defaultExperimentBeta, defaultExperimentBeta, 1.0) {
 			for _, rho := range utilities.GenerateRange(defaultExperimentRho, defaultExperimentRho, 0.1) {
 				for _, heuristicWeight := range heuristicWeights {
-					currentMsaPatchBiases := msaPatchBiases
-					if heuristicWeight == 0 {
-						currentMsaPatchBiases = []float64{0.0}
-					}
-
-					for _, msaPatchBias := range currentMsaPatchBiases {
+					for _, msaPatchBias := range msaPatchBiases {
 						parameters = append(parameters,
 							ExperimentParameters{
 								alpha:           alpha,

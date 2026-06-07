@@ -2,6 +2,7 @@ package aco
 
 import (
 	"math"
+	"math/rand/v2"
 	"testing"
 )
 
@@ -118,7 +119,7 @@ func TestRunHandlesZeroDistanceHeuristic(t *testing.T) {
 	}
 }
 
-func TestRunAppliesHeuristicModifierMatrix(t *testing.T) {
+func TestRunDoesNotBakeHeuristicModifierIntoVisibility(t *testing.T) {
 	distances := [][]float64{
 		{0, 2, 4},
 		{3, 0, 5},
@@ -130,9 +131,110 @@ func TestRunAppliesHeuristicModifierMatrix(t *testing.T) {
 	aco := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, heuristicModifiers)
 	aco.Run()
 
-	expected := 1.5
+	expected := 0.5
 	if aco.heuristics[0][1] != expected {
-		t.Fatalf("expected modifier to be applied before beta, got %f", aco.heuristics[0][1])
+		t.Fatalf("expected static visibility to use only 1/distance, got %f", aco.heuristics[0][1])
+	}
+}
+
+func TestBuildConstructionHeuristicNeighborsListsUsesBoostedEdges(t *testing.T) {
+	modifiers := [][]float64{
+		{1.0, 1.5, 1.0},
+		{2.2, 1.0, 1.8},
+		{1.0, 1.0, 1.0},
+	}
+
+	neighborsLists, probability := buildConstructionHeuristicNeighborsLists(modifiers)
+
+	if !equalIntSlices(neighborsLists[0], []int{1}) {
+		t.Fatalf("unexpected boosted neighbors for row 0: %v", neighborsLists[0])
+	}
+	if !equalIntSlices(neighborsLists[1], []int{0, 2}) {
+		t.Fatalf("unexpected boosted neighbors for row 1: %v", neighborsLists[1])
+	}
+	if len(neighborsLists[2]) != 0 {
+		t.Fatalf("expected no boosted neighbors for row 2, got %v", neighborsLists[2])
+	}
+	if probability != 1.0 {
+		t.Fatalf("expected initial probability to be clamped to 1, got %f", probability)
+	}
+}
+
+func TestConstructionHeuristicProbabilityDecays(t *testing.T) {
+	aco := &ACO{
+		iterations:                              100,
+		constructionHeuristicInitialProbability: 0.8,
+	}
+
+	aco.currentIteration = 0
+	if probability := aco.constructionHeuristicProbability(); probability != 0.8 {
+		t.Fatalf("expected initial probability 0.8, got %f", probability)
+	}
+
+	aco.currentIteration = 50
+	if probability := aco.constructionHeuristicProbability(); probability != 0.4 {
+		t.Fatalf("expected halfway probability 0.4, got %f", probability)
+	}
+
+	aco.currentIteration = 100
+	if probability := aco.constructionHeuristicProbability(); probability != 0.0 {
+		t.Fatalf("expected final probability 0, got %f", probability)
+	}
+}
+
+func TestSelectNextCityCanUseConstructionHeuristicOutsideDistanceNeighbors(t *testing.T) {
+	aco := &ACO{
+		iterations:                              10,
+		constructionHeuristicInitialProbability: 1.0,
+		neighborsLists: [][]int{
+			{1},
+		},
+		heuristicNeighborsLists: [][]int{
+			{2},
+		},
+		heuristicModifiers: [][]float64{
+			{1.0, 1.0, 2.0, 1.0},
+		},
+		desirabilities: [][]float64{
+			{0.0, 100.0, 1.0, 5.0},
+		},
+		rng: rand.New(rand.NewPCG(1, 2)),
+	}
+	canVisitBits := []float64{0.0, 1.0, 1.0, 1.0}
+	desirabilities := make([]float64, 4)
+
+	nextCity := aco.selectNextCity(0, canVisitBits, desirabilities)
+
+	if nextCity != 2 {
+		t.Fatalf("expected construction heuristic to choose boosted city 2, got %d", nextCity)
+	}
+}
+
+func TestSelectNextCityFallsBackWhenConstructionHeuristicHasNoFeasibleEdge(t *testing.T) {
+	aco := &ACO{
+		iterations:                              10,
+		constructionHeuristicInitialProbability: 1.0,
+		neighborsLists: [][]int{
+			{1},
+		},
+		heuristicNeighborsLists: [][]int{
+			{2},
+		},
+		heuristicModifiers: [][]float64{
+			{1.0, 1.0, 2.0, 1.0},
+		},
+		desirabilities: [][]float64{
+			{0.0, 100.0, 1.0, 5.0},
+		},
+		rng: rand.New(rand.NewPCG(1, 2)),
+	}
+	canVisitBits := []float64{0.0, 1.0, 0.0, 1.0}
+	desirabilities := make([]float64, 4)
+
+	nextCity := aco.selectNextCity(0, canVisitBits, desirabilities)
+
+	if nextCity != 1 {
+		t.Fatalf("expected normal distance-neighbor selection to choose city 1, got %d", nextCity)
 	}
 }
 

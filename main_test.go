@@ -994,31 +994,38 @@ func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
 	}
 
 	msaParameters := generateParameters(heuristicMsaHeuristic)
-	if len(msaParameters) != 11 {
-		t.Fatalf("expected 11 MSA heuristic parameter sets, got %d", len(msaParameters))
+	if len(msaParameters) != 10 {
+		t.Fatalf("expected 10 MSA heuristic parameter sets, got %d", len(msaParameters))
 	}
 	for _, parameters := range msaParameters {
+		if parameters.heuristicWeight == 0 {
+			t.Fatalf("expected MSA heuristic tuning to skip baseline-equivalent zero weight, got %+v", parameters)
+		}
 		if parameters.msaPatchBias != 0 {
 			t.Fatalf("expected MSA patch bias to be zero for non-patching heuristic, got %+v", parameters)
 		}
 	}
 
 	patchingParameters := generateParameters(heuristicCycleCoverMsaPatching)
-	if len(patchingParameters) != 51 {
-		t.Fatalf("expected 51 patching parameter sets, got %d", len(patchingParameters))
+	if len(patchingParameters) != 50 {
+		t.Fatalf("expected 50 patching parameter sets, got %d", len(patchingParameters))
 	}
 
 	zeroWeightCount := 0
+	zeroBiasCount := 0
 	for _, parameters := range patchingParameters {
 		if parameters.heuristicWeight == 0 {
 			zeroWeightCount++
-			if parameters.msaPatchBias != 0 {
-				t.Fatalf("expected zero-weight patching parameter to use zero MSA patch bias, got %+v", parameters)
-			}
+		}
+		if parameters.msaPatchBias == 0 {
+			zeroBiasCount++
 		}
 	}
-	if zeroWeightCount != 1 {
-		t.Fatalf("expected one zero-weight patching parameter set, got %d", zeroWeightCount)
+	if zeroWeightCount != 0 {
+		t.Fatalf("expected patching tuning to skip baseline-equivalent zero weight, got %d", zeroWeightCount)
+	}
+	if zeroBiasCount != 10 {
+		t.Fatalf("expected one pure patching zero-bias row for each nonzero heuristic weight, got %d", zeroBiasCount)
 	}
 
 }
