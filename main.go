@@ -3084,13 +3084,13 @@ func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover 
 	case heuristicBaseline:
 		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
 	case heuristicMsaHeuristic:
-		return heuristics.BuildMsaHeuristicModifiers(msaHeuristic, parameters.heuristicWeight)
+		return heuristics.BuildCostAwareMsaHeuristicModifiers(matrix, msaHeuristic, parameters.heuristicWeight)
 	case heuristicRandomSparse:
 		return heuristics.BuildRandomSparseModifiers(msaHeuristic, parameters.heuristicWeight, parameters.randomSeed)
 	case heuristicDistanceRankedSparse:
 		return heuristics.BuildDistanceRankedSparseModifiers(matrix, msaHeuristic, parameters.heuristicWeight)
 	case heuristicShuffledMsa:
-		return heuristics.BuildShuffledMsaModifiers(msaHeuristic, parameters.heuristicWeight, parameters.randomSeed)
+		return heuristics.BuildShuffledMsaModifiers(matrix, msaHeuristic, parameters.heuristicWeight, parameters.randomSeed)
 	case heuristicCycleCover:
 		return heuristics.BuildCycleCoverModifiers(cycleCover, parameters.heuristicWeight)
 	case heuristicCycleCoverMsaPatching:
@@ -4321,6 +4321,10 @@ func saveMsaImpactReports(atspsData []AtspData) error {
 	if err != nil {
 		return err
 	}
+	distanceRankedCategoryReportPath := filepath.Join(msaImpactControlsDirectoryName, "msa_distance_ranked_edge_categories.md")
+	if err := saveMsaDistanceRankedCategoryReport(distanceRankedCategoryReportPath, atspsData); err != nil {
+		return err
+	}
 
 	if randomSparseControlReportSaved {
 		fmt.Printf("Random sparse control report saved to %s\n", randomSparseControlReportPath)
@@ -4334,6 +4338,7 @@ func saveMsaImpactReports(atspsData []AtspData) error {
 	if weightControlReportSaved {
 		fmt.Printf("MSA weight control summary saved to %s\n", weightControlReportPath)
 	}
+	fmt.Printf("MSA/distance-ranked edge category report saved to %s\n", distanceRankedCategoryReportPath)
 	return nil
 }
 
@@ -4618,6 +4623,222 @@ func summarizeMsaImpactControlWeightRows(rows []msaImpactControlWeightRow) []msa
 	}
 
 	return summaryRows
+}
+
+type msaDistanceRankedCategoryRow struct {
+	instance              string
+	dimension             int
+	foundOptimalTourCount int
+	optimalEdges          int
+
+	bothEdges           int
+	msaOnlyEdges        int
+	distanceOnlyEdges   int
+	neitherEdges        int
+	bothOptimal         int
+	msaOnlyOptimal      int
+	distanceOnlyOptimal int
+	neitherOptimal      int
+}
+
+func saveMsaDistanceRankedCategoryReport(path string, atspsData []AtspData) error {
+	rows, err := buildMsaDistanceRankedCategoryRows(atspsData)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+
+	var builder strings.Builder
+	builder.WriteString("# MSA vs Distance-ranked Edge Categories\n\n")
+	builder.WriteString("This report splits directed edges into four categories: edges boosted by both strict MSA and the distance-ranked sparse control, edges boosted only by strict MSA, edges boosted only by the distance-ranked sparse control, and edges boosted by neither. The distance-ranked set uses the same boosted-edge count as strict MSA and the same deterministic ordering as the control heuristic.\n\n")
+	builder.WriteString("Instances without found optimal tours in `solutions.csv` are omitted, because precision and recall need a reference edge set.\n\n")
+	if len(rows) == 0 {
+		builder.WriteString("No instances with found optimal tours were available.\n")
+		return os.WriteFile(path, []byte(builder.String()), 0644)
+	}
+
+	total := totalMsaDistanceRankedCategoryRow(rows)
+	writeMsaDistanceRankedCategoryFindings(&builder, total, len(rows))
+	builder.WriteString("\n")
+	writeMsaDistanceRankedCategoryPooledTable(&builder, total)
+	builder.WriteString("\n")
+	writeMsaDistanceRankedCategoryInstanceTable(&builder, rows)
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+func buildMsaDistanceRankedCategoryRows(atspsData []AtspData) ([]msaDistanceRankedCategoryRow, error) {
+	rows := make([]msaDistanceRankedCategoryRow, 0, len(atspsData))
+	for _, atspData := range atspsData {
+		tours, err := msaHeuristicTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
+		if err != nil {
+			return nil, fmt.Errorf("%s: read found optimal tours: %w", atspData.name, err)
+		}
+		optimalEdges := buildAnalysisTourEdgeSet(tours)
+		if len(optimalEdges) == 0 {
+			continue
+		}
+
+		msaHeuristicMatrix, err := msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
+		if err != nil {
+			return nil, fmt.Errorf("%s: read MSA heuristic: %w", atspData.name, err)
+		}
+
+		msaEdges := boostedModifierEdgeSet(heuristics.BuildMsaHeuristicModifiers(msaHeuristicMatrix, 1.0))
+		distanceRankedEdges := boostedModifierEdgeSet(heuristics.BuildDistanceRankedSparseModifiers(atspData.matrix, msaHeuristicMatrix, 1.0))
+		rows = append(rows, calculateMsaDistanceRankedCategoryRow(atspData.name, len(atspData.matrix), len(tours), optimalEdges, msaEdges, distanceRankedEdges))
+	}
+
+	sort.SliceStable(rows, func(i, j int) bool {
+		return rows[i].instance < rows[j].instance
+	})
+
+	return rows, nil
+}
+
+func calculateMsaDistanceRankedCategoryRow(instance string, dimension, foundOptimalTourCount int, optimalEdges, msaEdges, distanceRankedEdges map[models.Edge]struct{}) msaDistanceRankedCategoryRow {
+	row := msaDistanceRankedCategoryRow{
+		instance:              instance,
+		dimension:             dimension,
+		foundOptimalTourCount: foundOptimalTourCount,
+		optimalEdges:          len(optimalEdges),
+	}
+
+	for edge := range msaEdges {
+		if _, ok := distanceRankedEdges[edge]; ok {
+			row.bothEdges++
+		} else {
+			row.msaOnlyEdges++
+		}
+	}
+	for edge := range distanceRankedEdges {
+		if _, ok := msaEdges[edge]; !ok {
+			row.distanceOnlyEdges++
+		}
+	}
+
+	totalDirectedEdges := dimension * maxIntValue(dimension-1, 0)
+	row.neitherEdges = totalDirectedEdges - row.bothEdges - row.msaOnlyEdges - row.distanceOnlyEdges
+
+	for edge := range optimalEdges {
+		_, inMsa := msaEdges[edge]
+		_, inDistanceRanked := distanceRankedEdges[edge]
+		switch {
+		case inMsa && inDistanceRanked:
+			row.bothOptimal++
+		case inMsa:
+			row.msaOnlyOptimal++
+		case inDistanceRanked:
+			row.distanceOnlyOptimal++
+		default:
+			row.neitherOptimal++
+		}
+	}
+
+	return row
+}
+
+func boostedModifierEdgeSet(modifiers [][]float64) map[models.Edge]struct{} {
+	edges := make(map[models.Edge]struct{})
+	for from := 0; from < len(modifiers); from++ {
+		for to, value := range modifiers[from] {
+			if from != to && value > 1.0 {
+				edges[models.Edge{From: from, To: to}] = struct{}{}
+			}
+		}
+	}
+
+	return edges
+}
+
+func totalMsaDistanceRankedCategoryRow(rows []msaDistanceRankedCategoryRow) msaDistanceRankedCategoryRow {
+	total := msaDistanceRankedCategoryRow{instance: "Total"}
+	for _, row := range rows {
+		total.foundOptimalTourCount += row.foundOptimalTourCount
+		total.optimalEdges += row.optimalEdges
+		total.bothEdges += row.bothEdges
+		total.msaOnlyEdges += row.msaOnlyEdges
+		total.distanceOnlyEdges += row.distanceOnlyEdges
+		total.neitherEdges += row.neitherEdges
+		total.bothOptimal += row.bothOptimal
+		total.msaOnlyOptimal += row.msaOnlyOptimal
+		total.distanceOnlyOptimal += row.distanceOnlyOptimal
+		total.neitherOptimal += row.neitherOptimal
+	}
+
+	return total
+}
+
+func writeMsaDistanceRankedCategoryFindings(builder *strings.Builder, total msaDistanceRankedCategoryRow, instanceCount int) {
+	msaBoostedEdges := total.bothEdges + total.msaOnlyEdges
+	sharedMsaEdges := ratio(total.bothEdges, msaBoostedEdges)
+	msaOnlyPrecision := ratio(total.msaOnlyOptimal, total.msaOnlyEdges)
+	distanceOnlyPrecision := ratio(total.distanceOnlyOptimal, total.distanceOnlyEdges)
+	msaOnlyRecall := ratio(total.msaOnlyOptimal, total.optimalEdges)
+	distanceOnlyRecall := ratio(total.distanceOnlyOptimal, total.optimalEdges)
+
+	builder.WriteString("## Findings\n\n")
+	fmt.Fprintf(builder, "- **Analyzed %d instances with found optimal tours.**\n", instanceCount)
+	fmt.Fprintf(builder, "- **%.2f%% of strict MSA boosted edges are also distance-ranked sparse edges.**\n", 100*sharedMsaEdges)
+	fmt.Fprintf(builder, "- **MSA-only precision %.2f%% vs distance-only precision %.2f%%.**\n", 100*msaOnlyPrecision, 100*distanceOnlyPrecision)
+	fmt.Fprintf(builder, "- **MSA-only recall %.2f%% vs distance-only recall %.2f%%.**\n", 100*msaOnlyRecall, 100*distanceOnlyRecall)
+	fmt.Fprintf(builder, "- **Found-optimal edge distribution: both %d, MSA-only %d, distance-only %d, neither %d.**\n",
+		total.bothOptimal,
+		total.msaOnlyOptimal,
+		total.distanceOnlyOptimal,
+		total.neitherOptimal)
+}
+
+func writeMsaDistanceRankedCategoryPooledTable(builder *strings.Builder, total msaDistanceRankedCategoryRow) {
+	builder.WriteString("## Pooled Categories\n\n")
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Category</th><th>Edges</th><th>Found-optimal edges</th><th>Precision [%]</th><th>Recall [%]</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	writeMsaDistanceRankedCategoryPooledRow(builder, "Both", total.bothEdges, total.bothOptimal, total.optimalEdges)
+	writeMsaDistanceRankedCategoryPooledRow(builder, "MSA only", total.msaOnlyEdges, total.msaOnlyOptimal, total.optimalEdges)
+	writeMsaDistanceRankedCategoryPooledRow(builder, "Distance-ranked only", total.distanceOnlyEdges, total.distanceOnlyOptimal, total.optimalEdges)
+	writeMsaDistanceRankedCategoryPooledRow(builder, "Neither", total.neitherEdges, total.neitherOptimal, total.optimalEdges)
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+}
+
+func writeMsaDistanceRankedCategoryPooledRow(builder *strings.Builder, category string, edgeCount, optimalEdgeCount, totalOptimalEdges int) {
+	fmt.Fprintf(builder,
+		"<tr><td>%s</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
+		html.EscapeString(category),
+		edgeCount,
+		optimalEdgeCount,
+		100*ratio(optimalEdgeCount, edgeCount),
+		100*ratio(optimalEdgeCount, totalOptimalEdges))
+}
+
+func writeMsaDistanceRankedCategoryInstanceTable(builder *strings.Builder, rows []msaDistanceRankedCategoryRow) {
+	builder.WriteString("## Per-instance Counts\n\n")
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th>Instance</th><th>n</th><th>Optimal edges</th><th>Both edges</th><th>MSA-only edges</th><th>Distance-only edges</th><th>Optimal both</th><th>Optimal MSA-only</th><th>Optimal distance-only</th><th>Optimal neither</th></tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	for _, row := range rows {
+		fmt.Fprintf(builder,
+			"<tr><td>%s</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td></tr>\n",
+			html.EscapeString(row.instance),
+			row.dimension,
+			row.optimalEdges,
+			row.bothEdges,
+			row.msaOnlyEdges,
+			row.distanceOnlyEdges,
+			row.bothOptimal,
+			row.msaOnlyOptimal,
+			row.distanceOnlyOptimal,
+			row.neitherOptimal)
+	}
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
 }
 
 func saveMsaImpactSummary(path string, atspsData []AtspData) error {

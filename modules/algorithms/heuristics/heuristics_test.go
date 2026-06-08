@@ -43,6 +43,60 @@ func TestBuildMsaHeuristicModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *tes
 	}
 }
 
+func TestBuildCostAwareMsaHeuristicModifiersScalesStrictMsaEdgesByOutgoingDistanceRank(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 3, 6},
+		{6, 0, 3, 1},
+		{1, 2, 0, 3},
+		{2, 3, 4, 0},
+	}
+	msaHeuristic := [][]float64{
+		{0, 3, 3, 0},
+		{0, 0, 3, 1},
+		{1, 0, 0, 2},
+		{0, 0, 0, 0},
+	}
+
+	modifiers := BuildCostAwareMsaHeuristicModifiers(matrix, msaHeuristic, 0.6)
+	expected := [][]float64{
+		{1, 1.6, 1.4, 1},
+		{1, 1, 1.4, 1},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected cost-aware MSA heuristic modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildCostAwareMsaHeuristicModifiersKeepsZeroAndTiedDistancesStrong(t *testing.T) {
+	matrix := [][]float64{
+		{0, 0, 0, 5},
+		{2, 0, 2, 2},
+		{1, 3, 0, 4},
+		{1, 2, 3, 0},
+	}
+	msaHeuristic := [][]float64{
+		{0, 3, 3, 3},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+		{0, 0, 0, 0},
+	}
+
+	modifiers := BuildCostAwareMsaHeuristicModifiers(matrix, msaHeuristic, 0.3)
+	expected := [][]float64{
+		{1, 1.3, 1.3, 1.1},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1},
+		{1, 1, 1, 1},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected cost-aware MSA heuristic modifiers for ties\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
 func TestBuildRandomSparseModifiersBoostsSameNumberOfEdgesAsMsaHeuristic(t *testing.T) {
 	msaHeuristic := [][]float64{
 		{0, 4, 3, 0, 0},
@@ -106,6 +160,13 @@ func TestBuildRandomSparseModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *tes
 }
 
 func TestBuildShuffledMsaModifiersPreservesBoostedEdgeCount(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 2, 3, 4},
+		{1, 0, 2, 3, 4},
+		{1, 2, 0, 3, 4},
+		{1, 2, 3, 0, 4},
+		{1, 2, 3, 4, 0},
+	}
 	msaHeuristic := [][]float64{
 		{0, 4, 3, 0, 0},
 		{0, 0, 4, 1, 0},
@@ -114,8 +175,8 @@ func TestBuildShuffledMsaModifiersPreservesBoostedEdgeCount(t *testing.T) {
 		{4, 0, 0, 0, 0},
 	}
 
-	msaModifiers := BuildMsaHeuristicModifiers(msaHeuristic, 0.9)
-	shuffledModifiers := BuildShuffledMsaModifiers(msaHeuristic, 0.9, 17)
+	msaModifiers := BuildCostAwareMsaHeuristicModifiers(matrix, msaHeuristic, 0.9)
+	shuffledModifiers := BuildShuffledMsaModifiers(matrix, msaHeuristic, 0.9, 17)
 
 	expectedBoostedEdges := boostedModifierEdgeCount(msaModifiers)
 	actualBoostedEdges := boostedModifierEdgeCount(shuffledModifiers)
@@ -128,7 +189,7 @@ func TestBuildShuffledMsaModifiersPreservesBoostedEdgeCount(t *testing.T) {
 			t.Fatalf("shuffled MSA modifier boosted self-loop %d/%d", i, i)
 		}
 		for j := range shuffledModifiers[i] {
-			if shuffledModifiers[i][j] != 1.0 && shuffledModifiers[i][j] != 1.9 {
+			if shuffledModifiers[i][j] < 1.0 || shuffledModifiers[i][j] > 1.9 {
 				t.Fatalf("unexpected modifier at %d/%d: %f", i, j, shuffledModifiers[i][j])
 			}
 		}
@@ -136,6 +197,13 @@ func TestBuildShuffledMsaModifiersPreservesBoostedEdgeCount(t *testing.T) {
 }
 
 func TestBuildShuffledMsaModifiersIsDeterministicForSeed(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 2, 3, 4},
+		{1, 0, 2, 3, 4},
+		{1, 2, 0, 3, 4},
+		{1, 2, 3, 0, 4},
+		{1, 2, 3, 4, 0},
+	}
 	msaHeuristic := [][]float64{
 		{0, 4, 3, 0, 0},
 		{0, 0, 4, 1, 0},
@@ -144,8 +212,8 @@ func TestBuildShuffledMsaModifiersIsDeterministicForSeed(t *testing.T) {
 		{4, 0, 0, 0, 0},
 	}
 
-	first := BuildShuffledMsaModifiers(msaHeuristic, 0.5, 42)
-	second := BuildShuffledMsaModifiers(msaHeuristic, 0.5, 42)
+	first := BuildShuffledMsaModifiers(matrix, msaHeuristic, 0.5, 42)
+	second := BuildShuffledMsaModifiers(matrix, msaHeuristic, 0.5, 42)
 
 	if !reflect.DeepEqual(first, second) {
 		t.Fatalf("expected deterministic shuffled MSA modifiers\nfirst:  %v\nsecond: %v", first, second)
@@ -153,13 +221,18 @@ func TestBuildShuffledMsaModifiersIsDeterministicForSeed(t *testing.T) {
 }
 
 func TestBuildShuffledMsaModifiersReturnsNeutralMatrixWhenStrengthIsZero(t *testing.T) {
+	matrix := [][]float64{
+		{0, 1, 2},
+		{1, 0, 2},
+		{1, 2, 0},
+	}
 	msaHeuristic := [][]float64{
 		{0, 2, 0},
 		{0, 0, 2},
 		{2, 0, 0},
 	}
 
-	modifiers := BuildShuffledMsaModifiers(msaHeuristic, 0, 1)
+	modifiers := BuildShuffledMsaModifiers(matrix, msaHeuristic, 0, 1)
 	expected := BuildNeutralModifiers(3)
 
 	if !reflect.DeepEqual(modifiers, expected) {

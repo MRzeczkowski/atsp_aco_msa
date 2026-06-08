@@ -482,6 +482,43 @@ func TestSaveMsaImpactControlWeightSummaryReportsPValuePerWeight(t *testing.T) {
 	assertContains(t, content, "<tr><td align=\"right\">0.80</td><td align=\"right\">2</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">0</td><td align=\"right\">1.000000")
 }
 
+func TestSaveMsaDistanceRankedCategoryReportComparesEdgeCategories(t *testing.T) {
+	root := t.TempDir()
+	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{
+		{0, 1, 2, 100},
+		{100, 0, 50, 100},
+		{100, 100, 0, 60},
+		{3, 100, 100, 0},
+	}, 10, filepath.Join(root, "results"))
+	atspData.msaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
+	atspData.optimalUniqueToursCsvPath = filepath.Join(root, "solutions", "sample", "solutions.csv")
+
+	writeTestMsaHeuristicMatrix(t, atspData.msaHeuristicDirectoryPath, [][]float64{
+		{0, 3, 0, 0},
+		{0, 0, 3, 0},
+		{0, 0, 0, 3},
+		{0, 0, 0, 0},
+	})
+	writeTestOptimalToursCsv(t, atspData.optimalUniqueToursCsvPath, []string{"[0,1,2,3]"})
+
+	reportPath := filepath.Join(root, "msa_distance_ranked_edge_categories.md")
+	if err := saveMsaDistanceRankedCategoryReport(reportPath, []AtspData{atspData}); err != nil {
+		t.Fatalf("saveMsaDistanceRankedCategoryReport returned unexpected error: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatalf("failed to read MSA distance-ranked category report: %v", err)
+	}
+	content := string(contentBytes)
+	assertContains(t, content, "# MSA vs Distance-ranked Edge Categories")
+	assertContains(t, content, "MSA-only precision 100.00% vs distance-only precision 50.00%.")
+	assertContains(t, content, "MSA-only recall 50.00% vs distance-only recall 25.00%.")
+	assertContains(t, content, "<tr><td>Both</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">100.00</td><td align=\"right\">25.00</td></tr>")
+	assertContains(t, content, "<tr><td>MSA only</td><td align=\"right\">2</td><td align=\"right\">2</td><td align=\"right\">100.00</td><td align=\"right\">50.00</td></tr>")
+	assertContains(t, content, "<tr><td>Distance-ranked only</td><td align=\"right\">2</td><td align=\"right\">1</td><td align=\"right\">50.00</td><td align=\"right\">25.00</td></tr>")
+}
+
 func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "result.csv")
 	rows := []HeuristicExperimentStatistics{
@@ -2132,6 +2169,22 @@ func makeTestSeededExperimentStatistics(heuristicWeight float64, randomSeed int6
 	statistics := makeTestExperimentStatistics(heuristicWeight, averageBestDeviation, successRate)
 	statistics.randomSeed = randomSeed
 	return statistics
+}
+
+func writeTestOptimalToursCsv(t *testing.T, path string, tours []string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatalf("failed to create optimal tours directory: %v", err)
+	}
+
+	lines := []string{"Tour"}
+	for _, tour := range tours {
+		lines = append(lines, strconv.Quote(tour))
+	}
+	content := strings.Join(lines, "\n") + "\n"
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write optimal tours CSV: %v", err)
+	}
 }
 
 func writeTestMsaHeuristicMatrix(t *testing.T, rootPath string, matrix [][]float64) {
