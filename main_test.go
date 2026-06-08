@@ -154,6 +154,7 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 
 	if err := saveHeuristicStatistics(finalFirst.resultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 10.0)},
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first final MSA result: %v", err)
 	}
@@ -165,6 +166,7 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 
 	if err := saveHeuristicStatistics(finalSecond.resultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0)},
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second final MSA result: %v", err)
 	}
@@ -315,12 +317,14 @@ func TestSaveMsaImpactSummaryComparesMsaAgainstBaseline(t *testing.T) {
 	if err := saveHeuristicStatistics(impactFirst.resultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicBaseline, statistics: makeTestExperimentStatistics(defaultBaselineHeuristicWeight, 5.0, 10.0)},
 		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 3.0, 20.0)},
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(0.8, 4.0, 0.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first impact result: %v", err)
 	}
 	if err := saveHeuristicStatistics(impactSecond.resultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicBaseline, statistics: makeTestExperimentStatistics(defaultBaselineHeuristicWeight, 2.0, 30.0)},
 		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 10.0)},
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(0.2, 1.0, 50.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second impact result: %v", err)
 	}
@@ -336,10 +340,11 @@ func TestSaveMsaImpactSummaryComparesMsaAgainstBaseline(t *testing.T) {
 	}
 	content := string(contentBytes)
 	assertContains(t, content, "# MSA Impact Summary")
-	assertContains(t, content, "MSA improved average best deviation in 1/2 instances, tied in 0, and was worse in 1.")
-	assertContains(t, content, "Mean average best deviation: baseline 3.50%, MSA 3.50%, delta +0.00 pp.")
-	assertContains(t, content, "<tr><td>sample-a</td><td align=\"right\">5.00</td><td align=\"right\">3.00</td><td align=\"right\">-2.00</td><td align=\"right\">10.00</td><td align=\"right\">20.00</td></tr>")
-	assertContains(t, content, "<tr><td>sample-b</td><td align=\"right\">2.00</td><td align=\"right\">4.00</td><td align=\"right\">+2.00</td><td align=\"right\">30.00</td><td align=\"right\">10.00</td></tr>")
+	assertContains(t, content, "MSA improved average best deviation in 2/2 instances, tied in 0, and was worse in 0.")
+	assertContains(t, content, "Mean average best deviation: baseline 3.50%, MSA 2.00%, delta -1.50 pp.")
+	assertContains(t, content, "Best MSA weights: 0.20 (1), 0.40 (1).")
+	assertContains(t, content, "<tr><td>sample-a</td><td align=\"right\">5.00</td><td align=\"right\">3.00</td><td align=\"right\">0.40</td><td align=\"right\">-2.00</td><td align=\"right\">10.00</td><td align=\"right\">20.00</td></tr>")
+	assertContains(t, content, "<tr><td>sample-b</td><td align=\"right\">2.00</td><td align=\"right\">1.00</td><td align=\"right\">0.20</td><td align=\"right\">-1.00</td><td align=\"right\">30.00</td><td align=\"right\">50.00</td></tr>")
 }
 
 func TestSaveMsaImpactStructureReportCombinesStructureWithPerformance(t *testing.T) {
@@ -408,6 +413,73 @@ func TestSaveMsaImpactStructureReportCombinesStructureWithPerformance(t *testing
 	assertContains(t, content, "Average missing endpoints: improved cases 4.00, tied/worse cases 0.00.")
 	assertContains(t, content, "<tr><td>sample-a</td><td align=\"right\">4</td><td align=\"right\">2</td><td align=\"right\">0.67</td><td align=\"right\">2</td><td align=\"right\">2</td><td align=\"right\">-2.00</td><td align=\"right\">+10.00</td></tr>")
 	assertContains(t, content, "<tr><td>sample-b</td><td align=\"right\">3</td><td align=\"right\">3</td><td align=\"right\">1.50</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">+2.00</td><td align=\"right\">-20.00</td></tr>")
+}
+
+func TestSaveMsaImpactControlWeightSummaryReportsPValuePerWeight(t *testing.T) {
+	originalMsaImpactResultsDirectoryName := msaImpactResultsDirectoryName
+	originalMsaImpactControlsDirectoryName := msaImpactControlsDirectoryName
+	root := t.TempDir()
+	msaImpactResultsDirectoryName = filepath.Join(root, "results")
+	msaImpactControlsDirectoryName = filepath.Join(root, "controls")
+	t.Cleanup(func() {
+		msaImpactResultsDirectoryName = originalMsaImpactResultsDirectoryName
+		msaImpactControlsDirectoryName = originalMsaImpactControlsDirectoryName
+	})
+
+	sourceRoot := filepath.Join(t.TempDir(), "source")
+	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	impactFirst := withExperimentOutputRoot(first, msaImpactResultsDirectoryName)
+	impactSecond := withExperimentOutputRoot(second, msaImpactResultsDirectoryName)
+	controlFirst := withExperimentOutputRoot(first, msaImpactControlsDirectoryName)
+	controlSecond := withExperimentOutputRoot(second, msaImpactControlsDirectoryName)
+
+	if err := saveHeuristicStatistics(impactFirst.resultFilePath, []HeuristicExperimentStatistics{
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(0.4, 2.0, 10.0)},
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(0.8, 5.0, 0.0)},
+	}); err != nil {
+		t.Fatalf("failed to write first MSA impact result: %v", err)
+	}
+	if err := saveHeuristicStatistics(impactSecond.resultFilePath, []HeuristicExperimentStatistics{
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(0.4, 1.0, 20.0)},
+		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(0.8, 1.0, 30.0)},
+	}); err != nil {
+		t.Fatalf("failed to write second MSA impact result: %v", err)
+	}
+
+	writeTestControlStatisticsForWeightSummary(t, controlFirst, heuristicRandomSparse)
+	writeTestControlStatisticsForWeightSummary(t, controlSecond, heuristicRandomSparse)
+	writeTestControlStatisticsForWeightSummary(t, controlFirst, heuristicShuffledMsa)
+	writeTestControlStatisticsForWeightSummary(t, controlSecond, heuristicShuffledMsa)
+	saveStatistics(resultFilePathForHeuristic(controlFirst, heuristicDistanceRankedSparse), heuristicDistanceRankedSparse, []ExperimentsDataStatistics{
+		makeTestExperimentStatistics(0.4, 4.0, 0.0),
+		makeTestExperimentStatistics(0.8, 3.0, 0.0),
+	})
+	saveStatistics(resultFilePathForHeuristic(controlSecond, heuristicDistanceRankedSparse), heuristicDistanceRankedSparse, []ExperimentsDataStatistics{
+		makeTestExperimentStatistics(0.4, 2.0, 0.0),
+		makeTestExperimentStatistics(0.8, 4.0, 0.0),
+	})
+
+	reportPath := filepath.Join(msaImpactControlsDirectoryName, "msa_weight_control_summary.md")
+	saved, err := saveMsaImpactControlWeightSummary(reportPath, []AtspData{second, first})
+	if err != nil {
+		t.Fatalf("saveMsaImpactControlWeightSummary returned unexpected error: %v", err)
+	}
+	if !saved {
+		t.Fatal("expected MSA impact control weight summary to be saved")
+	}
+
+	contentBytes, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatalf("failed to read MSA impact control weight summary: %v", err)
+	}
+	content := string(contentBytes)
+	assertContains(t, content, "# MSA Weight Control Summary")
+	assertContains(t, content, "## Random Sparse")
+	assertContains(t, content, "## Distance-ranked Sparse")
+	assertContains(t, content, "## Shuffled MSA")
+	assertContains(t, content, "<tr><td align=\"right\">0.40</td><td align=\"right\">2</td><td align=\"right\">2</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">0.500000")
+	assertContains(t, content, "<tr><td align=\"right\">0.80</td><td align=\"right\">2</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">0</td><td align=\"right\">1.000000")
 }
 
 func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
@@ -1259,6 +1331,57 @@ func TestSelectFinalExperimentConfigurations(t *testing.T) {
 	}
 }
 
+func TestMsaImpactExperimentConfigurationsSweepMsaHeuristicWeights(t *testing.T) {
+	configurations := msaImpactExperimentConfigurations()
+	if len(configurations) != 2 {
+		t.Fatalf("expected baseline and MSA impact configurations, got %+v", configurations)
+	}
+
+	msaConfiguration := configurations[1]
+	if msaConfiguration.heuristic != heuristicMsaHeuristic {
+		t.Fatalf("expected second configuration to be MSA heuristic, got %+v", msaConfiguration)
+	}
+	if !msaConfiguration.saveAllParameterRows {
+		t.Fatal("MSA impact should save every swept parameter row")
+	}
+	if len(msaConfiguration.parameters) != len(msaImpactHeuristicWeights) {
+		t.Fatalf("expected %d MSA impact weights, got %d", len(msaImpactHeuristicWeights), len(msaConfiguration.parameters))
+	}
+	for i, expectedWeight := range msaImpactHeuristicWeights {
+		if msaConfiguration.parameters[i].heuristicWeight != expectedWeight {
+			t.Fatalf("unexpected MSA impact weight at %d: want %.2f got %.2f", i, expectedWeight, msaConfiguration.parameters[i].heuristicWeight)
+		}
+	}
+}
+
+func TestMsaImpactControlExperimentConfigurationsSweepControlWeights(t *testing.T) {
+	configurations := msaImpactControlExperimentConfigurations()
+	if len(configurations) != 3 {
+		t.Fatalf("expected three MSA impact control configurations, got %+v", configurations)
+	}
+
+	expectedSeededCount := len(msaImpactHeuristicWeights) * len(randomSparseSeeds)
+	if configurations[0].heuristic != heuristicRandomSparse || len(configurations[0].parameters) != expectedSeededCount {
+		t.Fatalf("unexpected random-sparse MSA impact control configuration: %+v", configurations[0])
+	}
+	if configurations[1].heuristic != heuristicDistanceRankedSparse || len(configurations[1].parameters) != len(msaImpactHeuristicWeights) {
+		t.Fatalf("unexpected distance-ranked MSA impact control configuration: %+v", configurations[1])
+	}
+	expectedShuffledCount := len(msaImpactHeuristicWeights) * len(shuffledMsaSeeds)
+	if configurations[2].heuristic != heuristicShuffledMsa || len(configurations[2].parameters) != expectedShuffledCount {
+		t.Fatalf("unexpected shuffled-MSA impact control configuration: %+v", configurations[2])
+	}
+
+	firstRandomParameter := configurations[0].parameters[0]
+	if firstRandomParameter.heuristicWeight != msaImpactHeuristicWeights[0] || firstRandomParameter.randomSeed != randomSparseSeeds[0] {
+		t.Fatalf("unexpected first random-sparse parameter: %+v", firstRandomParameter)
+	}
+	lastRandomParameter := configurations[0].parameters[len(configurations[0].parameters)-1]
+	if lastRandomParameter.heuristicWeight != msaImpactHeuristicWeights[len(msaImpactHeuristicWeights)-1] || lastRandomParameter.randomSeed != randomSparseSeeds[len(randomSparseSeeds)-1] {
+		t.Fatalf("unexpected last random-sparse parameter: %+v", lastRandomParameter)
+	}
+}
+
 func TestFinalExperimentOutputRootUsesControlsSubdirectoryForSparseControls(t *testing.T) {
 	mainConfigurations, err := selectFinalExperimentConfigurations(finalHeuristicAll)
 	if err != nil {
@@ -1979,6 +2102,34 @@ func makeTestExperimentStatistics(heuristicWeight, averageBestDeviation, success
 
 func makeTestRandomSparseExperimentStatistics(randomSeed int64, averageBestDeviation, successRate float64) ExperimentsDataStatistics {
 	statistics := makeTestExperimentStatistics(finalMsaHeuristicWeight, averageBestDeviation, successRate)
+	statistics.randomSeed = randomSeed
+	return statistics
+}
+
+func writeTestControlStatisticsForWeightSummary(t *testing.T, atspData AtspData, heuristic string) {
+	t.Helper()
+
+	firstInstance := strings.Contains(atspData.name, "sample-a")
+	statistics := []ExperimentsDataStatistics{
+		makeTestSeededExperimentStatistics(0.4, 1, 4.0, 0.0),
+		makeTestSeededExperimentStatistics(0.4, 2, 4.0, 0.0),
+		makeTestSeededExperimentStatistics(0.8, 1, 3.0, 0.0),
+		makeTestSeededExperimentStatistics(0.8, 2, 3.0, 0.0),
+	}
+	if !firstInstance {
+		statistics = []ExperimentsDataStatistics{
+			makeTestSeededExperimentStatistics(0.4, 1, 2.0, 0.0),
+			makeTestSeededExperimentStatistics(0.4, 2, 2.0, 0.0),
+			makeTestSeededExperimentStatistics(0.8, 1, 4.0, 0.0),
+			makeTestSeededExperimentStatistics(0.8, 2, 4.0, 0.0),
+		}
+	}
+
+	saveStatistics(resultFilePathForHeuristic(atspData, heuristic), heuristic, statistics)
+}
+
+func makeTestSeededExperimentStatistics(heuristicWeight float64, randomSeed int64, averageBestDeviation, successRate float64) ExperimentsDataStatistics {
+	statistics := makeTestExperimentStatistics(heuristicWeight, averageBestDeviation, successRate)
 	statistics.randomSeed = randomSeed
 	return statistics
 }
