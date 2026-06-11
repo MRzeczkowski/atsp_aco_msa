@@ -92,6 +92,7 @@ const (
 	runModeAll        = "all"
 	runModeFinal      = "final"
 	runModeFinal3Opt  = "final+3opt"
+	runModeRebuildMsa = "rebuild-msa"
 	// Temporary prototype mode for fast MSA impact experiments. Remove after MSA integration is settled.
 	runModeMsaImpact = "msa-impact"
 )
@@ -3621,7 +3622,7 @@ func selectConfiguredAtspFiles(atspFilePaths, configuredFiles []string) ([]strin
 }
 
 func isValidRunMode(mode string) bool {
-	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeFinal || mode == runModeFinal3Opt || mode == runModeMsaImpact
+	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeFinal || mode == runModeFinal3Opt || mode == runModeRebuildMsa || mode == runModeMsaImpact
 }
 
 func isValidHeuristic(heuristic string) bool {
@@ -3725,6 +3726,10 @@ func shouldRunMsaImpact(mode string) bool {
 	return mode == runModeMsaImpact
 }
 
+func shouldRunMsaRebuild(mode string) bool {
+	return mode == runModeRebuildMsa
+}
+
 func finalExperimentOutputRoot(mode string) string {
 	if mode == runModeFinal3Opt {
 		return finalThreeOptResultsDirectoryName
@@ -3775,6 +3780,9 @@ func selectedInstanceSetForMode(mode, requestedInstanceSet string, instanceSetEx
 	if shouldRunMsaImpact(mode) && !instanceSetExplicit {
 		return instanceSetMsaImpact
 	}
+	if shouldRunMsaRebuild(mode) && !instanceSetExplicit {
+		return instanceSetAllKnown
+	}
 
 	return requestedInstanceSet
 }
@@ -3805,7 +3813,7 @@ func configureWorkerCount(requestedWorkers int) (int, error) {
 
 func main() {
 	instances := flag.String("instances", instanceSetTuning, "ATSP instance set to run: smoke, msa-impact, tuning, evaluation, or all-known")
-	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, final+3opt, or msa-impact")
+	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, final+3opt, rebuild-msa, or msa-impact")
 	analysisScope := flag.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all, tuning, or gks-deviation")
 	heuristic := flag.String("heuristic", "", "ACO heuristic modifier to use in experiment mode: omit or use all to run all; otherwise baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
 	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, controls, baseline, msa-heuristic, random-sparse, distance-ranked-sparse, shuffled-msa, cycle-cover, or cycle-cover-msa-patching")
@@ -3832,7 +3840,7 @@ func main() {
 	selectedFinalHeuristic := *finalHeuristic
 
 	if !isValidRunMode(*mode) {
-		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal, runModeFinal3Opt, runModeMsaImpact)
+		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal, runModeFinal3Opt, runModeRebuildMsa, runModeMsaImpact)
 		return
 	}
 
@@ -3865,6 +3873,22 @@ func main() {
 		return
 	}
 	fmt.Printf("Selected %d ATSP instance(s) with -instances=%s\n", len(atspsData), selectedInstances)
+
+	if shouldRunMsaRebuild(*mode) {
+		stopProfiling, err := startCPUProfile(*cpuProfilePath)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		err = runRebuildMsaMode(atspsData, effectiveWorkers)
+		stopProfiling()
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		return
+	}
 
 	if shouldRunMsaImpact(*mode) {
 		stopProfiling, err := startCPUProfile(*cpuProfilePath)
@@ -5281,6 +5305,29 @@ func readMsaHeuristicMatrixForHeuristic(atspData AtspData, heuristic string) ([]
 	return msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
 }
 
+func runRebuildMsaMode(atspsData []AtspData, workers int) error {
+	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
+		start := time.Now()
+		fmt.Printf("[%s][%s] Rebuilding MSA artifacts in %s\n", logTimestamp(start), atspData.name, atspData.msaHeuristicDirectoryPath)
+
+		if err := os.RemoveAll(atspData.msaHeuristicDirectoryPath); err != nil {
+			return fmt.Errorf("%s: remove MSA artifacts: %w", atspData.name, err)
+		}
+
+		msaHeuristicMatrix, err := msaHeuristic.Create(atspData.matrix, atspData.msaHeuristicDirectoryPath)
+		if err != nil {
+			return fmt.Errorf("%s: create MSA artifacts: %w", atspData.name, err)
+		}
+
+		if err := saveMsaHeuristicPlots(atspData, msaHeuristicMatrix); err != nil {
+			return fmt.Errorf("%s: save MSA plots: %w", atspData.name, err)
+		}
+
+		fmt.Printf("[%s][%s] Rebuilt MSA artifacts in %s\n", logTimestamp(time.Now()), atspData.name, time.Since(start).Round(time.Millisecond))
+		return nil
+	})
+}
+
 func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int) error {
 	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
 		name := atspData.name
@@ -5301,23 +5348,20 @@ func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int) error {
 			}
 		}
 
-		msaHeuristicHeatmapPlotTitle := name + " MSA heuristic heatmap"
-
-		err = utilities.SaveHeatmapFromMatrix(msaHeuristicMatrix, msaHeuristicHeatmapPlotTitle, atspData.msaHeuristicHeatmapPlotPath)
-		if err != nil {
-			return err
-		}
-
-		dataForHistogram := filterZeroes(flattenMatrix(msaHeuristicMatrix))
-		msaHeuristicHistogramPlotTitle := name + " MSA heuristic histogram"
-
-		dimension := len(matrix)
-		err = utilities.SaveHistogramFromData(dataForHistogram, dimension-1, msaHeuristicHistogramPlotTitle, atspData.msaHeuristicHistogramPlotPath)
-		if err != nil {
-			return err
-		}
-		return nil
+		return saveMsaHeuristicPlots(atspData, msaHeuristicMatrix)
 	})
+}
+
+func saveMsaHeuristicPlots(atspData AtspData, msaHeuristicMatrix [][]float64) error {
+	msaHeuristicHeatmapPlotTitle := atspData.name + " MSA heuristic heatmap"
+	if err := utilities.SaveHeatmapFromMatrix(msaHeuristicMatrix, msaHeuristicHeatmapPlotTitle, atspData.msaHeuristicHeatmapPlotPath); err != nil {
+		return err
+	}
+
+	dataForHistogram := filterZeroes(flattenMatrix(msaHeuristicMatrix))
+	msaHeuristicHistogramPlotTitle := atspData.name + " MSA heuristic histogram"
+	dimension := len(atspData.matrix)
+	return utilities.SaveHistogramFromData(dataForHistogram, dimension-1, msaHeuristicHistogramPlotTitle, atspData.msaHeuristicHistogramPlotPath)
 }
 
 func ensureMsaHeuristicCache(atspsData []AtspData, workers int) error {

@@ -88,9 +88,15 @@ func SaveHistogramFromData(data []float64, bins int, plotTitle, plotPath string)
 		return err
 	}
 
+	actualBins := len(hist.Bins)
+	if actualBins == 0 {
+		histogramPlot.Add(hist)
+		return savePlotWithPadding(histogramPlot, plotWidth, plotHeight, plotPath)
+	}
+
 	firstBin := hist.Bins[0]
-	middleBin := hist.Bins[bins/2]
-	lastBin := hist.Bins[bins-1]
+	middleBin := hist.Bins[actualBins/2]
+	lastBin := hist.Bins[actualBins-1]
 
 	histogramPlot.X.Tick.Marker = plot.TickerFunc(func(min, max float64) []plot.Tick {
 		var ticks []plot.Tick

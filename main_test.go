@@ -1545,6 +1545,9 @@ func TestFinalModeAndBaselineHeuristicAreValid(t *testing.T) {
 	if !isValidRunMode(runModeFinal3Opt) {
 		t.Fatal("final+3opt run mode should be valid")
 	}
+	if !isValidRunMode(runModeRebuildMsa) {
+		t.Fatal("rebuild-msa run mode should be valid")
+	}
 	if !isValidRunMode(runModeMsaImpact) {
 		t.Fatal("MSA impact run mode should be valid")
 	}
@@ -1776,6 +1779,47 @@ func TestRunBoundedInstanceJobsHandlesEmptyInput(t *testing.T) {
 	}
 }
 
+func TestRunRebuildMsaModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T) {
+	root := t.TempDir()
+	matrix := [][]float64{
+		{0, 1, 5, 2},
+		{4, 0, 1, 3},
+		{2, 4, 0, 1},
+		{1, 2, 4, 0},
+	}
+	atspData := makeAtspDataInResultsDirectory("sample.atsp", matrix, 0, filepath.Join(root, "results"))
+	atspData.msaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
+	atspData.msaHeuristicHeatmapPlotPath = filepath.Join(atspData.msaHeuristicDirectoryPath, "plots", "msa_heuristic_heatmap.png")
+	atspData.msaHeuristicHistogramPlotPath = filepath.Join(atspData.msaHeuristicDirectoryPath, "plots", "msa_heuristic_histogram.png")
+
+	stalePath := filepath.Join(atspData.msaHeuristicDirectoryPath, "stale.txt")
+	if err := os.MkdirAll(atspData.msaHeuristicDirectoryPath, 0700); err != nil {
+		t.Fatalf("failed to create stale MSA directory: %v", err)
+	}
+	if err := os.WriteFile(stalePath, []byte("stale"), 0644); err != nil {
+		t.Fatalf("failed to write stale file: %v", err)
+	}
+
+	if err := runRebuildMsaMode([]AtspData{atspData}, 1); err != nil {
+		t.Fatalf("runRebuildMsaMode returned unexpected error: %v", err)
+	}
+
+	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
+		t.Fatalf("expected stale file to be removed, stat error: %v", err)
+	}
+	assertPathExists(t, filepath.Join(atspData.msaHeuristicDirectoryPath, "msa_heuristic.csv"))
+	assertPathExists(t, atspData.msaHeuristicHeatmapPlotPath)
+	assertPathExists(t, atspData.msaHeuristicHistogramPlotPath)
+
+	rootMsaFiles, err := filepath.Glob(filepath.Join(atspData.msaHeuristicDirectoryPath, "msas", "*.csv"))
+	if err != nil {
+		t.Fatalf("failed to glob root MSA files: %v", err)
+	}
+	if len(rootMsaFiles) != len(matrix) {
+		t.Fatalf("expected %d root MSA files, got %d", len(matrix), len(rootMsaFiles))
+	}
+}
+
 func TestStartCPUProfileIsOptional(t *testing.T) {
 	stopProfiling, err := startCPUProfile("")
 	if err != nil {
@@ -1974,11 +2018,17 @@ func TestSelectedInstanceSetForMode(t *testing.T) {
 	if selected := selectedInstanceSetForMode(runModeMsaImpact, instanceSetTuning, false); selected != instanceSetMsaImpact {
 		t.Fatalf("MSA impact mode without explicit instances should default to %s, got %s", instanceSetMsaImpact, selected)
 	}
+	if selected := selectedInstanceSetForMode(runModeRebuildMsa, instanceSetTuning, false); selected != instanceSetAllKnown {
+		t.Fatalf("rebuild-msa mode without explicit instances should default to %s, got %s", instanceSetAllKnown, selected)
+	}
 	if selected := selectedInstanceSetForMode(runModeFinal, instanceSetTuning, true); selected != instanceSetTuning {
 		t.Fatalf("final mode should respect explicit instances, got %s", selected)
 	}
 	if selected := selectedInstanceSetForMode(runModeMsaImpact, instanceSetTuning, true); selected != instanceSetTuning {
 		t.Fatalf("MSA impact mode should respect explicit instances, got %s", selected)
+	}
+	if selected := selectedInstanceSetForMode(runModeRebuildMsa, instanceSetTuning, true); selected != instanceSetTuning {
+		t.Fatalf("rebuild-msa mode should respect explicit instances, got %s", selected)
 	}
 	if selected := selectedInstanceSetForMode(runModeExperiment, instanceSetTuning, false); selected != instanceSetTuning {
 		t.Fatalf("experiment mode should keep requested instances, got %s", selected)
@@ -2212,5 +2262,12 @@ func assertContains(t *testing.T, content, expected string) {
 	t.Helper()
 	if !strings.Contains(content, expected) {
 		t.Fatalf("expected content to contain:\n%s\n\ncontent:\n%s", expected, content)
+	}
+}
+
+func assertPathExists(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("expected %s to exist: %v", path, err)
 	}
 }
