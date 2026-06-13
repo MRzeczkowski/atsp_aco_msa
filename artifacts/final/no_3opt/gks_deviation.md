@@ -13,14 +13,14 @@ This table runs the cycle-cover patching heuristic directly, without MMAS. `MSA 
 <tr><td>atex1</td><td align="right">0.75</td><td align="right">2216.00</td><td align="right"><strong>22.30</strong></td></tr>
 <tr><td>atex1</td><td align="right">1.00</td><td align="right">2216.00</td><td align="right"><strong>22.30</strong></td></tr>
 <tr><td>atex3</td><td align="right">0.00</td><td align="right">4038.00</td><td align="right">36.79</td></tr>
-<tr><td>atex3</td><td align="right">0.25</td><td align="right">3696.00</td><td align="right"><strong>25.20</strong></td></tr>
-<tr><td>atex3</td><td align="right">0.50</td><td align="right">3696.00</td><td align="right"><strong>25.20</strong></td></tr>
-<tr><td>atex3</td><td align="right">0.75</td><td align="right">3696.00</td><td align="right"><strong>25.20</strong></td></tr>
-<tr><td>atex3</td><td align="right">1.00</td><td align="right">3696.00</td><td align="right"><strong>25.20</strong></td></tr>
+<tr><td>atex3</td><td align="right">0.25</td><td align="right">3334.00</td><td align="right"><strong>12.94</strong></td></tr>
+<tr><td>atex3</td><td align="right">0.50</td><td align="right">3334.00</td><td align="right"><strong>12.94</strong></td></tr>
+<tr><td>atex3</td><td align="right">0.75</td><td align="right">3334.00</td><td align="right"><strong>12.94</strong></td></tr>
+<tr><td>atex3</td><td align="right">1.00</td><td align="right">3334.00</td><td align="right"><strong>12.94</strong></td></tr>
 <tr><td>atex4</td><td align="right">0.00</td><td align="right">4272.00</td><td align="right">32.75</td></tr>
 <tr><td>atex4</td><td align="right">0.25</td><td align="right">4470.00</td><td align="right">38.91</td></tr>
 <tr><td>atex4</td><td align="right">0.50</td><td align="right">4309.00</td><td align="right">33.90</td></tr>
-<tr><td>atex4</td><td align="right">0.75</td><td align="right">4203.00</td><td align="right">30.61</td></tr>
+<tr><td>atex4</td><td align="right">0.75</td><td align="right">4179.00</td><td align="right"><strong>29.86</strong></td></tr>
 <tr><td>atex4</td><td align="right">1.00</td><td align="right">4179.00</td><td align="right"><strong>29.86</strong></td></tr>
 <tr><td>atex5</td><td align="right">0.00</td><td align="right">7792.00</td><td align="right">47.88</td></tr>
 <tr><td>atex5</td><td align="right">0.25</td><td align="right">6561.00</td><td align="right">24.52</td></tr>
@@ -80,13 +80,13 @@ This table runs the cycle-cover patching heuristic directly, without MMAS. `MSA 
 <tr><td>dc134</td><td align="right">0.00</td><td align="right">5635.00</td><td align="right"><strong>0.41</strong></td></tr>
 <tr><td>dc134</td><td align="right">0.25</td><td align="right">5635.00</td><td align="right"><strong>0.41</strong></td></tr>
 <tr><td>dc134</td><td align="right">0.50</td><td align="right">5638.00</td><td align="right">0.46</td></tr>
-<tr><td>dc134</td><td align="right">0.75</td><td align="right">5651.00</td><td align="right">0.69</td></tr>
-<tr><td>dc134</td><td align="right">1.00</td><td align="right">5651.00</td><td align="right">0.69</td></tr>
+<tr><td>dc134</td><td align="right">0.75</td><td align="right">5648.00</td><td align="right">0.64</td></tr>
+<tr><td>dc134</td><td align="right">1.00</td><td align="right">5655.00</td><td align="right">0.77</td></tr>
 <tr><td>dc176</td><td align="right">0.00</td><td align="right">8641.00</td><td align="right"><strong>0.63</strong></td></tr>
 <tr><td>dc176</td><td align="right">0.25</td><td align="right">8641.00</td><td align="right"><strong>0.63</strong></td></tr>
-<tr><td>dc176</td><td align="right">0.50</td><td align="right">8658.00</td><td align="right">0.83</td></tr>
-<tr><td>dc176</td><td align="right">0.75</td><td align="right">8656.00</td><td align="right">0.80</td></tr>
-<tr><td>dc176</td><td align="right">1.00</td><td align="right">8660.00</td><td align="right">0.85</td></tr>
+<tr><td>dc176</td><td align="right">0.50</td><td align="right">8652.00</td><td align="right">0.76</td></tr>
+<tr><td>dc176</td><td align="right">0.75</td><td align="right">8654.00</td><td align="right">0.78</td></tr>
+<tr><td>dc176</td><td align="right">1.00</td><td align="right">8658.00</td><td align="right">0.83</td></tr>
 <tr><td>dc188</td><td align="right">0.00</td><td align="right">10275.00</td><td align="right"><strong>0.49</strong></td></tr>
 <tr><td>dc188</td><td align="right">0.25</td><td align="right">10280.00</td><td align="right">0.54</td></tr>
 <tr><td>dc188</td><td align="right">0.50</td><td align="right">10285.00</td><td align="right">0.59</td></tr>
@@ -98,10 +98,10 @@ This table runs the cycle-cover patching heuristic directly, without MMAS. `MSA 
 <tr><td>ft53</td><td align="right">0.75</td><td align="right">7391.00</td><td align="right"><strong>7.04</strong></td></tr>
 <tr><td>ft53</td><td align="right">1.00</td><td align="right">7391.00</td><td align="right"><strong>7.04</strong></td></tr>
 <tr><td>ft70</td><td align="right">0.00</td><td align="right">39771.00</td><td align="right">2.84</td></tr>
-<tr><td>ft70</td><td align="right">0.25</td><td align="right">39727.00</td><td align="right"><strong>2.73</strong></td></tr>
-<tr><td>ft70</td><td align="right">0.50</td><td align="right">39795.00</td><td align="right">2.90</td></tr>
-<tr><td>ft70</td><td align="right">0.75</td><td align="right">39795.00</td><td align="right">2.90</td></tr>
-<tr><td>ft70</td><td align="right">1.00</td><td align="right">39795.00</td><td align="right">2.90</td></tr>
+<tr><td>ft70</td><td align="right">0.25</td><td align="right">39692.00</td><td align="right"><strong>2.63</strong></td></tr>
+<tr><td>ft70</td><td align="right">0.50</td><td align="right">39760.00</td><td align="right">2.81</td></tr>
+<tr><td>ft70</td><td align="right">0.75</td><td align="right">39760.00</td><td align="right">2.81</td></tr>
+<tr><td>ft70</td><td align="right">1.00</td><td align="right">39760.00</td><td align="right">2.81</td></tr>
 <tr><td>ftv100</td><td align="right">0.00</td><td align="right">1883.00</td><td align="right"><strong>5.31</strong></td></tr>
 <tr><td>ftv100</td><td align="right">0.25</td><td align="right">1886.00</td><td align="right">5.48</td></tr>
 <tr><td>ftv100</td><td align="right">0.50</td><td align="right">1898.00</td><td align="right">6.15</td></tr>
@@ -191,7 +191,7 @@ This table runs the cycle-cover patching heuristic directly, without MMAS. `MSA 
 <tr><td>p43</td><td align="right">0.25</td><td align="right">5648.00</td><td align="right">0.50</td></tr>
 <tr><td>p43</td><td align="right">0.50</td><td align="right">5650.00</td><td align="right">0.53</td></tr>
 <tr><td>p43</td><td align="right">0.75</td><td align="right">5656.00</td><td align="right">0.64</td></tr>
-<tr><td>p43</td><td align="right">1.00</td><td align="right">5677.00</td><td align="right">1.01</td></tr>
+<tr><td>p43</td><td align="right">1.00</td><td align="right">5656.00</td><td align="right">0.64</td></tr>
 <tr><td>rbg323</td><td align="right">0.00</td><td align="right">1326.00</td><td align="right"><strong>0.00</strong></td></tr>
 <tr><td>rbg323</td><td align="right">0.25</td><td align="right">1326.00</td><td align="right"><strong>0.00</strong></td></tr>
 <tr><td>rbg323</td><td align="right">0.50</td><td align="right">1326.00</td><td align="right"><strong>0.00</strong></td></tr>
@@ -223,9 +223,9 @@ This table runs the cycle-cover patching heuristic directly, without MMAS. `MSA 
 <tr><td>td100_1</td><td align="right">0.75</td><td align="right">268636.00</td><td align="right"><strong>0.00</strong></td></tr>
 <tr><td>td100_1</td><td align="right">1.00</td><td align="right">268636.00</td><td align="right"><strong>0.00</strong></td></tr>
 <tr><td><strong>Average</strong></td><td align="right">0.00</td><td align="right"></td><td align="right">6.57</td></tr>
-<tr><td><strong>Average</strong></td><td align="right">0.25</td><td align="right"></td><td align="right"><strong>5.82</strong></td></tr>
-<tr><td><strong>Average</strong></td><td align="right">0.50</td><td align="right"></td><td align="right">5.90</td></tr>
-<tr><td><strong>Average</strong></td><td align="right">0.75</td><td align="right"></td><td align="right">6.27</td></tr>
-<tr><td><strong>Average</strong></td><td align="right">1.00</td><td align="right"></td><td align="right">6.34</td></tr>
+<tr><td><strong>Average</strong></td><td align="right">0.25</td><td align="right"></td><td align="right"><strong>5.53</strong></td></tr>
+<tr><td><strong>Average</strong></td><td align="right">0.50</td><td align="right"></td><td align="right">5.61</td></tr>
+<tr><td><strong>Average</strong></td><td align="right">0.75</td><td align="right"></td><td align="right">5.96</td></tr>
+<tr><td><strong>Average</strong></td><td align="right">1.00</td><td align="right"></td><td align="right">6.05</td></tr>
 </tbody>
 </table>

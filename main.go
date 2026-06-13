@@ -107,8 +107,8 @@ const (
 	finalNumberOfExperiments               = 50
 	finalMsaHeuristicWeight                = 0.4
 	finalCycleCoverWeight                  = 0.9
-	finalCycleCoverMsaPatchingWeight       = 1.0
-	finalCycleCoverMsaPatchingMsaPatchBias = 0.0
+	finalCycleCoverMsaPatchingWeight       = 0.9
+	finalCycleCoverMsaPatchingMsaPatchBias = 0.5
 	defaultExperimentAlpha                 = 1.0
 	defaultExperimentBeta                  = 2.0
 	defaultExperimentRho                   = 0.8
@@ -167,7 +167,6 @@ var msaImpactInstanceFiles = []string{
 	"td100_1.atsp",
 	"ry48p.atsp",
 	"dc134.atsp",
-	"code198.atsp",
 }
 
 var tuningInstanceFiles = []string{
@@ -185,7 +184,6 @@ var tuningInstanceFiles = []string{
 	"dc134.atsp",
 	"ftv150.atsp",
 	"dc188.atsp",
-	"code198.atsp",
 	"rbg323.atsp",
 }
 
@@ -213,6 +211,7 @@ var evaluationInstanceFiles = []string{
 	"ftv160.atsp",
 	"ftv170.atsp",
 	"dc176.atsp",
+	"code198.atsp",
 	"rbg358.atsp",
 	"rbg403.atsp",
 	"rbg443.atsp",

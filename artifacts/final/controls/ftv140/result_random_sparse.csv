@@ -1,4 +1,4 @@
 Alpha,Beta,Rho,Heuristic weight,Random seed,Iterations,Min best at iteration,Avg best at iteration,Max best at iteration,Min local search improvements,Avg local search improvements,Max local search improvements,Min best deviation,Avg best deviation,Max best deviation,Success rate [%]
-1.00,2.00,0.80,0.70,2,4230,269,2266.50,4228,0,0.00,0,1.57,4.77,10.95,0.00
-1.00,2.00,0.80,0.70,1,4230,266,2113.80,4030,0,0.00,0,2.02,4.96,9.67,0.00
-1.00,2.00,0.80,0.70,3,4230,572,2430.60,4208,0,0.00,0,2.40,5.25,9.01,0.00
+1.00,2.00,0.80,0.40,3,4230,3229,4019.40,4226,0,0.00,0,2.69,8.10,13.35,0.00
+1.00,2.00,0.80,0.40,1,4230,3517,4038.74,4227,0,0.00,0,3.72,8.20,14.17,0.00
+1.00,2.00,0.80,0.40,2,4230,3593,4035.38,4229,0,0.00,0,5.37,8.88,13.39,0.00
