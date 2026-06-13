@@ -5045,7 +5045,7 @@ func saveMsaImpactSummary(path string, atspsData []AtspData) error {
 
 	var builder strings.Builder
 	builder.WriteString("# MSA Impact Summary\n\n")
-	builder.WriteString("Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline. In this temporary pipeline the MSA heuristic uses the thinnest cached root MSA for each instance and the best heuristic weight from the 0.10-1.00 sweep.\n\n")
+	builder.WriteString("Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline. In this temporary pipeline the MSA heuristic uses the default strict composite MSA matrix and the best heuristic weight from the 0.10-1.00 sweep.\n\n")
 	builder.WriteString("## Findings\n\n")
 	fmt.Fprintf(&builder, "- **MSA heuristic improved average best deviation in %d/%d instances, tied in %d, and was worse in %d.**\n", wins, instanceCount, ties, losses)
 	fmt.Fprintf(&builder, "- **Mean average best deviation: baseline %.2f%%, MSA heuristic %.2f%%, delta %s pp.**\n", averageBaselineDeviation, averageMsaDeviation, formatSignedFloat(averageDeviationDelta))
@@ -5152,7 +5152,7 @@ func saveMsaImpactStructureReport(path string, atspsData []AtspData) error {
 
 	var builder strings.Builder
 	builder.WriteString("# MSA Impact Structure\n\n")
-	builder.WriteString("This report describes the thin MSA modifier matrix used by the MSA impact pipeline. Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline.\n\n")
+	builder.WriteString("This report describes the default strict composite MSA modifier matrix used by the MSA impact pipeline. Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline.\n\n")
 	builder.WriteString("## Findings\n\n")
 	fmt.Fprintf(&builder, "- **Average boosted-edge ratio against n-1: %.2f.**\n", averageBoostedRatio)
 	fmt.Fprintf(&builder, "- **Average missing outgoing vertices: %.2f; average missing incoming vertices: %.2f.**\n", averageMissingOutgoing, averageMissingIncoming)
@@ -5442,7 +5442,7 @@ func readMsaHeuristicMatrixForResultRoot(atspData AtspData, heuristic, resultsRo
 }
 
 func readMsaImpactHeuristicMatrix(atspData AtspData) ([][]float64, error) {
-	return msaHeuristic.ReadThinnestMsa(atspData.msaHeuristicDirectoryPath, atspData.matrix)
+	return msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
 }
 
 func runRebuildMsaMode(atspsData []AtspData, workers int) error {

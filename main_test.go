@@ -425,14 +425,14 @@ func TestSaveMsaImpactStructureReportCombinesStructureWithPerformance(t *testing
 	}
 	content := string(contentBytes)
 	assertContains(t, content, "# MSA Impact Structure")
-	assertContains(t, content, "Average boosted-edge ratio against n-1: 1.00.")
+	assertContains(t, content, "Average boosted-edge ratio against n-1: 1.08.")
 	assertContains(t, content, "Average missing outgoing vertices: 1.00; average missing incoming vertices: 1.00.")
-	assertContains(t, content, "Average missing endpoints: improved cases 2.00, tied/worse cases 2.00.")
-	assertContains(t, content, "<tr><td>sample-a</td><td align=\"right\">4</td><td align=\"right\">3</td><td align=\"right\">1.00</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">-2.00</td><td align=\"right\">+10.00</td></tr>")
-	assertContains(t, content, "<tr><td>sample-b</td><td align=\"right\">3</td><td align=\"right\">2</td><td align=\"right\">1.00</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">+2.00</td><td align=\"right\">-20.00</td></tr>")
+	assertContains(t, content, "Average missing endpoints: improved cases 4.00, tied/worse cases 0.00.")
+	assertContains(t, content, "<tr><td>sample-a</td><td align=\"right\">4</td><td align=\"right\">2</td><td align=\"right\">0.67</td><td align=\"right\">2</td><td align=\"right\">2</td><td align=\"right\">-2.00</td><td align=\"right\">+10.00</td></tr>")
+	assertContains(t, content, "<tr><td>sample-b</td><td align=\"right\">3</td><td align=\"right\">3</td><td align=\"right\">1.50</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">+2.00</td><td align=\"right\">-20.00</td></tr>")
 }
 
-func TestReadMsaHeuristicMatrixForResultRootUsesThinMsaOnlyForMsaImpact(t *testing.T) {
+func TestReadMsaHeuristicMatrixForResultRootUsesDefaultMsaForMsaImpact(t *testing.T) {
 	root := t.TempDir()
 	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{
 		{0, 1, 1},
@@ -466,25 +466,20 @@ func TestReadMsaHeuristicMatrixForResultRootUsesThinMsaOnlyForMsaImpact(t *testi
 		t.Fatalf("expected normal run to use composite MSA, got %v", normalMatrix)
 	}
 
-	expectedThinMsa := [][]float64{
-		{0, 2, 0},
-		{0, 0, 2},
-		{0, 0, 0},
-	}
 	impactMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicMsaHeuristic, msaImpactResultsDirectoryName)
 	if err != nil {
 		t.Fatalf("read MSA impact matrix: %v", err)
 	}
-	if !reflect.DeepEqual(impactMatrix, expectedThinMsa) {
-		t.Fatalf("expected MSA impact to use thin MSA, got %v", impactMatrix)
+	if !reflect.DeepEqual(impactMatrix, compositeMsa) {
+		t.Fatalf("expected MSA impact to use composite MSA, got %v", impactMatrix)
 	}
 
 	controlMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicRandomSparse, msaImpactControlsDirectoryName)
 	if err != nil {
 		t.Fatalf("read MSA impact control matrix: %v", err)
 	}
-	if !reflect.DeepEqual(controlMatrix, expectedThinMsa) {
-		t.Fatalf("expected MSA impact controls to use thin MSA, got %v", controlMatrix)
+	if !reflect.DeepEqual(controlMatrix, compositeMsa) {
+		t.Fatalf("expected MSA impact controls to use composite MSA, got %v", controlMatrix)
 	}
 }
 
