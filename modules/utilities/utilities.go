@@ -160,6 +160,64 @@ func SaveHistogramFromData(data []float64, bins int, plotTitle, plotPath string)
 	return savePlotWithPadding(histogramPlot, plotWidth, plotHeight, plotPath)
 }
 
+func SaveHistogramFromDataWithLabels(data []float64, bins int, plotTitle, xLabel, yLabel, plotPath string) error {
+	values := make(plotter.Values, len(data))
+	copy(values, data)
+
+	histogramPlot := plot.New()
+	histogramPlot.Title.Text = plotTitle
+	histogramPlot.X.Label.Text = xLabel
+	histogramPlot.Y.Label.Text = yLabel
+	if bins < 1 {
+		bins = 1
+	}
+
+	if len(values) == 0 {
+		return savePlotWithPadding(histogramPlot, plotWidth, plotHeight, plotPath)
+	}
+
+	minValue, maxValue := minMax(values)
+	if minValue == maxValue {
+		bars, err := plotter.NewBarChart(plotter.Values{float64(len(values))}, vg.Points(40))
+		if err != nil {
+			return err
+		}
+		histogramPlot.Add(bars)
+		histogramPlot.NominalX(formatHistogramValue(minValue))
+		return savePlotWithPadding(histogramPlot, plotWidth, plotHeight, plotPath)
+	}
+
+	hist, err := plotter.NewHist(values, bins)
+	if err != nil {
+		return err
+	}
+
+	histogramPlot.Add(hist)
+	return savePlotWithPadding(histogramPlot, plotWidth, plotHeight, plotPath)
+}
+
+func minMax(values plotter.Values) (float64, float64) {
+	minValue := values[0]
+	maxValue := values[0]
+	for _, value := range values[1:] {
+		if value < minValue {
+			minValue = value
+		}
+		if value > maxValue {
+			maxValue = value
+		}
+	}
+	return minValue, maxValue
+}
+
+func formatHistogramValue(value float64) string {
+	rounded := math.Round(value)
+	if math.Abs(value-rounded) < 1e-9 {
+		return fmt.Sprintf("%.0f", rounded)
+	}
+	return fmt.Sprintf("%.2f", value)
+}
+
 func SaveLinePlotFromData(linePlotData []LinePlotData, plotTitle, plotPath string) error {
 	plot := plot.New()
 	plot.Title.Text = plotTitle

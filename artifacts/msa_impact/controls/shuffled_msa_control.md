@@ -1,14 +1,14 @@
 # Shuffled MSA Control
 
-This sanity check compares the final MSA heuristic against deterministic shuffles of the MSA mask. Each shuffle preserves the number and boost values of MSA-boosted directed edges, but assigns them to shuffled directed edges. The control uses the same `heuristicWeight=0.40`.
+This sanity check compares the final MSA heuristic against deterministic shuffles of the MSA mask. Each shuffle preserves the number and boost values of MSA-boosted directed edges, but assigns them to shuffled directed edges. The control uses the best MSA-impact heuristic weight selected separately for each instance.
 
 ## Findings
 
-- **MSA had lower average best deviation than the shuffled MSA mean in 8/8 instances.**
-- **Mean average best deviation: MSA 1.81%, shuffled MSA 3.59%, delta -1.78 pp.**
-- **Mean success rate: MSA 18.33%, shuffled MSA 11.25%, delta +7.08 pp.**
-- MSA also beat the best shuffled MSA seed in 7/8 instances.
-- Two-sided sign-test p-value for average-best-deviation wins/losses: 0.007812.
+- **MSA had lower average best deviation than the shuffled MSA mean in 7/7 instances.**
+- **Mean average best deviation: MSA 1.85%, shuffled MSA 4.33%, delta -2.49 pp.**
+- **Mean success rate: MSA 5.71%, shuffled MSA 0.00%, delta +5.71 pp.**
+- MSA also beat the best shuffled MSA seed in 7/7 instances.
+- Two-sided sign-test p-value for average-best-deviation wins/losses: 0.015625.
 
 ## Per-instance comparison
 
@@ -19,14 +19,13 @@ Negative delta means the MSA heuristic had lower average best deviation than the
 <tr><th>Instance</th><th>MSA avg best dev. [%]</th><th>shuffled MSA mean avg best dev. [%]</th><th>Best shuffled MSA avg best dev. [%]</th><th>Delta [pp]</th><th>MSA success [%]</th><th>shuffled MSA success [%]</th><th>Seeds</th></tr>
 </thead>
 <tbody>
-<tr><td>atex5</td><td align="right"><strong>2.12</strong></td><td align="right">3.68</td><td align="right">3.05 (seed 102)</td><td align="right">-1.56</td><td align="right">3.33</td><td align="right">0.00</td><td align="right">3</td></tr>
-<tr><td>code198</td><td align="right"><strong>0.00</strong></td><td align="right">0.00</td><td align="right">0.00 (seed 103)</td><td align="right">-0.00</td><td align="right">100.00</td><td align="right">86.67</td><td align="right">3</td></tr>
-<tr><td>crane100_1</td><td align="right"><strong>3.51</strong></td><td align="right">7.68</td><td align="right">7.45 (seed 103)</td><td align="right">-4.17</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">3</td></tr>
-<tr><td>dc134</td><td align="right"><strong>1.10</strong></td><td align="right">1.67</td><td align="right">1.53 (seed 101)</td><td align="right">-0.57</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">3</td></tr>
-<tr><td>ftv64</td><td align="right"><strong>0.56</strong></td><td align="right">1.75</td><td align="right">1.36 (seed 102)</td><td align="right">-1.19</td><td align="right">43.33</td><td align="right">3.33</td><td align="right">3</td></tr>
-<tr><td>ftv90</td><td align="right"><strong>2.93</strong></td><td align="right">5.30</td><td align="right">4.80 (seed 103)</td><td align="right">-2.37</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">3</td></tr>
-<tr><td>ry48p</td><td align="right"><strong>3.55</strong></td><td align="right">6.61</td><td align="right">6.13 (seed 101)</td><td align="right">-3.06</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">3</td></tr>
-<tr><td>td100_1</td><td align="right"><strong>0.73</strong></td><td align="right">2.02</td><td align="right">1.99 (seed 103)</td><td align="right">-1.29</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">3</td></tr>
-<tr><td><strong>Average</strong></td><td align="right"><strong>1.81</strong></td><td align="right"><strong>3.59</strong></td><td></td><td align="right"><strong>-1.78</strong></td><td align="right"><strong>18.33</strong></td><td align="right"><strong>11.25</strong></td><td></td></tr>
+<tr><td>atex5</td><td align="right"><strong>0.70</strong></td><td align="right">4.47</td><td align="right">4.29 (seed 102)</td><td align="right">-3.77</td><td align="right">40.00</td><td align="right">0.00</td><td align="right">3</td></tr>
+<tr><td>crane100_1</td><td align="right"><strong>2.76</strong></td><td align="right">6.69</td><td align="right">6.10 (seed 101)</td><td align="right">-3.93</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">3</td></tr>
+<tr><td>dc134</td><td align="right"><strong>1.03</strong></td><td align="right">1.75</td><td align="right">1.46 (seed 101)</td><td align="right">-0.72</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">3</td></tr>
+<tr><td>ftv64</td><td align="right"><strong>0.74</strong></td><td align="right">3.51</td><td align="right">3.16 (seed 101)</td><td align="right">-2.77</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">3</td></tr>
+<tr><td>ftv90</td><td align="right"><strong>4.05</strong></td><td align="right">5.08</td><td align="right">4.53 (seed 102)</td><td align="right">-1.03</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">3</td></tr>
+<tr><td>ry48p</td><td align="right"><strong>2.90</strong></td><td align="right">6.69</td><td align="right">6.22 (seed 103)</td><td align="right">-3.79</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">3</td></tr>
+<tr><td>td100_1</td><td align="right"><strong>0.74</strong></td><td align="right">2.16</td><td align="right">1.95 (seed 101)</td><td align="right">-1.42</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">3</td></tr>
+<tr><td><strong>Average</strong></td><td align="right"><strong>1.85</strong></td><td align="right"><strong>4.33</strong></td><td></td><td align="right"><strong>-2.49</strong></td><td align="right"><strong>5.71</strong></td><td align="right"><strong>0.00</strong></td><td></td></tr>
 </tbody>
 </table>
