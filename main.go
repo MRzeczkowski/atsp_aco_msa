@@ -3106,7 +3106,7 @@ func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover 
 	case heuristicBaseline:
 		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
 	case heuristicMsaHeuristic:
-		return heuristics.BuildCostAwareMsaHeuristicModifiers(matrix, msaHeuristic, parameters.heuristicWeight)
+		return heuristics.BuildMsaHeuristicModifiers(msaHeuristic, parameters.heuristicWeight)
 	case heuristicRandomSparse:
 		return heuristics.BuildRandomSparseModifiers(msaHeuristic, parameters.heuristicWeight, parameters.randomSeed)
 	case heuristicDistanceRankedSparse:
@@ -3272,7 +3272,8 @@ func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOpti
 		parameters.iterations,
 		knownOptimal,
 		matrix,
-		heuristicModifiers)
+		heuristicModifiers,
+		parameters.heuristicWeight)
 	aco.SetUseThreeOpt(useThreeOpt)
 
 	for i := 0; i < numberOfRuns; i++ {

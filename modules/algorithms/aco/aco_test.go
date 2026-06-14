@@ -14,7 +14,7 @@ func TestRunKeepsSelfLoopDesirabilityZero(t *testing.T) {
 	}
 	heuristicModifiers := newNeutralHeuristicModifiers(len(distances))
 
-	aco := NewACO(1.0, 2.0, 0.8, 1, 100.0, distances, heuristicModifiers)
+	aco := NewACO(1.0, 2.0, 0.8, 1, 100.0, distances, heuristicModifiers, 0.0)
 	aco.Run()
 
 	for i := range distances {
@@ -66,8 +66,8 @@ func TestNewACOKeepsTourConstructionNeighborsDistanceOnly(t *testing.T) {
 	strongFarEdgeModifiers := newNeutralHeuristicModifiers(len(distances))
 	strongFarEdgeModifiers[0][11] = 2.0
 
-	withoutModifier := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, neutralModifiers)
-	withModifier := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, strongFarEdgeModifiers)
+	withoutModifier := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, neutralModifiers, 0.0)
+	withModifier := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, strongFarEdgeModifiers, 0.0)
 
 	if !equalIntSlices(withoutModifier.neighborsLists[0], withModifier.neighborsLists[0]) {
 		t.Fatalf("expected heuristic modifiers not to change candidate list, got without=%v with=%v", withoutModifier.neighborsLists[0], withModifier.neighborsLists[0])
@@ -102,7 +102,7 @@ func TestRunHandlesZeroDistanceHeuristic(t *testing.T) {
 	}
 	heuristicModifiers := newNeutralHeuristicModifiers(len(distances))
 
-	aco := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, heuristicModifiers)
+	aco := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, heuristicModifiers, 0.0)
 	aco.Run()
 
 	if aco.heuristics[1][0] != 1.0 {
@@ -128,7 +128,7 @@ func TestRunDoesNotBakeHeuristicModifierIntoVisibility(t *testing.T) {
 	heuristicModifiers := newNeutralHeuristicModifiers(len(distances))
 	heuristicModifiers[0][1] = 3.0
 
-	aco := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, heuristicModifiers)
+	aco := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, heuristicModifiers, 1.0)
 	aco.Run()
 
 	expected := 0.5
@@ -144,7 +144,7 @@ func TestBuildConstructionHeuristicNeighborsListsUsesBoostedEdges(t *testing.T) 
 		{1.0, 1.0, 1.0},
 	}
 
-	neighborsLists, probability := buildConstructionHeuristicNeighborsLists(modifiers)
+	neighborsLists := buildConstructionHeuristicNeighborsLists(modifiers)
 
 	if !equalIntSlices(neighborsLists[0], []int{1}) {
 		t.Fatalf("unexpected boosted neighbors for row 0: %v", neighborsLists[0])
@@ -155,15 +155,12 @@ func TestBuildConstructionHeuristicNeighborsListsUsesBoostedEdges(t *testing.T) 
 	if len(neighborsLists[2]) != 0 {
 		t.Fatalf("expected no boosted neighbors for row 2, got %v", neighborsLists[2])
 	}
-	if probability != 1.0 {
-		t.Fatalf("expected initial probability to be clamped to 1, got %f", probability)
-	}
 }
 
 func TestConstructionHeuristicProbabilityDecays(t *testing.T) {
 	aco := &ACO{
-		iterations:                              100,
-		constructionHeuristicInitialProbability: 0.8,
+		iterations:      100,
+		heuristicWeight: 0.8,
 	}
 
 	aco.currentIteration = 0
@@ -184,16 +181,13 @@ func TestConstructionHeuristicProbabilityDecays(t *testing.T) {
 
 func TestSelectNextCityCanUseConstructionHeuristicOutsideDistanceNeighbors(t *testing.T) {
 	aco := &ACO{
-		iterations:                              10,
-		constructionHeuristicInitialProbability: 1.0,
+		iterations:      10,
+		heuristicWeight: 1.0,
 		neighborsLists: [][]int{
 			{1},
 		},
 		heuristicNeighborsLists: [][]int{
 			{2},
-		},
-		heuristicModifiers: [][]float64{
-			{1.0, 1.0, 2.0, 1.0},
 		},
 		desirabilities: [][]float64{
 			{0.0, 100.0, 1.0, 5.0},
@@ -212,16 +206,13 @@ func TestSelectNextCityCanUseConstructionHeuristicOutsideDistanceNeighbors(t *te
 
 func TestSelectNextCityFallsBackWhenConstructionHeuristicHasNoFeasibleEdge(t *testing.T) {
 	aco := &ACO{
-		iterations:                              10,
-		constructionHeuristicInitialProbability: 1.0,
+		iterations:      10,
+		heuristicWeight: 1.0,
 		neighborsLists: [][]int{
 			{1},
 		},
 		heuristicNeighborsLists: [][]int{
 			{2},
-		},
-		heuristicModifiers: [][]float64{
-			{1.0, 1.0, 2.0, 1.0},
 		},
 		desirabilities: [][]float64{
 			{0.0, 100.0, 1.0, 5.0},
@@ -246,7 +237,7 @@ func TestNewACODisablesThreeOptByDefault(t *testing.T) {
 	}
 	heuristicModifiers := newNeutralHeuristicModifiers(len(distances))
 
-	aco := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, heuristicModifiers)
+	aco := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, heuristicModifiers, 0.0)
 	if aco.useThreeOpt {
 		t.Fatal("expected reduced 3-opt to be disabled by default")
 	}

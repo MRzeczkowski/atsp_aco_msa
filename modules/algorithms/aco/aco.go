@@ -13,13 +13,12 @@ type ACO struct {
 	alpha, beta, rho                        float64
 	iterations, currentIteration, dimension int
 	distances                               [][]float64
-	heuristicModifiers                      [][]float64
 	tauMin, tauMax, BestLength              float64
 	reducedThreeOpt                         *threeOpt.ReducedThreeOpt
 	targetTourLength                        float64
 	neighborsLists                          [][]int
 	heuristicNeighborsLists                 [][]int
-	constructionHeuristicInitialProbability float64
+	heuristicWeight                         float64
 	rng                                     *rand.Rand
 	useThreeOpt                             bool
 
@@ -31,7 +30,7 @@ type ACO struct {
 	ThreeOptImprovementsCount int
 }
 
-func NewACO(alpha, beta, rho float64, iterations int, targetTourLength float64, distances, heuristicModifiers [][]float64) *ACO {
+func NewACO(alpha, beta, rho float64, iterations int, targetTourLength float64, distances, heuristicModifiers [][]float64, heuristicWeight float64) *ACO {
 	dimension := len(distances)
 	pheromones := make([][]float64, dimension)
 	heuristics := make([][]float64, dimension)
@@ -50,7 +49,7 @@ func NewACO(alpha, beta, rho float64, iterations int, targetTourLength float64, 
 	// We use smaller lists for tour construction than for local search. Just like: https://sci-hub.se/https://doi.org/10.1016/S0167-739X(00)00043-1
 	tourConstructionNeighborsListSize := min(maxLocalSearchNeighborsListSize/2, dimension-1)
 	tourConstructionNeighborsLists := nearestNeighbors.BuildNearestNeighborsLists(distances, tourConstructionNeighborsListSize)
-	heuristicNeighborsLists, constructionHeuristicInitialProbability := buildConstructionHeuristicNeighborsLists(heuristicModifiers)
+	heuristicNeighborsLists := buildConstructionHeuristicNeighborsLists(heuristicModifiers)
 
 	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, localSearchNeighborsLists)
 
@@ -58,21 +57,20 @@ func NewACO(alpha, beta, rho float64, iterations int, targetTourLength float64, 
 	rng := rand.New(src)
 
 	return &ACO{
-		alpha:                                   alpha,
-		beta:                                    beta,
-		rho:                                     rho,
-		iterations:                              iterations,
-		dimension:                               dimension,
-		distances:                               distances,
-		heuristicModifiers:                      heuristicModifiers,
-		tauMin:                                  -math.MaxInt,
-		tauMax:                                  math.MaxInt,
-		reducedThreeOpt:                         reducedThreeOpt,
-		targetTourLength:                        targetTourLength,
-		neighborsLists:                          tourConstructionNeighborsLists,
-		heuristicNeighborsLists:                 heuristicNeighborsLists,
-		constructionHeuristicInitialProbability: constructionHeuristicInitialProbability,
-		rng:                                     rng,
+		alpha:                   alpha,
+		beta:                    beta,
+		rho:                     rho,
+		iterations:              iterations,
+		dimension:               dimension,
+		distances:               distances,
+		tauMin:                  -math.MaxInt,
+		tauMax:                  math.MaxInt,
+		reducedThreeOpt:         reducedThreeOpt,
+		targetTourLength:        targetTourLength,
+		neighborsLists:          tourConstructionNeighborsLists,
+		heuristicNeighborsLists: heuristicNeighborsLists,
+		heuristicWeight:         heuristicWeight,
+		rng:                     rng,
 
 		pheromones:     pheromones,
 		heuristics:     heuristics,
@@ -90,9 +88,8 @@ func (aco *ACO) SetUseThreeOpt(enabled bool) {
 	aco.useThreeOpt = enabled
 }
 
-func buildConstructionHeuristicNeighborsLists(heuristicModifiers [][]float64) ([][]int, float64) {
+func buildConstructionHeuristicNeighborsLists(heuristicModifiers [][]float64) [][]int {
 	neighborsLists := make([][]int, len(heuristicModifiers))
-	maxBoost := 0.0
 
 	for i := range heuristicModifiers {
 		for j, modifier := range heuristicModifiers[i] {
@@ -101,14 +98,10 @@ func buildConstructionHeuristicNeighborsLists(heuristicModifiers [][]float64) ([
 			}
 
 			neighborsLists[i] = append(neighborsLists[i], j)
-			boost := modifier - 1.0
-			if boost > maxBoost {
-				maxBoost = boost
-			}
 		}
 	}
 
-	return neighborsLists, min(maxBoost, 1.0)
+	return neighborsLists
 }
 
 func (aco *ACO) Run() {
@@ -312,7 +305,7 @@ func (aco *ACO) shouldUseConstructionHeuristic() bool {
 }
 
 func (aco *ACO) constructionHeuristicProbability() float64 {
-	if aco.constructionHeuristicInitialProbability <= 0.0 || aco.iterations <= 0 {
+	if aco.heuristicWeight <= 0.0 || aco.iterations <= 0 {
 		return 0.0
 	}
 
@@ -321,7 +314,7 @@ func (aco *ACO) constructionHeuristicProbability() float64 {
 		return 0.0
 	}
 
-	return aco.constructionHeuristicInitialProbability * (1.0 - progress)
+	return min(aco.heuristicWeight, 1.0) * (1.0 - progress)
 }
 
 func (aco *ACO) selectNextCityFromConstructionHeuristic(current int, canVisitBits []float64, desirabilities []float64) int {
@@ -330,8 +323,7 @@ func (aco *ACO) selectNextCityFromConstructionHeuristic(current int, canVisitBit
 
 	total := 0.0
 	for _, i := range neighbors {
-		boost := aco.heuristicModifiers[current][i] - 1.0
-		prob := canVisitBits[i] * desirabilitiesToUse[i] * boost
+		prob := canVisitBits[i] * desirabilitiesToUse[i]
 		desirabilities[i] = prob
 		total += prob
 	}

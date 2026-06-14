@@ -60,86 +60,6 @@ func BuildMsaHeuristicModifiers(msaHeuristic [][]float64, strength float64) [][]
 	return modifiers
 }
 
-func BuildCostAwareMsaHeuristicModifiers(matrix, msaHeuristic [][]float64, strength float64) [][]float64 {
-	dimension := heuristicDimension(matrix, msaHeuristic)
-	modifiers := BuildNeutralModifiers(dimension)
-	if dimension <= 1 || strength == 0 {
-		return modifiers
-	}
-
-	localCloseness := outgoingDistanceCloseness(matrix, dimension)
-	maxMsaHeuristicSelections := float64(dimension - 1)
-	for i := 0; i < dimension && i < len(msaHeuristic); i++ {
-		for j := 0; j < dimension && j < len(msaHeuristic[i]); j++ {
-			if i == j {
-				continue
-			}
-
-			msaHeuristicSignal := msaHeuristic[i][j] / maxMsaHeuristicSelections
-			if msaHeuristicSignal >= msaHeuristicHighSignalThreshold {
-				modifiers[i][j] = 1.0 + msaHeuristicSignal*strength*localCloseness[i][j]
-			}
-		}
-	}
-
-	return modifiers
-}
-
-func outgoingDistanceCloseness(matrix [][]float64, dimension int) [][]float64 {
-	closeness := make([][]float64, dimension)
-	for i := range closeness {
-		closeness[i] = make([]float64, dimension)
-		for j := range closeness[i] {
-			closeness[i][j] = 1.0
-		}
-	}
-	if len(matrix) != dimension {
-		return closeness
-	}
-
-	for from := 0; from < dimension; from++ {
-		if len(matrix[from]) != dimension {
-			return closeness
-		}
-
-		edges := make([]weightedDirectedEdge, 0, dimension-1)
-		for to := 0; to < dimension; to++ {
-			if from == to {
-				continue
-			}
-			edges = append(edges, weightedDirectedEdge{
-				directedEdge: directedEdge{from: from, to: to},
-				weight:       matrix[from][to],
-			})
-		}
-
-		sort.SliceStable(edges, func(i, j int) bool {
-			left, right := edges[i], edges[j]
-			if left.weight != right.weight {
-				return left.weight < right.weight
-			}
-			return left.to < right.to
-		})
-
-		outgoingCount := float64(len(edges))
-		for start := 0; start < len(edges); {
-			end := start + 1
-			for end < len(edges) && edges[end].weight == edges[start].weight {
-				end++
-			}
-
-			value := (outgoingCount - float64(start)) / outgoingCount
-			for index := start; index < end; index++ {
-				edge := edges[index]
-				closeness[edge.from][edge.to] = value
-			}
-			start = end
-		}
-	}
-
-	return closeness
-}
-
 func BuildRandomSparseModifiers(msaHeuristic [][]float64, strength float64, seed int64) [][]float64 {
 	dimension := len(msaHeuristic)
 	modifiers := BuildNeutralModifiers(dimension)
@@ -174,14 +94,14 @@ func BuildRandomSparseModifiers(msaHeuristic [][]float64, strength float64, seed
 	return modifiers
 }
 
-func BuildShuffledMsaModifiers(matrix, msaHeuristic [][]float64, strength float64, seed int64) [][]float64 {
+func BuildShuffledMsaModifiers(_ [][]float64, msaHeuristic [][]float64, strength float64, seed int64) [][]float64 {
 	dimension := len(msaHeuristic)
 	modifiers := BuildNeutralModifiers(dimension)
 	if dimension <= 1 || strength == 0 {
 		return modifiers
 	}
 
-	msaModifiers := BuildCostAwareMsaHeuristicModifiers(matrix, msaHeuristic, strength)
+	msaModifiers := BuildMsaHeuristicModifiers(msaHeuristic, strength)
 	boostedValues := make([]float64, 0)
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {

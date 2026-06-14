@@ -14,11 +14,11 @@ This report describes the default strict composite MSA modifier matrix used by t
 </thead>
 <tbody>
 <tr><td>atex5</td><td align="right">72</td><td align="right">32</td><td align="right">0.45</td><td align="right">40</td><td align="right">40</td><td align="right">+0.00</td><td align="right">+10.00</td></tr>
-<tr><td>ftv64</td><td align="right">65</td><td align="right">38</td><td align="right">0.59</td><td align="right">34</td><td align="right">27</td><td align="right">-1.18</td><td align="right">+60.00</td></tr>
-<tr><td>ftv90</td><td align="right">91</td><td align="right">52</td><td align="right">0.58</td><td align="right">45</td><td align="right">39</td><td align="right">-1.64</td><td align="right">+0.00</td></tr>
-<tr><td>crane100_1</td><td align="right">100</td><td align="right">64</td><td align="right">0.65</td><td align="right">56</td><td align="right">36</td><td align="right">-0.64</td><td align="right">+0.00</td></tr>
-<tr><td>td100_1</td><td align="right">101</td><td align="right">83</td><td align="right">0.83</td><td align="right">72</td><td align="right">18</td><td align="right">-0.12</td><td align="right">+0.00</td></tr>
-<tr><td>ry48p</td><td align="right">48</td><td align="right">17</td><td align="right">0.36</td><td align="right">32</td><td align="right">31</td><td align="right">-0.90</td><td align="right">+0.00</td></tr>
-<tr><td>dc134</td><td align="right">134</td><td align="right">129</td><td align="right">0.97</td><td align="right">125</td><td align="right">5</td><td align="right">-0.11</td><td align="right">+0.00</td></tr>
+<tr><td>ftv64</td><td align="right">65</td><td align="right">38</td><td align="right">0.59</td><td align="right">34</td><td align="right">27</td><td align="right">-1.18</td><td align="right">+50.00</td></tr>
+<tr><td>ftv90</td><td align="right">91</td><td align="right">52</td><td align="right">0.58</td><td align="right">45</td><td align="right">39</td><td align="right">-1.62</td><td align="right">+0.00</td></tr>
+<tr><td>crane100_1</td><td align="right">100</td><td align="right">64</td><td align="right">0.65</td><td align="right">56</td><td align="right">36</td><td align="right">-1.00</td><td align="right">+0.00</td></tr>
+<tr><td>td100_1</td><td align="right">101</td><td align="right">83</td><td align="right">0.83</td><td align="right">72</td><td align="right">18</td><td align="right">-0.24</td><td align="right">+0.00</td></tr>
+<tr><td>ry48p</td><td align="right">48</td><td align="right">17</td><td align="right">0.36</td><td align="right">32</td><td align="right">31</td><td align="right">-0.64</td><td align="right">+0.00</td></tr>
+<tr><td>dc134</td><td align="right">134</td><td align="right">129</td><td align="right">0.97</td><td align="right">125</td><td align="right">5</td><td align="right">-0.14</td><td align="right">+0.00</td></tr>
 </tbody>
 </table>
