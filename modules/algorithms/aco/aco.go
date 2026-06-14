@@ -93,7 +93,7 @@ func buildConstructionHeuristicNeighborsLists(heuristicModifiers [][]float64) []
 
 	for i := range heuristicModifiers {
 		for j, modifier := range heuristicModifiers[i] {
-			if i == j || modifier <= 1.0 {
+			if i == j || modifier <= 0.0 {
 				continue
 			}
 

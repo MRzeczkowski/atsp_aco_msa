@@ -1202,9 +1202,9 @@ func TestBuildHeuristicModifiersReturnsNeutralMatrixForBaseline(t *testing.T) {
 
 	modifiers := buildHeuristicModifiers(heuristicBaseline, nil, msaHeuristic, nil, newDefaultExperimentParameters(1.0))
 	expected := [][]float64{
-		{1, 1, 1},
-		{1, 1, 1},
-		{1, 1, 1},
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
 	}
 
 	if !reflect.DeepEqual(modifiers, expected) {
@@ -1220,8 +1220,8 @@ func TestBuildHeuristicModifiersBaselineCanUseDistanceMatrixDimension(t *testing
 
 	modifiers := buildHeuristicModifiers(heuristicBaseline, matrix, nil, nil, newDefaultExperimentParameters(1.0))
 	expected := [][]float64{
-		{1, 1},
-		{1, 1},
+		{0, 0},
+		{0, 0},
 	}
 
 	if !reflect.DeepEqual(modifiers, expected) {

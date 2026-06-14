@@ -64,7 +64,7 @@ func TestNewACOKeepsTourConstructionNeighborsDistanceOnly(t *testing.T) {
 	}
 	neutralModifiers := newNeutralHeuristicModifiers(len(distances))
 	strongFarEdgeModifiers := newNeutralHeuristicModifiers(len(distances))
-	strongFarEdgeModifiers[0][11] = 2.0
+	strongFarEdgeModifiers[0][11] = 1.0
 
 	withoutModifier := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, neutralModifiers, 0.0)
 	withModifier := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, strongFarEdgeModifiers, 0.0)
@@ -126,7 +126,7 @@ func TestRunDoesNotBakeHeuristicModifierIntoVisibility(t *testing.T) {
 		{6, 7, 0},
 	}
 	heuristicModifiers := newNeutralHeuristicModifiers(len(distances))
-	heuristicModifiers[0][1] = 3.0
+	heuristicModifiers[0][1] = 1.0
 
 	aco := NewACO(1.0, 1.0, 0.8, 1, 100.0, distances, heuristicModifiers, 1.0)
 	aco.Run()
@@ -139,9 +139,9 @@ func TestRunDoesNotBakeHeuristicModifierIntoVisibility(t *testing.T) {
 
 func TestBuildConstructionHeuristicNeighborsListsUsesBoostedEdges(t *testing.T) {
 	modifiers := [][]float64{
-		{1.0, 1.5, 1.0},
-		{2.2, 1.0, 1.8},
-		{1.0, 1.0, 1.0},
+		{0.0, 1.0, 0.0},
+		{1.0, 0.0, 1.0},
+		{0.0, 0.0, 0.0},
 	}
 
 	neighborsLists := buildConstructionHeuristicNeighborsLists(modifiers)
@@ -282,9 +282,6 @@ func newNeutralHeuristicModifiers(dimension int) [][]float64 {
 	modifiers := make([][]float64, dimension)
 	for i := range modifiers {
 		modifiers[i] = make([]float64, dimension)
-		for j := range modifiers[i] {
-			modifiers[i][j] = 1.0
-		}
 	}
 	return modifiers
 }

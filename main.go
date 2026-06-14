@@ -3105,17 +3105,17 @@ func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover 
 	case heuristicBaseline:
 		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
 	case heuristicMsaHeuristic:
-		return heuristics.BuildMsaHeuristicModifiers(msaHeuristic, parameters.heuristicWeight)
+		return heuristics.BuildMsaHeuristicModifiers(msaHeuristic)
 	case heuristicRandomSparse:
-		return heuristics.BuildRandomSparseModifiers(msaHeuristic, parameters.heuristicWeight, parameters.randomSeed)
+		return heuristics.BuildRandomSparseModifiers(msaHeuristic, parameters.randomSeed)
 	case heuristicDistanceRankedSparse:
-		return heuristics.BuildDistanceRankedSparseModifiers(matrix, msaHeuristic, parameters.heuristicWeight)
+		return heuristics.BuildDistanceRankedSparseModifiers(matrix, msaHeuristic)
 	case heuristicShuffledMsa:
-		return heuristics.BuildShuffledMsaModifiers(matrix, msaHeuristic, parameters.heuristicWeight, parameters.randomSeed)
+		return heuristics.BuildShuffledMsaModifiers(msaHeuristic, parameters.randomSeed)
 	case heuristicCycleCover:
-		return heuristics.BuildCycleCoverModifiers(cycleCover, parameters.heuristicWeight)
+		return heuristics.BuildCycleCoverModifiers(cycleCover)
 	case heuristicCycleCoverMsaPatching:
-		return heuristics.BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover, parameters.heuristicWeight, parameters.msaPatchBias)
+		return heuristics.BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover, parameters.msaPatchBias)
 	default:
 		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
 	}
@@ -4871,8 +4871,8 @@ func buildMsaDistanceRankedCategoryRows(atspsData []AtspData) ([]msaDistanceRank
 			return nil, fmt.Errorf("%s: read MSA impact heuristic: %w", atspData.name, err)
 		}
 
-		msaEdges := boostedModifierEdgeSet(heuristics.BuildMsaHeuristicModifiers(msaHeuristicMatrix, 1.0))
-		distanceRankedEdges := boostedModifierEdgeSet(heuristics.BuildDistanceRankedSparseModifiers(atspData.matrix, msaHeuristicMatrix, 1.0))
+		msaEdges := boostedModifierEdgeSet(heuristics.BuildMsaHeuristicModifiers(msaHeuristicMatrix))
+		distanceRankedEdges := boostedModifierEdgeSet(heuristics.BuildDistanceRankedSparseModifiers(atspData.matrix, msaHeuristicMatrix))
 		rows = append(rows, calculateMsaDistanceRankedCategoryRow(atspData.name, len(atspData.matrix), len(tours), optimalEdges, msaEdges, distanceRankedEdges))
 	}
 
@@ -4929,7 +4929,7 @@ func boostedModifierEdgeSet(modifiers [][]float64) map[models.Edge]struct{} {
 	edges := make(map[models.Edge]struct{})
 	for from := 0; from < len(modifiers); from++ {
 		for to, value := range modifiers[from] {
-			if from != to && value > 1.0 {
+			if from != to && value > 0.0 {
 				edges[models.Edge{From: from, To: to}] = struct{}{}
 			}
 		}
@@ -5240,7 +5240,7 @@ func readMsaImpactStructureRows(atspsData []AtspData) ([]msaImpactStructureRow, 
 			return nil, fmt.Errorf("%s: failed to read MSA impact heuristic matrix: %w", atspData.name, err)
 		}
 
-		modifiers := heuristics.BuildMsaHeuristicModifiers(msaHeuristicMatrix, finalMsaHeuristicWeight)
+		modifiers := heuristics.BuildMsaHeuristicModifiers(msaHeuristicMatrix)
 		boostedEdges, missingOutgoingVertices, missingIncomingVertices := msaModifierStructure(modifiers)
 		msaMetric, msaOk := metrics[heuristicMsaHeuristic]
 		if !msaOk {
@@ -5269,7 +5269,7 @@ func msaModifierStructure(modifiers [][]float64) (boostedEdges, missingOutgoingV
 
 	for from := 0; from < dimension; from++ {
 		for to := 0; to < len(modifiers[from]); to++ {
-			if from == to || modifiers[from][to] <= 1.0 {
+			if from == to || modifiers[from][to] <= 0.0 {
 				continue
 			}
 

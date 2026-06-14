@@ -36,10 +36,10 @@ type patchCostCache struct {
 	dirtyRows            []bool
 }
 
-func BuildMsaHeuristicModifiers(msaHeuristic [][]float64, strength float64) [][]float64 {
+func BuildMsaHeuristicModifiers(msaHeuristic [][]float64) [][]float64 {
 	dimension := len(msaHeuristic)
 	modifiers := BuildNeutralModifiers(dimension)
-	if dimension <= 1 || strength == 0 {
+	if dimension <= 1 {
 		return modifiers
 	}
 
@@ -52,7 +52,7 @@ func BuildMsaHeuristicModifiers(msaHeuristic [][]float64, strength float64) [][]
 
 			msaHeuristicSignal := msaHeuristic[i][j] / maxMsaHeuristicSelections
 			if msaHeuristicSignal >= msaHeuristicHighSignalThreshold {
-				modifiers[i][j] = 1.0 + msaHeuristicSignal*strength
+				modifiers[i][j] = 1.0
 			}
 		}
 	}
@@ -60,14 +60,14 @@ func BuildMsaHeuristicModifiers(msaHeuristic [][]float64, strength float64) [][]
 	return modifiers
 }
 
-func BuildRandomSparseModifiers(msaHeuristic [][]float64, strength float64, seed int64) [][]float64 {
+func BuildRandomSparseModifiers(msaHeuristic [][]float64, seed int64) [][]float64 {
 	dimension := len(msaHeuristic)
 	modifiers := BuildNeutralModifiers(dimension)
-	if dimension <= 1 || strength == 0 {
+	if dimension <= 1 {
 		return modifiers
 	}
 
-	boostedEdgeCount := boostedModifierEdgeCount(BuildMsaHeuristicModifiers(msaHeuristic, 1.0))
+	boostedEdgeCount := boostedModifierEdgeCount(BuildMsaHeuristicModifiers(msaHeuristic))
 	if boostedEdgeCount == 0 {
 		return modifiers
 	}
@@ -88,29 +88,21 @@ func BuildRandomSparseModifiers(msaHeuristic [][]float64, strength float64, seed
 	}
 
 	for _, edge := range edges[:boostedEdgeCount] {
-		modifiers[edge.from][edge.to] = 1.0 + strength
+		modifiers[edge.from][edge.to] = 1.0
 	}
 
 	return modifiers
 }
 
-func BuildShuffledMsaModifiers(_ [][]float64, msaHeuristic [][]float64, strength float64, seed int64) [][]float64 {
+func BuildShuffledMsaModifiers(msaHeuristic [][]float64, seed int64) [][]float64 {
 	dimension := len(msaHeuristic)
 	modifiers := BuildNeutralModifiers(dimension)
-	if dimension <= 1 || strength == 0 {
+	if dimension <= 1 {
 		return modifiers
 	}
 
-	msaModifiers := BuildMsaHeuristicModifiers(msaHeuristic, strength)
-	boostedValues := make([]float64, 0)
-	for i := 0; i < dimension; i++ {
-		for j := 0; j < dimension; j++ {
-			if i != j && msaModifiers[i][j] > 1.0 {
-				boostedValues = append(boostedValues, msaModifiers[i][j])
-			}
-		}
-	}
-	if len(boostedValues) == 0 {
+	boostedEdgeCount := boostedModifierEdgeCount(BuildMsaHeuristicModifiers(msaHeuristic))
+	if boostedEdgeCount == 0 {
 		return modifiers
 	}
 
@@ -129,22 +121,21 @@ func BuildShuffledMsaModifiers(_ [][]float64, msaHeuristic [][]float64, strength
 		edges[i], edges[j] = edges[j], edges[i]
 	}
 
-	for i, value := range boostedValues {
-		edge := edges[i]
-		modifiers[edge.from][edge.to] = value
+	for _, edge := range edges[:boostedEdgeCount] {
+		modifiers[edge.from][edge.to] = 1.0
 	}
 
 	return modifiers
 }
 
-func BuildDistanceRankedSparseModifiers(matrix, msaHeuristic [][]float64, strength float64) [][]float64 {
+func BuildDistanceRankedSparseModifiers(matrix, msaHeuristic [][]float64) [][]float64 {
 	dimension := heuristicDimension(matrix, msaHeuristic)
 	modifiers := BuildNeutralModifiers(dimension)
-	if dimension <= 1 || strength == 0 {
+	if dimension <= 1 {
 		return modifiers
 	}
 
-	boostedEdgeCount := boostedModifierEdgeCount(BuildMsaHeuristicModifiers(msaHeuristic, 1.0))
+	boostedEdgeCount := boostedModifierEdgeCount(BuildMsaHeuristicModifiers(msaHeuristic))
 	if boostedEdgeCount == 0 {
 		return modifiers
 	}
@@ -173,24 +164,20 @@ func BuildDistanceRankedSparseModifiers(matrix, msaHeuristic [][]float64, streng
 	})
 
 	for _, edge := range edges[:boostedEdgeCount] {
-		modifiers[edge.from][edge.to] = 1.0 + strength
+		modifiers[edge.from][edge.to] = 1.0
 	}
 
 	return modifiers
 }
 
-func BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover [][]float64, patchingWeight, msaPatchBias float64) [][]float64 {
-	if patchingWeight == 0 {
-		return BuildNeutralModifiers(heuristicDimension(matrix, msaHeuristic, cycleCover))
-	}
-
+func BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover [][]float64, msaPatchBias float64) [][]float64 {
 	patchingMatrix := BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, msaHeuristic, cycleCover, msaPatchBias)
 	modifiers := BuildNeutralModifiers(len(patchingMatrix))
 
 	for i := 0; i < len(patchingMatrix); i++ {
 		for j := 0; j < len(patchingMatrix[i]); j++ {
 			if i != j && patchingMatrix[i][j] > 0 {
-				modifiers[i][j] = 1.0 + patchingMatrix[i][j]*patchingWeight
+				modifiers[i][j] = 1.0
 			}
 		}
 	}
@@ -247,17 +234,17 @@ func BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, msaHeuristic, cycl
 	return buildSuccessorMatrix(successors)
 }
 
-func BuildCycleCoverModifiers(cycleCover [][]float64, strength float64) [][]float64 {
+func BuildCycleCoverModifiers(cycleCover [][]float64) [][]float64 {
 	dimension := len(cycleCover)
 	modifiers := BuildNeutralModifiers(dimension)
-	if dimension == 0 || strength == 0 {
+	if dimension == 0 {
 		return modifiers
 	}
 
 	for i := 0; i < dimension; i++ {
 		for j := 0; j < dimension; j++ {
 			if i != j && cycleCover[i][j] != 0 {
-				modifiers[i][j] = 1.0 + strength
+				modifiers[i][j] = 1.0
 			}
 		}
 	}
@@ -269,7 +256,7 @@ func boostedModifierEdgeCount(modifiers [][]float64) int {
 	count := 0
 	for i := 0; i < len(modifiers); i++ {
 		for j := 0; j < len(modifiers[i]); j++ {
-			if i != j && modifiers[i][j] > 1.0 {
+			if i != j && modifiers[i][j] > 0.0 {
 				count++
 			}
 		}
@@ -282,9 +269,6 @@ func BuildNeutralModifiers(dimension int) [][]float64 {
 	modifiers := make([][]float64, dimension)
 	for i := range modifiers {
 		modifiers[i] = make([]float64, dimension)
-		for j := range modifiers[i] {
-			modifiers[i][j] = 1.0
-		}
 	}
 	return modifiers
 }
