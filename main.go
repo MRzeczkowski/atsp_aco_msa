@@ -137,7 +137,6 @@ var randomSparseSeeds = []int64{1, 2, 3}
 var shuffledMsaSeeds = []int64{101, 102, 103}
 
 var experimentHeuristics = []string{
-	heuristicBaseline,
 	heuristicMsaHeuristic,
 	heuristicCycleCover,
 	heuristicCycleCoverMsaPatching,
@@ -3646,8 +3645,7 @@ func isValidRunMode(mode string) bool {
 }
 
 func isValidHeuristic(heuristic string) bool {
-	return heuristic == heuristicBaseline ||
-		heuristic == heuristicMsaHeuristic ||
+	return heuristic == heuristicMsaHeuristic ||
 		heuristic == heuristicCycleCover ||
 		heuristic == heuristicCycleCoverMsaPatching
 }
@@ -3658,7 +3656,7 @@ func selectExperimentHeuristics(heuristic string, heuristicExplicit bool) ([]str
 	}
 
 	if !isValidHeuristic(heuristic) {
-		return nil, fmt.Errorf("unsupported -heuristic value %q; omit it or use %q, %q, %q, %q, or %q", heuristic, experimentHeuristicAll, heuristicBaseline, heuristicMsaHeuristic, heuristicCycleCover, heuristicCycleCoverMsaPatching)
+		return nil, fmt.Errorf("unsupported -heuristic value %q; omit it or use %q, %q, %q, or %q", heuristic, experimentHeuristicAll, heuristicMsaHeuristic, heuristicCycleCover, heuristicCycleCoverMsaPatching)
 	}
 
 	return []string{heuristic}, nil
@@ -3835,7 +3833,7 @@ func main() {
 	instances := flag.String("instances", instanceSetTuning, "ATSP instance set to run: smoke, msa-impact, tuning, evaluation, or all-known")
 	mode := flag.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, final+3opt, rebuild-msa, or msa-impact")
 	analysisScope := flag.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all, tuning, or gks-deviation")
-	heuristic := flag.String("heuristic", "", "ACO heuristic modifier to use in experiment mode: omit or use all to run all; otherwise baseline, msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
+	heuristic := flag.String("heuristic", "", "ACO heuristic modifier to use in experiment mode: omit or use all to run all; otherwise msa-heuristic, cycle-cover, or cycle-cover-msa-patching")
 	finalHeuristic := flag.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, controls, baseline, msa-heuristic, random-sparse, distance-ranked-sparse, shuffled-msa, cycle-cover, or cycle-cover-msa-patching")
 	workers := flag.Int("workers", 0, "Maximum concurrent instance workers. 0 uses half of available logical CPUs; 1 preserves serial execution")
 	cpuProfilePath := flag.String("cpuprofile", "", "Optional CPU profile output path. Disabled when empty")
@@ -4078,6 +4076,49 @@ func runBoundedIndexJobs(jobCount, workers int, job func(int) error) error {
 	}
 	waitGroup.Wait()
 
+	return firstErr
+}
+
+func runIndexJobsWithSharedWorkers(jobCount int, workerGate chan struct{}, job func(int) error) error {
+	if jobCount == 0 {
+		return nil
+	}
+	if cap(workerGate) < 1 {
+		return fmt.Errorf("shared workers must be at least one")
+	}
+
+	var firstErr error
+	var mutex sync.Mutex
+	var waitGroup sync.WaitGroup
+
+	for index := 0; index < jobCount; index++ {
+		waitGroup.Add(1)
+		go func(index int) {
+			defer waitGroup.Done()
+
+			workerGate <- struct{}{}
+			defer func() {
+				<-workerGate
+			}()
+
+			mutex.Lock()
+			shouldStop := firstErr != nil
+			mutex.Unlock()
+			if shouldStop {
+				return
+			}
+
+			if err := job(index); err != nil {
+				mutex.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				mutex.Unlock()
+			}
+		}(index)
+	}
+
+	waitGroup.Wait()
 	return firstErr
 }
 
@@ -5307,16 +5348,15 @@ func removeFileIfExists(path string) error {
 }
 
 func runExperimentSet(atspsData []AtspData, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments, workers int) error {
-	for _, atspData := range atspsData {
-		if err := runExperimentSetForInstance(atspData, heuristic, experimentParameters, numberOfExperiments, workers); err != nil {
-			return err
-		}
-	}
+	workers = maxIntValue(1, workers)
+	workerGate := make(chan struct{}, workers)
 
-	return nil
+	return runBoundedInstanceJobs(atspsData, min(workers, maxIntValue(1, len(atspsData))), func(atspData AtspData) error {
+		return runExperimentSetForInstance(atspData, heuristic, experimentParameters, numberOfExperiments, workerGate)
+	})
 }
 
-func runExperimentSetForInstance(atspData AtspData, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments, workers int) error {
+func runExperimentSetForInstance(atspData AtspData, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments int, workerGate chan struct{}) error {
 	matrix := atspData.matrix
 	knownOptimal := atspData.knownOptimal
 	dimension := len(matrix)
@@ -5334,7 +5374,7 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 		dimension,
 		len(experimentParameters),
 		numberOfExperiments,
-		min(workers, len(experimentParameters)))
+		min(cap(workerGate), len(experimentParameters)))
 
 	var cycleCover [][]float64
 	if heuristicUsesCycleCover(heuristic) {
@@ -5353,7 +5393,7 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 	experimentData := make([]ExperimentsData, len(experimentParameters))
 	var logMutex sync.Mutex
 
-	err = runBoundedIndexJobs(len(experimentParameters), workers, func(index int) error {
+	err = runIndexJobsWithSharedWorkers(len(experimentParameters), workerGate, func(index int) error {
 		parameters := experimentParameters[index]
 		setDimensionDependantParameters(dimension, &parameters)
 		parameterStart := time.Now()

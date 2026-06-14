@@ -1409,6 +1409,11 @@ func TestSelectExperimentHeuristics(t *testing.T) {
 	if !reflect.DeepEqual(selected, experimentHeuristics) {
 		t.Fatalf("omitted heuristic should select all experiment heuristics\nwant: %v\n got: %v", experimentHeuristics, selected)
 	}
+	for _, heuristic := range selected {
+		if heuristic == heuristicBaseline {
+			t.Fatal("default experiment heuristics should not include baseline")
+		}
+	}
 
 	selected, err = selectExperimentHeuristics(experimentHeuristicAll, true)
 	if err != nil {
@@ -1424,6 +1429,10 @@ func TestSelectExperimentHeuristics(t *testing.T) {
 	}
 	if !reflect.DeepEqual(selected, []string{heuristicCycleCover}) {
 		t.Fatalf("explicit heuristic should select only that heuristic, got %v", selected)
+	}
+
+	if _, err := selectExperimentHeuristics(heuristicBaseline, true); err == nil {
+		t.Fatal("expected baseline experiment heuristic to be rejected")
 	}
 
 	if _, err := selectExperimentHeuristics("unknown", true); err == nil {
@@ -1658,7 +1667,7 @@ func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCs
 	}
 }
 
-func TestFinalModeAndBaselineHeuristicAreValid(t *testing.T) {
+func TestFinalModesAndExperimentHeuristicsAreValid(t *testing.T) {
 	if !isValidRunMode(runModeFinal) {
 		t.Fatal("final run mode should be valid")
 	}
@@ -1671,8 +1680,8 @@ func TestFinalModeAndBaselineHeuristicAreValid(t *testing.T) {
 	if !isValidRunMode(runModeMsaImpact) {
 		t.Fatal("MSA impact run mode should be valid")
 	}
-	if !isValidHeuristic(heuristicBaseline) {
-		t.Fatal("baseline heuristic should be valid")
+	if isValidHeuristic(heuristicBaseline) {
+		t.Fatal("baseline heuristic should not be valid in normal experiment mode")
 	}
 	if isValidHeuristic(heuristicRandomSparse) {
 		t.Fatal("random sparse control should not be valid in normal experiment mode")
@@ -1858,6 +1867,44 @@ func TestRunBoundedIndexJobsRespectsWorkerLimitAndKeepsIndexedResults(t *testing
 
 func TestRunBoundedIndexJobsReturnsFirstError(t *testing.T) {
 	err := runBoundedIndexJobs(3, 1, func(index int) error {
+		if index == 1 {
+			return os.ErrInvalid
+		}
+		return nil
+	})
+	if err != os.ErrInvalid {
+		t.Fatalf("expected %v, got %v", os.ErrInvalid, err)
+	}
+}
+
+func TestRunIndexJobsWithSharedWorkersRespectsLimit(t *testing.T) {
+	workerGate := make(chan struct{}, 2)
+	var activeWorkers int32
+	var maxActiveWorkers int32
+
+	err := runIndexJobsWithSharedWorkers(8, workerGate, func(index int) error {
+		active := atomic.AddInt32(&activeWorkers, 1)
+		for {
+			currentMax := atomic.LoadInt32(&maxActiveWorkers)
+			if active <= currentMax || atomic.CompareAndSwapInt32(&maxActiveWorkers, currentMax, active) {
+				break
+			}
+		}
+
+		time.Sleep(10 * time.Millisecond)
+		atomic.AddInt32(&activeWorkers, -1)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("runIndexJobsWithSharedWorkers returned unexpected error: %v", err)
+	}
+	if maxActiveWorkers > 2 {
+		t.Fatalf("expected at most two active shared workers, got %d", maxActiveWorkers)
+	}
+}
+
+func TestRunIndexJobsWithSharedWorkersReturnsFirstError(t *testing.T) {
+	err := runIndexJobsWithSharedWorkers(3, make(chan struct{}, 1), func(index int) error {
 		if index == 1 {
 			return os.ErrInvalid
 		}
