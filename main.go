@@ -3533,8 +3533,6 @@ type AtspData struct {
 
 	msaHeuristicHeatmapPlotPath   string
 	msaHeuristicHistogramPlotPath string
-	msaThinnessScoresCsvPath      string
-	msaThinnessHistogramPlotPath  string
 
 	resultFilePath       string
 	resultPlotFilePrefix string
@@ -3560,8 +3558,6 @@ func makeAtspDataInResultsDirectory(name string, matrix [][]float64, knownOptima
 
 	msaHeuristicHeatmapPlotPath := filepath.Join(msaHeuristicPlotsDirectoryPath, "msa_heuristic_heatmap.png")
 	msaHeuristicHistogramPlotPath := filepath.Join(msaHeuristicPlotsDirectoryPath, "msa_heuristic_histogram.png")
-	msaThinnessScoresCsvPath := filepath.Join(msaHeuristicDirectoryPath, "msa_thinness_scores.csv")
-	msaThinnessHistogramPlotPath := filepath.Join(msaHeuristicPlotsDirectoryPath, "msa_thinness_histogram.png")
 
 	resultFilePath := filepath.Join(resultsDirectoryPath, resultFileName)
 	resultPlotFilePrefix := filepath.Join(resultsPlotsDirectoryPath, "best_result")
@@ -3579,7 +3575,6 @@ func makeAtspDataInResultsDirectory(name string, matrix [][]float64, knownOptima
 		msaHeuristicDirectoryPath,
 
 		msaHeuristicHeatmapPlotPath, msaHeuristicHistogramPlotPath,
-		msaThinnessScoresCsvPath, msaThinnessHistogramPlotPath,
 
 		resultFilePath,
 		resultPlotFilePrefix,
@@ -5504,69 +5499,6 @@ func saveMsaHeuristicPlots(atspData AtspData, msaHeuristicMatrix [][]float64) er
 	dimension := len(atspData.matrix)
 	if err := utilities.SaveHistogramFromData(dataForHistogram, dimension-1, msaHeuristicHistogramPlotTitle, atspData.msaHeuristicHistogramPlotPath); err != nil {
 		return err
-	}
-
-	return saveMsaThinnessArtifacts(atspData)
-}
-
-func saveMsaThinnessArtifacts(atspData AtspData) error {
-	scores, err := msaHeuristic.ReadMsaThinnessScores(atspData.msaHeuristicDirectoryPath, atspData.matrix)
-	if err != nil {
-		return err
-	}
-	if err := saveMsaThinnessScoresCsv(scores, atspData.msaThinnessScoresCsvPath); err != nil {
-		return err
-	}
-
-	data := make([]float64, len(scores))
-	for i, score := range scores {
-		data[i] = float64(score.BranchSurplus)
-	}
-
-	thinnessHistogramTitle := atspData.name + " MSA thinness histogram"
-	return utilities.SaveHistogramFromDataWithLabels(
-		data,
-		countUniqueFloatValues(data),
-		thinnessHistogramTitle,
-		"Thinness score (branch surplus)",
-		"Count of root MSAs",
-		atspData.msaThinnessHistogramPlotPath)
-}
-
-func saveMsaThinnessScoresCsv(scores []msaHeuristic.MsaThinnessScore, path string) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return err
-	}
-
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	if err := writer.Write([]string{
-		"Root",
-		"Thinness score (branch surplus)",
-		"Max outgoing degree",
-		"Branching vertices",
-		"Total cost",
-	}); err != nil {
-		return err
-	}
-
-	for _, score := range scores {
-		if err := writer.Write([]string{
-			strconv.Itoa(score.Root),
-			strconv.Itoa(score.BranchSurplus),
-			strconv.Itoa(score.MaxOutgoingDegree),
-			strconv.Itoa(score.BranchingVertices),
-			strconv.FormatFloat(score.TotalCost, 'f', -1, 64),
-		}); err != nil {
-			return err
-		}
 	}
 
 	return nil

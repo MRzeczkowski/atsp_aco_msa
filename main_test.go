@@ -1928,8 +1928,6 @@ func TestRunRebuildMsaModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T) {
 	atspData.msaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
 	atspData.msaHeuristicHeatmapPlotPath = filepath.Join(atspData.msaHeuristicDirectoryPath, "plots", "msa_heuristic_heatmap.png")
 	atspData.msaHeuristicHistogramPlotPath = filepath.Join(atspData.msaHeuristicDirectoryPath, "plots", "msa_heuristic_histogram.png")
-	atspData.msaThinnessScoresCsvPath = filepath.Join(atspData.msaHeuristicDirectoryPath, "msa_thinness_scores.csv")
-	atspData.msaThinnessHistogramPlotPath = filepath.Join(atspData.msaHeuristicDirectoryPath, "plots", "msa_thinness_histogram.png")
 
 	stalePath := filepath.Join(atspData.msaHeuristicDirectoryPath, "stale.txt")
 	if err := os.MkdirAll(atspData.msaHeuristicDirectoryPath, 0700); err != nil {
@@ -1949,14 +1947,6 @@ func TestRunRebuildMsaModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T) {
 	assertPathExists(t, filepath.Join(atspData.msaHeuristicDirectoryPath, "msa_heuristic.csv"))
 	assertPathExists(t, atspData.msaHeuristicHeatmapPlotPath)
 	assertPathExists(t, atspData.msaHeuristicHistogramPlotPath)
-	assertPathExists(t, atspData.msaThinnessScoresCsvPath)
-	assertPathExists(t, atspData.msaThinnessHistogramPlotPath)
-
-	thinnessCsv, err := os.ReadFile(atspData.msaThinnessScoresCsvPath)
-	if err != nil {
-		t.Fatalf("failed to read MSA thinness scores CSV: %v", err)
-	}
-	assertContains(t, string(thinnessCsv), "Root,Thinness score (branch surplus),Max outgoing degree,Branching vertices,Total cost")
 
 	rootMsaFiles, err := filepath.Glob(filepath.Join(atspData.msaHeuristicDirectoryPath, "msas", "*.csv"))
 	if err != nil {

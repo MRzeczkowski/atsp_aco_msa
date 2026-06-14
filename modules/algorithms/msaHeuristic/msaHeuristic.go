@@ -5,7 +5,6 @@ import (
 	"atsp_aco_msa/modules/models"
 	"encoding/csv"
 	"fmt"
-	"math"
 	"os"
 	"path"
 	"path/filepath"
@@ -16,14 +15,6 @@ import (
 
 type Edge = models.Edge
 type finder func(root int, vertices []int, edges []Edge, weights map[Edge]float64) []Edge
-
-type MsaThinnessScore struct {
-	Root              int
-	BranchSurplus     int
-	MaxOutgoingDegree int
-	BranchingVertices int
-	TotalCost         float64
-}
 
 func Read(rootMsaHeuristicPath string) ([][]float64, error) {
 	msaHeuristicPath := path.Join(rootMsaHeuristicPath, "msa_heuristic.csv")
@@ -42,23 +33,6 @@ func ReadMsas(rootMsaHeuristicPath string) ([][][]float64, error) {
 	}
 
 	return msas, nil
-}
-
-func ReadMsaThinnessScores(rootMsaHeuristicPath string, matrix [][]float64) ([]MsaThinnessScore, error) {
-	rootedMsas, err := readRootedMsas(rootMsaHeuristicPath)
-	if err != nil {
-		return nil, err
-	}
-	if len(rootedMsas) == 0 {
-		return nil, fmt.Errorf("no cached MSAs found in %s", path.Join(rootMsaHeuristicPath, "msas"))
-	}
-
-	scores := make([]MsaThinnessScore, len(rootedMsas))
-	for i, rootedMsa := range rootedMsas {
-		scores[i] = ScoreMsaThinness(rootedMsa.matrix, matrix, rootedMsa.root)
-	}
-
-	return scores, nil
 }
 
 type rootedMsa struct {
@@ -111,104 +85,6 @@ func readRootedMsaPaths(rootMsaHeuristicPath string) ([]rootedMsaPath, error) {
 	})
 
 	return rootedPaths, nil
-}
-
-func ReadThinnestMsa(rootMsaHeuristicPath string, matrix [][]float64) ([][]float64, error) {
-	msas, err := ReadMsas(rootMsaHeuristicPath)
-	if err != nil {
-		return nil, err
-	}
-	if len(msas) == 0 {
-		return nil, fmt.Errorf("no cached MSAs found in %s", path.Join(rootMsaHeuristicPath, "msas"))
-	}
-
-	return SelectThinnestMsa(msas, matrix), nil
-}
-
-func SelectThinnestMsa(msas [][][]float64, matrix [][]float64) [][]float64 {
-	if len(msas) == 0 {
-		return [][]float64{}
-	}
-
-	bestIndex := 0
-	bestScore := scoreMsa(msas[0], matrix, 0)
-	for index := 1; index < len(msas); index++ {
-		score := scoreMsa(msas[index], matrix, index)
-		if score.less(bestScore) {
-			bestIndex = index
-			bestScore = score
-		}
-	}
-
-	return scaleMsaToFullSupport(msas[bestIndex])
-}
-
-func ScoreMsaThinness(msa, matrix [][]float64, root int) MsaThinnessScore {
-	score := MsaThinnessScore{Root: root}
-	for from := 0; from < len(msa); from++ {
-		outgoingDegree := 0
-		for to := 0; to < len(msa[from]); to++ {
-			if from == to || msa[from][to] == 0 {
-				continue
-			}
-
-			outgoingDegree++
-			score.TotalCost += matrixValue(matrix, from, to, msa[from][to])
-		}
-
-		if outgoingDegree > 1 {
-			score.BranchSurplus += outgoingDegree - 1
-			score.BranchingVertices++
-		}
-		if outgoingDegree > score.MaxOutgoingDegree {
-			score.MaxOutgoingDegree = outgoingDegree
-		}
-	}
-
-	return score
-}
-
-func scoreMsa(msa, matrix [][]float64, rootIndex int) MsaThinnessScore {
-	return ScoreMsaThinness(msa, matrix, rootIndex)
-}
-
-func (score MsaThinnessScore) less(other MsaThinnessScore) bool {
-	if score.BranchSurplus != other.BranchSurplus {
-		return score.BranchSurplus < other.BranchSurplus
-	}
-	if score.MaxOutgoingDegree != other.MaxOutgoingDegree {
-		return score.MaxOutgoingDegree < other.MaxOutgoingDegree
-	}
-	if score.BranchingVertices != other.BranchingVertices {
-		return score.BranchingVertices < other.BranchingVertices
-	}
-	if math.Abs(score.TotalCost-other.TotalCost) > 1e-9 {
-		return score.TotalCost < other.TotalCost
-	}
-	return score.Root < other.Root
-}
-
-func matrixValue(matrix [][]float64, row, column int, fallback float64) float64 {
-	if row < 0 || row >= len(matrix) || column < 0 || column >= len(matrix[row]) {
-		return fallback
-	}
-	return matrix[row][column]
-}
-
-func scaleMsaToFullSupport(msa [][]float64) [][]float64 {
-	dimension := len(msa)
-	fullSupport := float64(max(0, dimension-1))
-	scaled := make([][]float64, dimension)
-	for from := 0; from < dimension; from++ {
-		scaled[from] = make([]float64, dimension)
-		for to := 0; to < dimension && to < len(msa[from]); to++ {
-			if from != to && msa[from][to] != 0 {
-				scaled[from][to] = fullSupport
-			}
-		}
-	}
-
-	return scaled
 }
 
 func Create(matrix [][]float64, rootMsaHeuristicPath string) ([][]float64, error) {
