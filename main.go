@@ -121,9 +121,15 @@ const (
 const (
 	heuristicBaseline              = "baseline"
 	heuristicMsaHeuristic          = "msa-heuristic"
+	heuristicStrictMsa             = "strict-msa"
+	heuristicRootedMsa             = "rooted-msa"
 	heuristicRandomSparse          = "random-sparse"
 	heuristicDistanceRankedSparse  = "distance-ranked-sparse"
 	heuristicShuffledMsa           = "shuffled-msa"
+	heuristicStrictDistanceRanked  = "strict-distance-ranked-sparse"
+	heuristicStrictShuffledMsa     = "strict-shuffled-msa"
+	heuristicRootedDistanceRanked  = "rooted-distance-ranked-sparse"
+	heuristicRootedShuffledMsa     = "rooted-shuffled-msa"
 	heuristicCycleCover            = "cycle-cover"
 	heuristicCycleCoverMsaPatching = "cycle-cover-msa-patching"
 )
@@ -2300,6 +2306,15 @@ func statisticsForHeuristicWeightAll(statistics []ExperimentsDataStatistics, heu
 }
 
 func readFinalMsaHeuristicControlMetric(atspData AtspData, finalResultsRootPath string) (finalResultsSummaryMetric, bool, error) {
+	referenceHeuristic := heuristicMsaHeuristic
+	if finalResultsRootPath == msaImpactResultsDirectoryName {
+		referenceHeuristic = heuristicRootedMsa
+	}
+
+	return readMsaControlMetric(atspData, finalResultsRootPath, referenceHeuristic)
+}
+
+func readMsaControlMetric(atspData AtspData, finalResultsRootPath, referenceHeuristic string) (finalResultsSummaryMetric, bool, error) {
 	if finalResultsRootPath == msaImpactResultsDirectoryName {
 		finalAtspData := withExperimentOutputRoot(atspData, finalResultsRootPath)
 		metrics, err := readFinalResultSummaryMetrics(finalAtspData.resultFilePath)
@@ -2310,7 +2325,7 @@ func readFinalMsaHeuristicControlMetric(atspData AtspData, finalResultsRootPath 
 			return finalResultsSummaryMetric{}, false, err
 		}
 
-		metric, ok := metrics[heuristicMsaHeuristic]
+		metric, ok := metrics[referenceHeuristic]
 		return metric, ok, nil
 	}
 
@@ -2505,7 +2520,11 @@ type distanceRankedSparseControlMissingData struct {
 }
 
 func saveDistanceRankedSparseControlReport(path string, atspsData []AtspData, finalResultsRootPath, controlResultsRootPath string) (bool, error) {
-	rows, missingData, err := buildDistanceRankedSparseControlRows(atspsData, finalResultsRootPath, controlResultsRootPath)
+	return saveDistanceRankedSparseControlReportForReference(path, atspsData, finalResultsRootPath, controlResultsRootPath, heuristicMsaHeuristic, "MSA", heuristicDistanceRankedSparse, "distance-ranked sparse")
+}
+
+func saveDistanceRankedSparseControlReportForReference(path string, atspsData []AtspData, finalResultsRootPath, controlResultsRootPath, referenceHeuristic, referenceName, controlHeuristic, controlName string) (bool, error) {
+	rows, missingData, err := buildDistanceRankedSparseControlRows(atspsData, finalResultsRootPath, controlResultsRootPath, referenceHeuristic, controlHeuristic)
 	if err != nil {
 		return false, err
 	}
@@ -2517,11 +2536,11 @@ func saveDistanceRankedSparseControlReport(path string, atspsData []AtspData, fi
 	}
 
 	var builder strings.Builder
-	builder.WriteString("# Distance-ranked Sparse Control\n\n")
-	fmt.Fprintf(&builder, "This sanity check compares the final MSA heuristic against a deterministic sparse mask built from the cheapest directed edges. The control boosts the same number of directed edges as the MSA heuristic and %s.\n\n", controlWeightDescription(finalResultsRootPath))
-	writeDistanceRankedSparseControlFindings(&builder, rows)
+	fmt.Fprintf(&builder, "# %s Distance-ranked Sparse Control\n\n", referenceName)
+	fmt.Fprintf(&builder, "This sanity check compares %s against a deterministic sparse mask built from the cheapest directed edges. The control preserves the matching edge-count structure and %s.\n\n", referenceName, controlWeightDescription(finalResultsRootPath, referenceName))
+	writeDistanceRankedSparseControlFindings(&builder, rows, referenceName, controlName)
 	builder.WriteString("\n")
-	writeDistanceRankedSparseControlTable(&builder, rows)
+	writeDistanceRankedSparseControlTable(&builder, rows, referenceName, controlName)
 	if len(missingData) != 0 {
 		writeDistanceRankedSparseControlMissingData(&builder, missingData)
 	}
@@ -2529,25 +2548,25 @@ func saveDistanceRankedSparseControlReport(path string, atspsData []AtspData, fi
 	return true, os.WriteFile(path, []byte(builder.String()), 0644)
 }
 
-func buildDistanceRankedSparseControlRows(atspsData []AtspData, finalResultsRootPath, controlResultsRootPath string) ([]distanceRankedSparseControlRow, []distanceRankedSparseControlMissingData, error) {
+func buildDistanceRankedSparseControlRows(atspsData []AtspData, finalResultsRootPath, controlResultsRootPath, referenceHeuristic, controlHeuristic string) ([]distanceRankedSparseControlRow, []distanceRankedSparseControlMissingData, error) {
 	rows := make([]distanceRankedSparseControlRow, 0, len(atspsData))
 	missingData := make([]distanceRankedSparseControlMissingData, 0)
 
 	for _, atspData := range atspsData {
-		msaMetric, ok, err := readFinalMsaHeuristicControlMetric(atspData, finalResultsRootPath)
+		msaMetric, ok, err := readMsaControlMetric(atspData, finalResultsRootPath, referenceHeuristic)
 		if err != nil {
 			return nil, nil, err
 		}
 		if !ok {
-			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.name, reason: "missing final MSA result"})
+			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.name, reason: "missing final " + referenceHeuristic + " result"})
 			continue
 		}
 
 		controlAtspData := withExperimentOutputRoot(atspData, controlResultsRootPath)
-		controlStatistics, err := readStatistics(resultFilePathForHeuristic(controlAtspData, heuristicDistanceRankedSparse))
+		controlStatistics, err := readStatistics(resultFilePathForHeuristic(controlAtspData, controlHeuristic))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.name, reason: "missing final-control distance-ranked-sparse result CSV"})
+				missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.name, reason: "missing final-control " + controlHeuristic + " result CSV"})
 				continue
 			}
 			return nil, nil, err
@@ -2555,7 +2574,7 @@ func buildDistanceRankedSparseControlRows(atspsData []AtspData, finalResultsRoot
 
 		controlStatistic, ok := statisticsForHeuristicWeight(controlStatistics, msaMetric.heuristicWeight)
 		if !ok {
-			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.name, reason: fmt.Sprintf("missing distance-ranked-sparse row for heuristic weight %.2f", msaMetric.heuristicWeight)})
+			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.name, reason: fmt.Sprintf("missing %s row for heuristic weight %.2f", controlHeuristic, msaMetric.heuristicWeight)})
 			continue
 		}
 
@@ -2580,17 +2599,21 @@ func buildDistanceRankedSparseControlRows(atspsData []AtspData, finalResultsRoot
 	return rows, missingData, nil
 }
 
-func writeDistanceRankedSparseControlFindings(builder *strings.Builder, rows []distanceRankedSparseControlRow) {
+func writeDistanceRankedSparseControlFindings(builder *strings.Builder, rows []distanceRankedSparseControlRow, referenceName, controlName string) {
 	summary := distanceRankedSparseControlSummary(rows)
 
 	builder.WriteString("## Findings\n\n")
-	fmt.Fprintf(builder, "- **MSA had lower average best deviation than the distance-ranked sparse control in %d/%d instances.**\n", summary.msaWins, len(rows))
-	fmt.Fprintf(builder, "- **Mean average best deviation: MSA %.2f%%, distance-ranked sparse %.2f%%, delta %s pp.**\n",
+	fmt.Fprintf(builder, "- **%s had lower average best deviation than the %s control in %d/%d instances.**\n", referenceName, controlName, summary.msaWins, len(rows))
+	fmt.Fprintf(builder, "- **Mean average best deviation: %s %.2f%%, %s %.2f%%, delta %s pp.**\n",
+		referenceName,
 		summary.meanMsaAverageBestDeviation,
+		controlName,
 		summary.meanControlAverageBestDeviation,
 		formatSignedFloat(summary.meanAverageBestDeviationDelta))
-	fmt.Fprintf(builder, "- **Mean success rate: MSA %.2f%%, distance-ranked sparse %.2f%%, delta %s pp.**\n",
+	fmt.Fprintf(builder, "- **Mean success rate: %s %.2f%%, %s %.2f%%, delta %s pp.**\n",
+		referenceName,
 		summary.meanMsaSuccessRate,
+		controlName,
 		summary.meanControlSuccessRate,
 		formatSignedFloat(summary.meanSuccessRateDelta))
 	fmt.Fprintf(builder, "- Two-sided sign-test p-value for average-best-deviation wins/losses: %.6f.\n", summary.signTestPValue)
@@ -2640,14 +2663,18 @@ func distanceRankedSparseControlSummary(rows []distanceRankedSparseControlRow) d
 	return summary
 }
 
-func writeDistanceRankedSparseControlTable(builder *strings.Builder, rows []distanceRankedSparseControlRow) {
+func writeDistanceRankedSparseControlTable(builder *strings.Builder, rows []distanceRankedSparseControlRow, referenceName, controlName string) {
 	summary := distanceRankedSparseControlSummary(rows)
 
 	builder.WriteString("## Per-instance comparison\n\n")
-	builder.WriteString("Negative delta means the MSA heuristic had lower average best deviation than the distance-ranked sparse control.\n\n")
+	fmt.Fprintf(builder, "Negative delta means %s had lower average best deviation than the %s control.\n\n", referenceName, controlName)
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
-	builder.WriteString("<tr><th>Instance</th><th>MSA avg best dev. [%]</th><th>Distance-ranked avg best dev. [%]</th><th>Delta [pp]</th><th>MSA success [%]</th><th>Distance-ranked success [%]</th></tr>\n")
+	fmt.Fprintf(builder, "<tr><th>Instance</th><th>%s avg best dev. [%%]</th><th>%s avg best dev. [%%]</th><th>Delta [pp]</th><th>%s success [%%]</th><th>%s success [%%]</th></tr>\n",
+		html.EscapeString(referenceName),
+		html.EscapeString(controlName),
+		html.EscapeString(referenceName),
+		html.EscapeString(controlName))
 	builder.WriteString("</thead>\n")
 	builder.WriteString("<tbody>\n")
 	for _, row := range rows {
@@ -2684,6 +2711,8 @@ func writeDistanceRankedSparseControlMissingData(builder *strings.Builder, missi
 type seededSparseControlReportConfig struct {
 	title              string
 	description        string
+	referenceHeuristic string
+	referenceName      string
 	controlName        string
 	controlHeuristic   string
 	missingResultLabel string
@@ -2738,12 +2767,12 @@ func buildSeededSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 	missingData := make([]seededSparseControlMissingData, 0)
 
 	for _, atspData := range atspsData {
-		msaMetric, ok, err := readFinalMsaHeuristicControlMetric(atspData, finalResultsRootPath)
+		msaMetric, ok, err := readMsaControlMetric(atspData, finalResultsRootPath, config.referenceHeuristic)
 		if err != nil {
 			return nil, nil, err
 		}
 		if !ok {
-			missingData = append(missingData, seededSparseControlMissingData{instance: atspData.name, reason: "missing final MSA result"})
+			missingData = append(missingData, seededSparseControlMissingData{instance: atspData.name, reason: "missing final " + config.referenceHeuristic + " result"})
 			continue
 		}
 
@@ -2853,18 +2882,20 @@ func writeSeededSparseControlFindings(builder *strings.Builder, rows []seededSpa
 	summary := seededSparseControlSummary(rows)
 
 	builder.WriteString("## Findings\n\n")
-	fmt.Fprintf(builder, "- **MSA had lower average best deviation than the %s mean in %d/%d instances.**\n", config.controlName, summary.msaWins, len(rows))
-	fmt.Fprintf(builder, "- **Mean average best deviation: MSA %.2f%%, %s %.2f%%, delta %s pp.**\n",
+	fmt.Fprintf(builder, "- **%s had lower average best deviation than the %s mean in %d/%d instances.**\n", config.referenceName, config.controlName, summary.msaWins, len(rows))
+	fmt.Fprintf(builder, "- **Mean average best deviation: %s %.2f%%, %s %.2f%%, delta %s pp.**\n",
+		config.referenceName,
 		summary.meanMsaAverageBestDeviation,
 		config.controlName,
 		summary.meanControlAverageBestDeviation,
 		formatSignedFloat(summary.meanAverageBestDeviationDelta))
-	fmt.Fprintf(builder, "- **Mean success rate: MSA %.2f%%, %s %.2f%%, delta %s pp.**\n",
+	fmt.Fprintf(builder, "- **Mean success rate: %s %.2f%%, %s %.2f%%, delta %s pp.**\n",
+		config.referenceName,
 		summary.meanMsaSuccessRate,
 		config.controlName,
 		summary.meanControlSuccessRate,
 		formatSignedFloat(summary.meanSuccessRateDelta))
-	fmt.Fprintf(builder, "- MSA also beat the best %s seed in %d/%d instances.\n", config.controlName, summary.msaWinsAgainstBestControlSeed, len(rows))
+	fmt.Fprintf(builder, "- %s also beat the best %s seed in %d/%d instances.\n", config.referenceName, config.controlName, summary.msaWinsAgainstBestControlSeed, len(rows))
 	fmt.Fprintf(builder, "- Two-sided sign-test p-value for average-best-deviation wins/losses: %.6f.\n", summary.signTestPValue)
 }
 
@@ -2872,12 +2903,14 @@ func writeSeededSparseControlTable(builder *strings.Builder, rows []seededSparse
 	summary := seededSparseControlSummary(rows)
 
 	builder.WriteString("## Per-instance comparison\n\n")
-	fmt.Fprintf(builder, "Negative delta means the MSA heuristic had lower average best deviation than the %s mean.\n\n", config.controlName)
+	fmt.Fprintf(builder, "Negative delta means %s had lower average best deviation than the %s mean.\n\n", config.referenceName, config.controlName)
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
-	fmt.Fprintf(builder, "<tr><th>Instance</th><th>MSA avg best dev. [%%]</th><th>%s mean avg best dev. [%%]</th><th>Best %s avg best dev. [%%]</th><th>Delta [pp]</th><th>MSA success [%%]</th><th>%s success [%%]</th><th>Seeds</th></tr>\n",
+	fmt.Fprintf(builder, "<tr><th>Instance</th><th>%s avg best dev. [%%]</th><th>%s mean avg best dev. [%%]</th><th>Best %s avg best dev. [%%]</th><th>Delta [pp]</th><th>%s success [%%]</th><th>%s success [%%]</th><th>Seeds</th></tr>\n",
+		html.EscapeString(config.referenceName),
 		html.EscapeString(config.controlName),
 		html.EscapeString(config.controlName),
+		html.EscapeString(config.referenceName),
 		html.EscapeString(config.controlName))
 	builder.WriteString("</thead>\n")
 	builder.WriteString("<tbody>\n")
@@ -2919,15 +2952,21 @@ func saveShuffledMsaControlReport(path string, atspsData []AtspData, finalResult
 	return saveSeededSparseControlReport(path, atspsData, finalResultsRootPath, controlResultsRootPath, seededSparseControlReportConfig{
 		title:              "Shuffled MSA Control",
 		description:        fmt.Sprintf("This sanity check compares the final MSA heuristic against deterministic shuffles of the MSA mask. Each shuffle preserves the number and boost values of MSA-boosted directed edges, but assigns them to shuffled directed edges. The control %s.", controlWeightDescription(finalResultsRootPath)),
+		referenceHeuristic: heuristicMsaHeuristic,
+		referenceName:      "MSA",
 		controlName:        "shuffled MSA",
 		controlHeuristic:   heuristicShuffledMsa,
 		missingResultLabel: "shuffled-MSA result CSV",
 	})
 }
 
-func controlWeightDescription(finalResultsRootPath string) string {
+func controlWeightDescription(finalResultsRootPath string, referenceNames ...string) string {
 	if finalResultsRootPath == msaImpactResultsDirectoryName {
-		return "uses the best MSA-impact heuristic weight selected separately for each instance"
+		referenceName := "MSA"
+		if len(referenceNames) != 0 {
+			referenceName = referenceNames[0]
+		}
+		return fmt.Sprintf("uses the best %s impact heuristic weight selected separately for each instance", referenceName)
 	}
 
 	return fmt.Sprintf("uses the same `heuristicWeight=%.2f`", finalMsaHeuristicWeight)
@@ -3085,12 +3124,24 @@ func heuristicDisplayName(heuristic string) string {
 		return "Baseline"
 	case heuristicMsaHeuristic:
 		return "MSA heuristic"
+	case heuristicStrictMsa:
+		return "Strict MSA"
+	case heuristicRootedMsa:
+		return "Rooted MSA"
 	case heuristicRandomSparse:
 		return "Random sparse"
 	case heuristicDistanceRankedSparse:
 		return "Distance-ranked sparse"
 	case heuristicShuffledMsa:
 		return "Shuffled MSA"
+	case heuristicStrictDistanceRanked:
+		return "Strict distance-ranked sparse"
+	case heuristicStrictShuffledMsa:
+		return "Strict shuffled MSA"
+	case heuristicRootedDistanceRanked:
+		return "Rooted distance-ranked sparse"
+	case heuristicRootedShuffledMsa:
+		return "Rooted shuffled MSA"
 	case heuristicCycleCover:
 		return "Cycle cover"
 	case heuristicCycleCoverMsaPatching:
@@ -3104,13 +3155,13 @@ func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover 
 	switch heuristic {
 	case heuristicBaseline:
 		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
-	case heuristicMsaHeuristic:
+	case heuristicMsaHeuristic, heuristicStrictMsa:
 		return heuristics.BuildMsaHeuristicModifiers(msaHeuristic)
 	case heuristicRandomSparse:
 		return heuristics.BuildRandomSparseModifiers(msaHeuristic, parameters.randomSeed)
-	case heuristicDistanceRankedSparse:
+	case heuristicDistanceRankedSparse, heuristicStrictDistanceRanked:
 		return heuristics.BuildDistanceRankedSparseModifiers(matrix, msaHeuristic)
-	case heuristicShuffledMsa:
+	case heuristicShuffledMsa, heuristicStrictShuffledMsa:
 		return heuristics.BuildShuffledMsaModifiers(msaHeuristic, parameters.randomSeed)
 	case heuristicCycleCover:
 		return heuristics.BuildCycleCoverModifiers(cycleCover)
@@ -3123,13 +3174,13 @@ func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover 
 
 func buildRootedHeuristicModifiers(heuristic string, matrix [][]float64, rootedMsaHeuristic [][][]float64, parameters ExperimentParameters) [][][]float64 {
 	switch heuristic {
-	case heuristicMsaHeuristic:
+	case heuristicRootedMsa:
 		return heuristics.BuildRootedMsaHeuristicModifiers(rootedMsaHeuristic)
 	case heuristicRandomSparse:
 		return heuristics.BuildRootedRandomSparseModifiers(rootedMsaHeuristic, parameters.randomSeed)
-	case heuristicDistanceRankedSparse:
+	case heuristicDistanceRankedSparse, heuristicRootedDistanceRanked:
 		return heuristics.BuildRootedDistanceRankedSparseModifiers(matrix, rootedMsaHeuristic)
-	case heuristicShuffledMsa:
+	case heuristicShuffledMsa, heuristicRootedShuffledMsa:
 		return heuristics.BuildRootedShuffledMsaModifiers(rootedMsaHeuristic, parameters.randomSeed)
 	default:
 		return nil
@@ -3407,16 +3458,23 @@ func finalControlExperimentConfigurations() []finalExperimentConfiguration {
 	}
 }
 
-func msaImpactControlExperimentConfigurations(heuristicWeight float64) []finalExperimentConfiguration {
+func msaImpactControlExperimentConfigurations(referenceHeuristic string, heuristicWeight float64) []finalExperimentConfiguration {
+	distanceRankedHeuristic := heuristicStrictDistanceRanked
+	shuffledHeuristic := heuristicStrictShuffledMsa
+	if referenceHeuristic == heuristicRootedMsa {
+		distanceRankedHeuristic = heuristicRootedDistanceRanked
+		shuffledHeuristic = heuristicRootedShuffledMsa
+	}
+
 	return []finalExperimentConfiguration{
 		{
-			heuristic: heuristicDistanceRankedSparse,
+			heuristic: distanceRankedHeuristic,
 			parameters: []ExperimentParameters{
 				newDefaultExperimentParameters(heuristicWeight),
 			},
 		},
 		{
-			heuristic:  heuristicShuffledMsa,
+			heuristic:  shuffledHeuristic,
 			parameters: newSeededControlExperimentParametersForWeights(shuffledMsaSeeds, []float64{heuristicWeight}),
 		},
 	}
@@ -3431,7 +3489,12 @@ func msaImpactExperimentConfigurations() []finalExperimentConfiguration {
 			},
 		},
 		{
-			heuristic:            heuristicMsaHeuristic,
+			heuristic:            heuristicStrictMsa,
+			parameters:           newMsaImpactExperimentParameters(),
+			saveAllParameterRows: true,
+		},
+		{
+			heuristic:            heuristicRootedMsa,
 			parameters:           newMsaImpactExperimentParameters(),
 			saveAllParameterRows: true,
 		},
@@ -3689,12 +3752,12 @@ func heuristicUsesCycleCover(heuristic string) bool {
 }
 
 func heuristicUsesMsaHeuristic(heuristic string) bool {
-	return heuristic == heuristicMsaHeuristic || heuristic == heuristicCycleCoverMsaPatching || heuristicIsSparseControl(heuristic)
+	return heuristic == heuristicMsaHeuristic || heuristic == heuristicStrictMsa || heuristic == heuristicRootedMsa || heuristic == heuristicCycleCoverMsaPatching || heuristicIsSparseControl(heuristic)
 }
 
 func heuristicUsesRootedMsaImpact(heuristic, resultsRootPath string) bool {
 	return (resultsRootPath == msaImpactResultsDirectoryName || resultsRootPath == msaImpactControlsDirectoryName) &&
-		(heuristic == heuristicMsaHeuristic || heuristicIsSparseControl(heuristic))
+		(heuristic == heuristicRootedMsa || heuristicIsRootedSparseControl(heuristic))
 }
 
 func heuristicUsesRootedMsaForTuning(heuristic string) bool {
@@ -3706,11 +3769,27 @@ func heuristicIsRandomSparse(heuristic string) bool {
 }
 
 func heuristicUsesRandomSeedColumn(heuristic string) bool {
-	return heuristic == heuristicRandomSparse || heuristic == heuristicShuffledMsa
+	return heuristic == heuristicRandomSparse || heuristicIsShuffledMsaControl(heuristic)
 }
 
 func heuristicIsSparseControl(heuristic string) bool {
-	return heuristic == heuristicRandomSparse || heuristic == heuristicDistanceRankedSparse || heuristic == heuristicShuffledMsa
+	return heuristic == heuristicRandomSparse || heuristicIsDistanceRankedSparseControl(heuristic) || heuristicIsShuffledMsaControl(heuristic)
+}
+
+func heuristicIsDistanceRankedSparseControl(heuristic string) bool {
+	return heuristic == heuristicDistanceRankedSparse ||
+		heuristic == heuristicStrictDistanceRanked ||
+		heuristic == heuristicRootedDistanceRanked
+}
+
+func heuristicIsShuffledMsaControl(heuristic string) bool {
+	return heuristic == heuristicShuffledMsa ||
+		heuristic == heuristicStrictShuffledMsa ||
+		heuristic == heuristicRootedShuffledMsa
+}
+
+func heuristicIsRootedSparseControl(heuristic string) bool {
+	return heuristic == heuristicRootedDistanceRanked || heuristic == heuristicRootedShuffledMsa
 }
 
 func finalConfigurationsUseMsaHeuristic(configurations []finalExperimentConfiguration) bool {
@@ -4466,27 +4545,33 @@ func runMsaImpactControls(atspsData []AtspData, workers int) error {
 	}
 
 	return runBoundedInstanceJobs(atspsData, 1, func(atspData AtspData) error {
-		msaMetric, err := readBestMsaImpactMetric(atspData)
+		strictMetric, err := readBestMsaImpactMetric(atspData, heuristicStrictMsa)
+		if err != nil {
+			return err
+		}
+		rootedMetric, err := readBestMsaImpactMetric(atspData, heuristicRootedMsa)
 		if err != nil {
 			return err
 		}
 
 		controlAtspData := withExperimentOutputRoot(atspData, msaImpactControlsDirectoryName)
-		configurations := msaImpactControlExperimentConfigurations(msaMetric.heuristicWeight)
+		configurations := append(
+			msaImpactControlExperimentConfigurations(heuristicStrictMsa, strictMetric.heuristicWeight),
+			msaImpactControlExperimentConfigurations(heuristicRootedMsa, rootedMetric.heuristicWeight)...)
 		return runFinalExperimentForInstanceWithParameterWorkers(controlAtspData, msaImpactControlsDirectoryName, false, configurations, msaImpactNumberOfExperiments, workers)
 	})
 }
 
-func readBestMsaImpactMetric(atspData AtspData) (finalResultsSummaryMetric, error) {
+func readBestMsaImpactMetric(atspData AtspData, heuristic string) (finalResultsSummaryMetric, error) {
 	impactAtspData := withExperimentOutputRoot(atspData, msaImpactResultsDirectoryName)
 	metrics, err := readFinalResultSummaryMetrics(impactAtspData.resultFilePath)
 	if err != nil {
 		return finalResultsSummaryMetric{}, fmt.Errorf("%s: read MSA impact results: %w", atspData.name, err)
 	}
 
-	metric, ok := metrics[heuristicMsaHeuristic]
+	metric, ok := metrics[heuristic]
 	if !ok {
-		return finalResultsSummaryMetric{}, fmt.Errorf("%s: missing MSA impact heuristic metric", atspData.name)
+		return finalResultsSummaryMetric{}, fmt.Errorf("%s: missing %s impact heuristic metric", atspData.name, heuristic)
 	}
 
 	return metric, nil
@@ -4496,6 +4581,9 @@ func removeMsaImpactResultFiles(atspsData []AtspData) error {
 	configurations := msaImpactExperimentConfigurations()
 	for _, atspData := range atspsData {
 		impactAtspData := withExperimentOutputRoot(atspData, msaImpactResultsDirectoryName)
+		if err := removeFileIfExists(impactAtspData.resultFilePath); err != nil {
+			return err
+		}
 		for _, configuration := range configurations {
 			if err := removeFileIfExists(resultFilePathForHeuristic(impactAtspData, configuration.heuristic)); err != nil {
 				return err
@@ -4506,7 +4594,15 @@ func removeMsaImpactResultFiles(atspsData []AtspData) error {
 }
 
 func removeMsaImpactControlFiles(atspsData []AtspData) error {
-	controlHeuristics := []string{heuristicRandomSparse, heuristicDistanceRankedSparse, heuristicShuffledMsa}
+	controlHeuristics := []string{
+		heuristicRandomSparse,
+		heuristicDistanceRankedSparse,
+		heuristicShuffledMsa,
+		heuristicStrictDistanceRanked,
+		heuristicStrictShuffledMsa,
+		heuristicRootedDistanceRanked,
+		heuristicRootedShuffledMsa,
+	}
 	for _, atspData := range atspsData {
 		controlAtspData := withExperimentOutputRoot(atspData, msaImpactControlsDirectoryName)
 		for _, heuristic := range controlHeuristics {
@@ -4520,6 +4616,10 @@ func removeMsaImpactControlFiles(atspsData []AtspData) error {
 		filepath.Join(msaImpactControlsDirectoryName, "random_sparse_control.md"),
 		filepath.Join(msaImpactControlsDirectoryName, "distance_ranked_sparse_control.md"),
 		filepath.Join(msaImpactControlsDirectoryName, "shuffled_msa_control.md"),
+		filepath.Join(msaImpactControlsDirectoryName, "strict_distance_ranked_sparse_control.md"),
+		filepath.Join(msaImpactControlsDirectoryName, "strict_shuffled_msa_control.md"),
+		filepath.Join(msaImpactControlsDirectoryName, "rooted_distance_ranked_sparse_control.md"),
+		filepath.Join(msaImpactControlsDirectoryName, "rooted_shuffled_msa_control.md"),
 		filepath.Join(msaImpactControlsDirectoryName, "msa_weight_control_summary.md"),
 		filepath.Join(msaImpactControlsDirectoryName, "msa_distance_ranked_edge_categories.md"),
 	}
@@ -4545,13 +4645,39 @@ func saveMsaImpactReports(atspsData []AtspData) error {
 	}
 	fmt.Printf("MSA impact structure report saved to %s\n", structureReportPath)
 
-	distanceRankedSparseControlReportPath := filepath.Join(msaImpactControlsDirectoryName, "distance_ranked_sparse_control.md")
-	distanceRankedSparseControlReportSaved, err := saveDistanceRankedSparseControlReport(distanceRankedSparseControlReportPath, atspsData, msaImpactResultsDirectoryName, msaImpactControlsDirectoryName)
+	strictDistanceRankedControlReportPath := filepath.Join(msaImpactControlsDirectoryName, "strict_distance_ranked_sparse_control.md")
+	strictDistanceRankedControlReportSaved, err := saveDistanceRankedSparseControlReportForReference(strictDistanceRankedControlReportPath, atspsData, msaImpactResultsDirectoryName, msaImpactControlsDirectoryName, heuristicStrictMsa, "Strict MSA", heuristicStrictDistanceRanked, "strict distance-ranked sparse")
 	if err != nil {
 		return err
 	}
-	shuffledMsaControlReportPath := filepath.Join(msaImpactControlsDirectoryName, "shuffled_msa_control.md")
-	shuffledMsaControlReportSaved, err := saveShuffledMsaControlReport(shuffledMsaControlReportPath, atspsData, msaImpactResultsDirectoryName, msaImpactControlsDirectoryName)
+	strictShuffledControlReportPath := filepath.Join(msaImpactControlsDirectoryName, "strict_shuffled_msa_control.md")
+	strictShuffledControlReportSaved, err := saveSeededSparseControlReport(strictShuffledControlReportPath, atspsData, msaImpactResultsDirectoryName, msaImpactControlsDirectoryName, seededSparseControlReportConfig{
+		title:              "Strict MSA Shuffled Control",
+		description:        fmt.Sprintf("This sanity check compares Strict MSA against deterministic shuffles of the strict MSA mask. Each shuffle preserves the number of strict-MSA boosted directed edges, but assigns them to shuffled directed edges. The control %s.", controlWeightDescription(msaImpactResultsDirectoryName, "Strict MSA")),
+		referenceHeuristic: heuristicStrictMsa,
+		referenceName:      "Strict MSA",
+		controlName:        "strict shuffled MSA",
+		controlHeuristic:   heuristicStrictShuffledMsa,
+		missingResultLabel: "strict-shuffled-MSA result CSV",
+	})
+	if err != nil {
+		return err
+	}
+	rootedDistanceRankedControlReportPath := filepath.Join(msaImpactControlsDirectoryName, "rooted_distance_ranked_sparse_control.md")
+	rootedDistanceRankedControlReportSaved, err := saveDistanceRankedSparseControlReportForReference(rootedDistanceRankedControlReportPath, atspsData, msaImpactResultsDirectoryName, msaImpactControlsDirectoryName, heuristicRootedMsa, "Rooted MSA", heuristicRootedDistanceRanked, "rooted distance-ranked sparse")
+	if err != nil {
+		return err
+	}
+	rootedShuffledControlReportPath := filepath.Join(msaImpactControlsDirectoryName, "rooted_shuffled_msa_control.md")
+	rootedShuffledControlReportSaved, err := saveSeededSparseControlReport(rootedShuffledControlReportPath, atspsData, msaImpactResultsDirectoryName, msaImpactControlsDirectoryName, seededSparseControlReportConfig{
+		title:              "Rooted MSA Shuffled Control",
+		description:        fmt.Sprintf("This sanity check compares Rooted MSA against deterministic per-root shuffles of the rooted MSA masks. Each root preserves the number of boosted directed edges from that root's MSA, but assigns them to shuffled directed edges. The control %s.", controlWeightDescription(msaImpactResultsDirectoryName, "Rooted MSA")),
+		referenceHeuristic: heuristicRootedMsa,
+		referenceName:      "Rooted MSA",
+		controlName:        "rooted shuffled MSA",
+		controlHeuristic:   heuristicRootedShuffledMsa,
+		missingResultLabel: "rooted-shuffled-MSA result CSV",
+	})
 	if err != nil {
 		return err
 	}
@@ -4565,11 +4691,17 @@ func saveMsaImpactReports(atspsData []AtspData) error {
 		return err
 	}
 
-	if distanceRankedSparseControlReportSaved {
-		fmt.Printf("Distance-ranked sparse control report saved to %s\n", distanceRankedSparseControlReportPath)
+	if strictDistanceRankedControlReportSaved {
+		fmt.Printf("Strict distance-ranked sparse control report saved to %s\n", strictDistanceRankedControlReportPath)
 	}
-	if shuffledMsaControlReportSaved {
-		fmt.Printf("Shuffled MSA control report saved to %s\n", shuffledMsaControlReportPath)
+	if strictShuffledControlReportSaved {
+		fmt.Printf("Strict shuffled MSA control report saved to %s\n", strictShuffledControlReportPath)
+	}
+	if rootedDistanceRankedControlReportSaved {
+		fmt.Printf("Rooted distance-ranked sparse control report saved to %s\n", rootedDistanceRankedControlReportPath)
+	}
+	if rootedShuffledControlReportSaved {
+		fmt.Printf("Rooted shuffled MSA control report saved to %s\n", rootedShuffledControlReportPath)
 	}
 	if weightControlReportSaved {
 		fmt.Printf("MSA weight control summary saved to %s\n", weightControlReportPath)
@@ -4605,15 +4737,23 @@ type msaImpactControlWeightSummaryRow struct {
 }
 
 func saveMsaImpactControlWeightSummary(path string, atspsData []AtspData) (bool, error) {
-	distanceRankedRows, err := buildMsaImpactSingleControlWeightRows(atspsData, heuristicDistanceRankedSparse)
+	strictDistanceRankedRows, err := buildMsaImpactSingleControlWeightRows(atspsData, heuristicStrictMsa, heuristicStrictDistanceRanked)
 	if err != nil {
 		return false, err
 	}
-	shuffledRows, err := buildMsaImpactSeededControlWeightRows(atspsData, heuristicShuffledMsa)
+	strictShuffledRows, err := buildMsaImpactSeededControlWeightRows(atspsData, heuristicStrictMsa, heuristicStrictShuffledMsa)
 	if err != nil {
 		return false, err
 	}
-	if len(distanceRankedRows) == 0 && len(shuffledRows) == 0 {
+	rootedDistanceRankedRows, err := buildMsaImpactSingleControlWeightRows(atspsData, heuristicRootedMsa, heuristicRootedDistanceRanked)
+	if err != nil {
+		return false, err
+	}
+	rootedShuffledRows, err := buildMsaImpactSeededControlWeightRows(atspsData, heuristicRootedMsa, heuristicRootedShuffledMsa)
+	if err != nil {
+		return false, err
+	}
+	if len(strictDistanceRankedRows) == 0 && len(strictShuffledRows) == 0 && len(rootedDistanceRankedRows) == 0 && len(rootedShuffledRows) == 0 {
 		return false, nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
@@ -4622,17 +4762,19 @@ func saveMsaImpactControlWeightSummary(path string, atspsData []AtspData) (bool,
 
 	var builder strings.Builder
 	builder.WriteString("# MSA Weight Control Summary\n\n")
-	builder.WriteString("This report checks whether MSA keeps beating the cheaper control heuristics at the best MSA weight selected for each instance. Rows are grouped by weight because different instances may select different best weights. The p-value is a two-sided sign test over per-instance average-best-deviation wins and losses; ties are ignored.\n\n")
-	writeMsaImpactControlWeightTable(&builder, "Distance-ranked Sparse", "Distance-ranked sparse", distanceRankedRows)
-	writeMsaImpactControlWeightTable(&builder, "Shuffled MSA", "Shuffled MSA", shuffledRows)
+	builder.WriteString("This report checks whether each MSA-impact variant keeps beating its matched control heuristics at the best variant weight selected for each instance. Rows are grouped by weight because different instances may select different best weights. The p-value is a two-sided sign test over per-instance average-best-deviation wins and losses; ties are ignored.\n\n")
+	writeMsaImpactControlWeightTable(&builder, "Strict MSA vs Strict Distance-ranked Sparse", "Strict MSA", "Strict distance-ranked sparse", strictDistanceRankedRows)
+	writeMsaImpactControlWeightTable(&builder, "Strict MSA vs Strict Shuffled MSA", "Strict MSA", "Strict shuffled MSA", strictShuffledRows)
+	writeMsaImpactControlWeightTable(&builder, "Rooted MSA vs Rooted Distance-ranked Sparse", "Rooted MSA", "Rooted distance-ranked sparse", rootedDistanceRankedRows)
+	writeMsaImpactControlWeightTable(&builder, "Rooted MSA vs Rooted Shuffled MSA", "Rooted MSA", "Rooted shuffled MSA", rootedShuffledRows)
 
 	return true, os.WriteFile(path, []byte(builder.String()), 0644)
 }
 
-func buildMsaImpactSeededControlWeightRows(atspsData []AtspData, controlHeuristic string) ([]msaImpactControlWeightRow, error) {
+func buildMsaImpactSeededControlWeightRows(atspsData []AtspData, referenceHeuristic, controlHeuristic string) ([]msaImpactControlWeightRow, error) {
 	rows := make([]msaImpactControlWeightRow, 0, len(atspsData))
 	for _, atspData := range atspsData {
-		msaMetric, ok, err := readFinalMsaHeuristicControlMetric(atspData, msaImpactResultsDirectoryName)
+		msaMetric, ok, err := readMsaControlMetric(atspData, msaImpactResultsDirectoryName, referenceHeuristic)
 		if err != nil {
 			return nil, err
 		}
@@ -4670,10 +4812,10 @@ func buildMsaImpactSeededControlWeightRows(atspsData []AtspData, controlHeuristi
 	return rows, nil
 }
 
-func buildMsaImpactSingleControlWeightRows(atspsData []AtspData, controlHeuristic string) ([]msaImpactControlWeightRow, error) {
+func buildMsaImpactSingleControlWeightRows(atspsData []AtspData, referenceHeuristic, controlHeuristic string) ([]msaImpactControlWeightRow, error) {
 	rows := make([]msaImpactControlWeightRow, 0, len(atspsData))
 	for _, atspData := range atspsData {
-		msaMetric, ok, err := readFinalMsaHeuristicControlMetric(atspData, msaImpactResultsDirectoryName)
+		msaMetric, ok, err := readMsaControlMetric(atspData, msaImpactResultsDirectoryName, referenceHeuristic)
 		if err != nil {
 			return nil, err
 		}
@@ -4722,7 +4864,7 @@ func readMsaImpactMsaMetrics(atspData AtspData) ([]finalResultsSummaryMetric, er
 
 	metrics := make([]finalResultsSummaryMetric, 0, len(statistics))
 	for _, statistic := range statistics {
-		if statistic.heuristic != heuristicMsaHeuristic {
+		if statistic.heuristic != heuristicRootedMsa {
 			continue
 		}
 
@@ -4770,7 +4912,7 @@ func averageControlStatistics(statistics []ExperimentsDataStatistics) (averageBe
 	return averageBestDeviation / count, successRate / count
 }
 
-func writeMsaImpactControlWeightTable(builder *strings.Builder, title, controlName string, rows []msaImpactControlWeightRow) {
+func writeMsaImpactControlWeightTable(builder *strings.Builder, title, referenceName, controlName string, rows []msaImpactControlWeightRow) {
 	builder.WriteString("## " + title + "\n\n")
 	if len(rows) == 0 {
 		builder.WriteString("No comparable rows were found.\n\n")
@@ -4780,9 +4922,15 @@ func writeMsaImpactControlWeightTable(builder *strings.Builder, title, controlNa
 	summaryRows := summarizeMsaImpactControlWeightRows(rows)
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
-	builder.WriteString("<tr><th>Weight</th><th>Instances</th><th>MSA wins</th><th>Control wins</th><th>Ties</th><th>p-value</th><th>MSA avg dev. [%]</th><th>")
+	builder.WriteString("<tr><th>Weight</th><th>Instances</th><th>")
+	builder.WriteString(html.EscapeString(referenceName))
+	builder.WriteString(" wins</th><th>Control wins</th><th>Ties</th><th>p-value</th><th>")
+	builder.WriteString(html.EscapeString(referenceName))
+	builder.WriteString(" avg dev. [%]</th><th>")
 	builder.WriteString(html.EscapeString(controlName))
-	builder.WriteString(" avg dev. [%]</th><th>Delta [pp]</th><th>MSA success [%]</th><th>")
+	builder.WriteString(" avg dev. [%]</th><th>Delta [pp]</th><th>")
+	builder.WriteString(html.EscapeString(referenceName))
+	builder.WriteString(" success [%]</th><th>")
 	builder.WriteString(html.EscapeString(controlName))
 	builder.WriteString(" success [%]</th></tr>\n")
 	builder.WriteString("</thead>\n")
@@ -5095,81 +5243,129 @@ func saveMsaImpactSummary(path string, atspsData []AtspData) error {
 		return err
 	}
 
-	var baselineDeviationTotal, msaDeviationTotal, baselineSuccessTotal, msaSuccessTotal float64
-	var wins, ties, losses int
-	bestWeightCounts := make(map[float64]int)
+	var baselineDeviationTotal, baselineSuccessTotal float64
+	variantSummaries := map[string]*msaImpactVariantSummary{
+		heuristicStrictMsa: newMsaImpactVariantSummary(),
+		heuristicRootedMsa: newMsaImpactVariantSummary(),
+	}
+	variants := []string{heuristicStrictMsa, heuristicRootedMsa}
 	const epsilon = 1e-9
 
 	for _, row := range rows {
 		baselineMetric, baselineOk := row.metrics[heuristicBaseline]
-		msaMetric, msaOk := row.metrics[heuristicMsaHeuristic]
-		if !baselineOk || !msaOk {
-			return fmt.Errorf("%s: missing baseline or MSA heuristic metric", row.instance)
+		if !baselineOk {
+			return fmt.Errorf("%s: missing baseline metric", row.instance)
 		}
 
 		baselineDeviationTotal += baselineMetric.averageMinDeviation
-		msaDeviationTotal += msaMetric.averageMinDeviation
 		baselineSuccessTotal += baselineMetric.successRate
-		msaSuccessTotal += msaMetric.successRate
-		bestWeightCounts[msaMetric.heuristicWeight]++
 
-		delta := msaMetric.averageMinDeviation - baselineMetric.averageMinDeviation
-		if math.Abs(delta) < epsilon {
-			ties++
-		} else if delta < 0 {
-			wins++
-		} else {
-			losses++
+		for _, heuristic := range variants {
+			metric, ok := row.metrics[heuristic]
+			if !ok {
+				return fmt.Errorf("%s: missing %s metric", row.instance, heuristic)
+			}
+
+			summary := variantSummaries[heuristic]
+			summary.deviationTotal += metric.averageMinDeviation
+			summary.successTotal += metric.successRate
+			summary.bestWeightCounts[metric.heuristicWeight]++
+
+			delta := metric.averageMinDeviation - baselineMetric.averageMinDeviation
+			if math.Abs(delta) < epsilon {
+				summary.ties++
+			} else if delta < 0 {
+				summary.wins++
+			} else {
+				summary.losses++
+			}
 		}
 	}
 
 	instanceCount := len(rows)
 	averageBaselineDeviation := baselineDeviationTotal / float64(instanceCount)
-	averageMsaDeviation := msaDeviationTotal / float64(instanceCount)
-	averageDeviationDelta := averageMsaDeviation - averageBaselineDeviation
 	averageBaselineSuccess := baselineSuccessTotal / float64(instanceCount)
-	averageMsaSuccess := msaSuccessTotal / float64(instanceCount)
-	averageSuccessDelta := averageMsaSuccess - averageBaselineSuccess
 
 	var builder strings.Builder
 	builder.WriteString("# MSA Impact Summary\n\n")
-	builder.WriteString("Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline. In this temporary pipeline each ant uses the MSA rooted at its start vertex and the best heuristic weight from the 0.10-1.00 sweep.\n\n")
+	builder.WriteString("Negative deviation delta means the MSA variant had lower average best deviation than the baseline. Strict MSA uses only edges present in every rooted MSA. Rooted MSA gives each ant the MSA rooted at its start vertex. Both variants use the best heuristic weight from the 0.10-1.00 sweep.\n\n")
 	builder.WriteString("## Findings\n\n")
-	fmt.Fprintf(&builder, "- **MSA heuristic improved average best deviation in %d/%d instances, tied in %d, and was worse in %d.**\n", wins, instanceCount, ties, losses)
-	fmt.Fprintf(&builder, "- **Mean average best deviation: baseline %.2f%%, MSA heuristic %.2f%%, delta %s pp.**\n", averageBaselineDeviation, averageMsaDeviation, formatSignedFloat(averageDeviationDelta))
-	fmt.Fprintf(&builder, "- **Mean success-rate delta: %s pp.**\n", formatSignedFloat(averageSuccessDelta))
-	fmt.Fprintf(&builder, "- **Best MSA heuristic weights: %s.**\n\n", formatMsaImpactBestWeightCounts(bestWeightCounts))
+	for _, heuristic := range variants {
+		summary := variantSummaries[heuristic]
+		averageDeviation := summary.deviationTotal / float64(instanceCount)
+		averageSuccess := summary.successTotal / float64(instanceCount)
+		fmt.Fprintf(&builder, "- **%s improved average best deviation in %d/%d instances, tied in %d, and was worse in %d.**\n",
+			heuristicDisplayName(heuristic), summary.wins, instanceCount, summary.ties, summary.losses)
+		fmt.Fprintf(&builder, "- **Mean average best deviation: baseline %.2f%%, %s %.2f%%, delta %s pp; success-rate delta %s pp.**\n",
+			averageBaselineDeviation,
+			heuristicDisplayName(heuristic),
+			averageDeviation,
+			formatSignedFloat(averageDeviation-averageBaselineDeviation),
+			formatSignedFloat(averageSuccess-averageBaselineSuccess))
+		fmt.Fprintf(&builder, "- **Best %s weights: %s.**\n",
+			heuristicDisplayName(heuristic),
+			formatMsaImpactBestWeightCounts(summary.bestWeightCounts))
+	}
+	builder.WriteString("\n")
 
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
-	builder.WriteString("<tr><th>Instance</th><th>Baseline avg best dev. [%]</th><th>MSA heuristic avg best dev. [%]</th><th>Best MSA weight</th><th>Delta [pp]</th><th>Baseline success [%]</th><th>MSA heuristic success [%]</th></tr>\n")
+	builder.WriteString("<tr><th>Instance</th><th>Baseline avg best dev. [%]</th><th>Strict MSA avg best dev. [%]</th><th>Strict weight</th><th>Strict delta [pp]</th><th>Rooted MSA avg best dev. [%]</th><th>Rooted weight</th><th>Rooted delta [pp]</th><th>Baseline success [%]</th><th>Strict success [%]</th><th>Rooted success [%]</th></tr>\n")
 	builder.WriteString("</thead>\n")
 	builder.WriteString("<tbody>\n")
 	for _, row := range rows {
 		baselineMetric := row.metrics[heuristicBaseline]
-		msaMetric := row.metrics[heuristicMsaHeuristic]
-		delta := msaMetric.averageMinDeviation - baselineMetric.averageMinDeviation
+		strictMetric := row.metrics[heuristicStrictMsa]
+		rootedMetric := row.metrics[heuristicRootedMsa]
+		strictDelta := strictMetric.averageMinDeviation - baselineMetric.averageMinDeviation
+		rootedDelta := rootedMetric.averageMinDeviation - baselineMetric.averageMinDeviation
 		fmt.Fprintf(&builder,
-			"<tr><td>%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
+			"<tr><td>%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
 			html.EscapeString(row.instance),
 			baselineMetric.averageMinDeviation,
-			msaMetric.averageMinDeviation,
-			msaMetric.heuristicWeight,
-			formatSignedFloat(delta),
+			strictMetric.averageMinDeviation,
+			strictMetric.heuristicWeight,
+			formatSignedFloat(strictDelta),
+			rootedMetric.averageMinDeviation,
+			rootedMetric.heuristicWeight,
+			formatSignedFloat(rootedDelta),
 			baselineMetric.successRate,
-			msaMetric.successRate)
+			strictMetric.successRate,
+			rootedMetric.successRate)
 	}
+	strictSummary := variantSummaries[heuristicStrictMsa]
+	rootedSummary := variantSummaries[heuristicRootedMsa]
+	averageStrictDeviation := strictSummary.deviationTotal / float64(instanceCount)
+	averageRootedDeviation := rootedSummary.deviationTotal / float64(instanceCount)
+	averageStrictSuccess := strictSummary.successTotal / float64(instanceCount)
+	averageRootedSuccess := rootedSummary.successTotal / float64(instanceCount)
 	fmt.Fprintf(&builder,
-		"<tr><td><strong>Average</strong></td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td></td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
+		"<tr><td><strong>Average</strong></td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td></td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td></td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
 		averageBaselineDeviation,
-		averageMsaDeviation,
-		formatSignedFloat(averageDeviationDelta),
+		averageStrictDeviation,
+		formatSignedFloat(averageStrictDeviation-averageBaselineDeviation),
+		averageRootedDeviation,
+		formatSignedFloat(averageRootedDeviation-averageBaselineDeviation),
 		averageBaselineSuccess,
-		averageMsaSuccess)
+		averageStrictSuccess,
+		averageRootedSuccess)
 	builder.WriteString("</tbody>\n")
 	builder.WriteString("</table>\n")
 
 	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+type msaImpactVariantSummary struct {
+	deviationTotal     float64
+	successTotal       float64
+	wins, ties, losses int
+	bestWeightCounts   map[float64]int
+}
+
+func newMsaImpactVariantSummary() *msaImpactVariantSummary {
+	return &msaImpactVariantSummary{
+		bestWeightCounts: make(map[float64]int),
+	}
 }
 
 func formatMsaImpactBestWeightCounts(counts map[float64]int) string {
@@ -5240,7 +5436,7 @@ func saveMsaImpactStructureReport(path string, atspsData []AtspData) error {
 
 	var builder strings.Builder
 	builder.WriteString("# MSA Impact Structure\n\n")
-	builder.WriteString("This report describes the average rooted MSA modifier matrix used by the MSA impact pipeline. Each ant uses the MSA rooted at its start vertex. Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline.\n\n")
+	builder.WriteString("This report describes the average rooted MSA modifier matrix used by the MSA impact pipeline. Each ant uses the MSA rooted at its start vertex. Negative deviation delta means rooted MSA had lower average best deviation than the baseline.\n\n")
 	builder.WriteString("## Findings\n\n")
 	fmt.Fprintf(&builder, "- **Average boosted-edge ratio against n-1: %.2f.**\n", averageBoostedRatio)
 	fmt.Fprintf(&builder, "- **Average missing outgoing vertices: %.2f; average missing incoming vertices: %.2f.**\n", averageMissingOutgoing, averageMissingIncoming)
@@ -5293,9 +5489,9 @@ func readMsaImpactStructureRows(atspsData []AtspData) ([]msaImpactStructureRow, 
 
 		rootedModifiers := heuristics.BuildRootedMsaHeuristicModifiers(rootedMsas)
 		boostedEdges, missingOutgoingVertices, missingIncomingVertices := rootedMsaModifierStructure(rootedModifiers)
-		msaMetric, msaOk := metrics[heuristicMsaHeuristic]
+		msaMetric, msaOk := metrics[heuristicRootedMsa]
 		if !msaOk {
-			return nil, fmt.Errorf("%s: missing MSA heuristic metric", atspData.name)
+			return nil, fmt.Errorf("%s: missing rooted MSA heuristic metric", atspData.name)
 		}
 
 		rows = append(rows, msaImpactStructureRow{

@@ -1,21 +1,21 @@
-# Distance-ranked Sparse Control
+# Rooted MSA Distance-ranked Sparse Control
 
-This sanity check compares the final MSA heuristic against a deterministic sparse mask built from the cheapest directed edges. The control boosts the same number of directed edges as the MSA heuristic and uses the best MSA-impact heuristic weight selected separately for each instance.
+This sanity check compares Rooted MSA against a deterministic sparse mask built from the cheapest directed edges. The control preserves the matching edge-count structure and uses the best Rooted MSA impact heuristic weight selected separately for each instance.
 
 ## Findings
 
-- **MSA had lower average best deviation than the distance-ranked sparse control in 7/7 instances.**
-- **Mean average best deviation: MSA 1.65%, distance-ranked sparse 2.64%, delta -0.99 pp.**
-- **Mean success rate: MSA 7.14%, distance-ranked sparse 1.43%, delta +5.71 pp.**
+- **Rooted MSA had lower average best deviation than the rooted distance-ranked sparse control in 7/7 instances.**
+- **Mean average best deviation: Rooted MSA 1.65%, rooted distance-ranked sparse 2.64%, delta -0.99 pp.**
+- **Mean success rate: Rooted MSA 7.14%, rooted distance-ranked sparse 1.43%, delta +5.71 pp.**
 - Two-sided sign-test p-value for average-best-deviation wins/losses: 0.015625.
 
 ## Per-instance comparison
 
-Negative delta means the MSA heuristic had lower average best deviation than the distance-ranked sparse control.
+Negative delta means Rooted MSA had lower average best deviation than the rooted distance-ranked sparse control.
 
 <table>
 <thead>
-<tr><th>Instance</th><th>MSA avg best dev. [%]</th><th>Distance-ranked avg best dev. [%]</th><th>Delta [pp]</th><th>MSA success [%]</th><th>Distance-ranked success [%]</th></tr>
+<tr><th>Instance</th><th>Rooted MSA avg best dev. [%]</th><th>rooted distance-ranked sparse avg best dev. [%]</th><th>Delta [pp]</th><th>Rooted MSA success [%]</th><th>rooted distance-ranked sparse success [%]</th></tr>
 </thead>
 <tbody>
 <tr><td>atex5</td><td align="right"><strong>0.76</strong></td><td align="right">3.02</td><td align="right">-2.26</td><td align="right">10.00</td><td align="right">10.00</td></tr>

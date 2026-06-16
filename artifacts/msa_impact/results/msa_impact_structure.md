@@ -1,6 +1,6 @@
 # MSA Impact Structure
 
-This report describes the average rooted MSA modifier matrix used by the MSA impact pipeline. Each ant uses the MSA rooted at its start vertex. Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline.
+This report describes the average rooted MSA modifier matrix used by the MSA impact pipeline. Each ant uses the MSA rooted at its start vertex. Negative deviation delta means rooted MSA had lower average best deviation than the baseline.
 
 ## Findings
 

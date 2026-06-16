@@ -1,22 +1,22 @@
-# Shuffled MSA Control
+# Rooted MSA Shuffled Control
 
-This sanity check compares the final MSA heuristic against deterministic shuffles of the MSA mask. Each shuffle preserves the number and boost values of MSA-boosted directed edges, but assigns them to shuffled directed edges. The control uses the best MSA-impact heuristic weight selected separately for each instance.
+This sanity check compares Rooted MSA against deterministic per-root shuffles of the rooted MSA masks. Each root preserves the number of boosted directed edges from that root's MSA, but assigns them to shuffled directed edges. The control uses the best Rooted MSA impact heuristic weight selected separately for each instance.
 
 ## Findings
 
-- **MSA had lower average best deviation than the shuffled MSA mean in 7/7 instances.**
-- **Mean average best deviation: MSA 1.65%, shuffled MSA 4.23%, delta -2.58 pp.**
-- **Mean success rate: MSA 7.14%, shuffled MSA 3.33%, delta +3.81 pp.**
-- MSA also beat the best shuffled MSA seed in 7/7 instances.
+- **Rooted MSA had lower average best deviation than the rooted shuffled MSA mean in 7/7 instances.**
+- **Mean average best deviation: Rooted MSA 1.65%, rooted shuffled MSA 4.23%, delta -2.58 pp.**
+- **Mean success rate: Rooted MSA 7.14%, rooted shuffled MSA 3.33%, delta +3.81 pp.**
+- Rooted MSA also beat the best rooted shuffled MSA seed in 7/7 instances.
 - Two-sided sign-test p-value for average-best-deviation wins/losses: 0.015625.
 
 ## Per-instance comparison
 
-Negative delta means the MSA heuristic had lower average best deviation than the shuffled MSA mean.
+Negative delta means Rooted MSA had lower average best deviation than the rooted shuffled MSA mean.
 
 <table>
 <thead>
-<tr><th>Instance</th><th>MSA avg best dev. [%]</th><th>shuffled MSA mean avg best dev. [%]</th><th>Best shuffled MSA avg best dev. [%]</th><th>Delta [pp]</th><th>MSA success [%]</th><th>shuffled MSA success [%]</th><th>Seeds</th></tr>
+<tr><th>Instance</th><th>Rooted MSA avg best dev. [%]</th><th>rooted shuffled MSA mean avg best dev. [%]</th><th>Best rooted shuffled MSA avg best dev. [%]</th><th>Delta [pp]</th><th>Rooted MSA success [%]</th><th>rooted shuffled MSA success [%]</th><th>Seeds</th></tr>
 </thead>
 <tbody>
 <tr><td>atex5</td><td align="right"><strong>0.76</strong></td><td align="right">3.61</td><td align="right">3.35 (seed 103)</td><td align="right">-2.85</td><td align="right">10.00</td><td align="right">0.00</td><td align="right">3</td></tr>

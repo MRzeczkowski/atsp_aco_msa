@@ -9,8 +9,8 @@ Instances without found optimal tours in `solutions.csv` are omitted, because pr
 - **Analyzed 6 instances with found optimal tours.**
 - **40.66% of MSA-impact boosted edges are also distance-ranked sparse edges.**
 - **MSA-only precision 49.48% vs distance-only precision 34.29%.**
-- **MSA-only recall 24.07% vs distance-only recall 4.83%.**
-- **Found-optimal edge distribution: both 203, MSA-only 239, distance-only 48, neither 503.**
+- **MSA-only recall 24.04% vs distance-only recall 4.83%.**
+- **Found-optimal edge distribution: both 203, MSA-only 239, distance-only 48, neither 504.**
 
 ## Pooled Categories
 
@@ -19,10 +19,10 @@ Instances without found optimal tours in `solutions.csv` are omitted, because pr
 <tr><th>Category</th><th>Edges</th><th>Found-optimal edges</th><th>Precision [%]</th><th>Recall [%]</th></tr>
 </thead>
 <tbody>
-<tr><td>Both</td><td align="right">331</td><td align="right">203</td><td align="right">61.33</td><td align="right">20.44</td></tr>
-<tr><td>MSA only</td><td align="right">483</td><td align="right">239</td><td align="right">49.48</td><td align="right">24.07</td></tr>
+<tr><td>Both</td><td align="right">331</td><td align="right">203</td><td align="right">61.33</td><td align="right">20.42</td></tr>
+<tr><td>MSA only</td><td align="right">483</td><td align="right">239</td><td align="right">49.48</td><td align="right">24.04</td></tr>
 <tr><td>Distance-ranked only</td><td align="right">140</td><td align="right">48</td><td align="right">34.29</td><td align="right">4.83</td></tr>
-<tr><td>Neither</td><td align="right">38764</td><td align="right">503</td><td align="right">1.30</td><td align="right">50.65</td></tr>
+<tr><td>Neither</td><td align="right">38764</td><td align="right">504</td><td align="right">1.30</td><td align="right">50.70</td></tr>
 </tbody>
 </table>
 
@@ -33,7 +33,7 @@ Instances without found optimal tours in `solutions.csv` are omitted, because pr
 <tr><th>Instance</th><th>n</th><th>Optimal edges</th><th>Both edges</th><th>MSA-only edges</th><th>Distance-only edges</th><th>Optimal both</th><th>Optimal MSA-only</th><th>Optimal distance-only</th><th>Optimal neither</th></tr>
 </thead>
 <tbody>
-<tr><td>atex5</td><td align="right">72</td><td align="right">360</td><td align="right">49</td><td align="right">91</td><td align="right">22</td><td align="right">49</td><td align="right">77</td><td align="right">22</td><td align="right">212</td></tr>
+<tr><td>atex5</td><td align="right">72</td><td align="right">361</td><td align="right">49</td><td align="right">91</td><td align="right">22</td><td align="right">49</td><td align="right">77</td><td align="right">22</td><td align="right">213</td></tr>
 <tr><td>crane100_1</td><td align="right">100</td><td align="right">100</td><td align="right">70</td><td align="right">97</td><td align="right">29</td><td align="right">36</td><td align="right">29</td><td align="right">5</td><td align="right">30</td></tr>
 <tr><td>ftv64</td><td align="right">65</td><td align="right">92</td><td align="right">52</td><td align="right">47</td><td align="right">12</td><td align="right">35</td><td align="right">24</td><td align="right">1</td><td align="right">32</td></tr>
 <tr><td>ftv90</td><td align="right">91</td><td align="right">113</td><td align="right">81</td><td align="right">60</td><td align="right">9</td><td align="right">45</td><td align="right">32</td><td align="right">5</td><td align="right">31</td></tr>
