@@ -18,6 +18,7 @@ type ACO struct {
 	targetTourLength                        float64
 	neighborsLists                          [][]int
 	heuristicNeighborsLists                 [][]int
+	rootedHeuristicNeighborsLists           [][][]int
 	heuristicWeight                         float64
 	rng                                     *rand.Rand
 	useThreeOpt                             bool
@@ -86,6 +87,13 @@ func NewACO(alpha, beta, rho float64, iterations int, targetTourLength float64, 
 
 func (aco *ACO) SetUseThreeOpt(enabled bool) {
 	aco.useThreeOpt = enabled
+}
+
+func (aco *ACO) SetRootedHeuristicModifiers(rootedHeuristicModifiers [][][]float64) {
+	aco.rootedHeuristicNeighborsLists = make([][][]int, len(rootedHeuristicModifiers))
+	for root := range rootedHeuristicModifiers {
+		aco.rootedHeuristicNeighborsLists[root] = buildConstructionHeuristicNeighborsLists(rootedHeuristicModifiers[root])
+	}
 }
 
 func buildConstructionHeuristicNeighborsLists(heuristicModifiers [][]float64) [][]int {
@@ -225,8 +233,9 @@ func useGlobalBestPheromoneUpdate(currentIteration, iterations int) bool {
 
 // Function to construct tour for each ant
 func (aco *ACO) constructTour(tour []int, canVisitBits []float64, desirabilities []float64) {
-	current := aco.rng.IntN(aco.dimension)
-	tour[0] = current
+	start := aco.rng.IntN(aco.dimension)
+	current := start
+	tour[0] = start
 
 	for i := 0; i < aco.dimension; i++ {
 		canVisitBits[i] = 1.0
@@ -234,7 +243,7 @@ func (aco *ACO) constructTour(tour []int, canVisitBits []float64, desirabilities
 	canVisitBits[current] = 0.0
 
 	for i := 1; i < aco.dimension; i++ {
-		next := aco.selectNextCity(current, canVisitBits, desirabilities)
+		next := aco.selectNextCityForStart(start, current, canVisitBits, desirabilities)
 
 		tour[i] = next
 		canVisitBits[next] = 0.0
@@ -245,8 +254,12 @@ func (aco *ACO) constructTour(tour []int, canVisitBits []float64, desirabilities
 
 // Function to select the next city for an ant
 func (aco *ACO) selectNextCity(current int, canVisitBits []float64, desirabilities []float64) int {
+	return aco.selectNextCityForStart(-1, current, canVisitBits, desirabilities)
+}
+
+func (aco *ACO) selectNextCityForStart(start, current int, canVisitBits []float64, desirabilities []float64) int {
 	if aco.shouldUseConstructionHeuristic() {
-		if nextCity := aco.selectNextCityFromConstructionHeuristic(current, canVisitBits, desirabilities); nextCity != -1 {
+		if nextCity := aco.selectNextCityFromConstructionHeuristic(start, current, canVisitBits, desirabilities); nextCity != -1 {
 			return nextCity
 		}
 	}
@@ -317,9 +330,9 @@ func (aco *ACO) constructionHeuristicProbability() float64 {
 	return min(aco.heuristicWeight, 1.0) * (1.0 - progress)
 }
 
-func (aco *ACO) selectNextCityFromConstructionHeuristic(current int, canVisitBits []float64, desirabilities []float64) int {
+func (aco *ACO) selectNextCityFromConstructionHeuristic(start, current int, canVisitBits []float64, desirabilities []float64) int {
 	desirabilitiesToUse := aco.desirabilities[current]
-	neighbors := aco.heuristicNeighborsLists[current]
+	neighbors := aco.constructionHeuristicNeighbors(start, current)
 
 	total := 0.0
 	for _, i := range neighbors {
@@ -351,6 +364,21 @@ func (aco *ACO) selectNextCityFromConstructionHeuristic(current int, canVisitBit
 	}
 
 	return nextCity
+}
+
+func (aco *ACO) constructionHeuristicNeighbors(start, current int) []int {
+	if start >= 0 && start < len(aco.rootedHeuristicNeighborsLists) {
+		rootedNeighbors := aco.rootedHeuristicNeighborsLists[start]
+		if current >= 0 && current < len(rootedNeighbors) {
+			return rootedNeighbors[current]
+		}
+	}
+
+	if current >= 0 && current < len(aco.heuristicNeighborsLists) {
+		return aco.heuristicNeighborsLists[current]
+	}
+
+	return nil
 }
 
 func (aco *ACO) updateLimits() {

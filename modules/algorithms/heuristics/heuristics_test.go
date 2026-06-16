@@ -41,6 +41,77 @@ func TestBuildMsaHeuristicModifiersReturnsNeutralMatrixWhenNoEdgeHasHighSupport(
 	}
 }
 
+func TestBuildRootedMsaHeuristicModifiersUsesPositiveEdgesInEachRoot(t *testing.T) {
+	rootedMsas := [][][]float64{
+		{
+			{0, 1, 0},
+			{0, 0, 1},
+			{0, 0, 0},
+		},
+		{
+			{0, 0, 0},
+			{1, 0, 1},
+			{0, 0, 0},
+		},
+	}
+
+	modifiers := BuildRootedMsaHeuristicModifiers(rootedMsas)
+	expected := [][][]float64{
+		{
+			{0, 1, 0},
+			{0, 0, 1},
+			{0, 0, 0},
+		},
+		{
+			{0, 0, 0},
+			{1, 0, 1},
+			{0, 0, 0},
+		},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected rooted MSA modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
+func TestBuildRootedDistanceRankedSparseModifiersPreservesPerRootEdgeCount(t *testing.T) {
+	matrix := [][]float64{
+		{0, 8, 1},
+		{3, 0, 2},
+		{6, 5, 0},
+	}
+	rootedMsas := [][][]float64{
+		{
+			{0, 1, 0},
+			{0, 0, 1},
+			{0, 0, 0},
+		},
+		{
+			{0, 0, 0},
+			{1, 0, 0},
+			{0, 0, 0},
+		},
+	}
+
+	modifiers := BuildRootedDistanceRankedSparseModifiers(matrix, rootedMsas)
+	expected := [][][]float64{
+		{
+			{0, 0, 1},
+			{0, 0, 1},
+			{0, 0, 0},
+		},
+		{
+			{0, 0, 1},
+			{0, 0, 0},
+			{0, 0, 0},
+		},
+	}
+
+	if !reflect.DeepEqual(modifiers, expected) {
+		t.Fatalf("unexpected rooted distance-ranked modifiers\nwant: %v\n got: %v", expected, modifiers)
+	}
+}
+
 func TestBuildRandomSparseModifiersBoostsSameNumberOfEdgesAsMsaHeuristic(t *testing.T) {
 	msaHeuristic := [][]float64{
 		{0, 4, 3, 0, 0},

@@ -204,6 +204,39 @@ func TestSelectNextCityCanUseConstructionHeuristicOutsideDistanceNeighbors(t *te
 	}
 }
 
+func TestSelectNextCityUsesRootedConstructionHeuristicForAntStart(t *testing.T) {
+	aco := &ACO{
+		iterations:      10,
+		heuristicWeight: 1.0,
+		neighborsLists: [][]int{
+			{1},
+		},
+		heuristicNeighborsLists: [][]int{
+			{2},
+		},
+		rootedHeuristicNeighborsLists: [][][]int{
+			{
+				{2},
+			},
+			{
+				{3},
+			},
+		},
+		desirabilities: [][]float64{
+			{0.0, 100.0, 1.0, 5.0},
+		},
+		rng: rand.New(rand.NewPCG(1, 2)),
+	}
+	canVisitBits := []float64{0.0, 1.0, 1.0, 1.0}
+	desirabilities := make([]float64, 4)
+
+	nextCity := aco.selectNextCityForStart(1, 0, canVisitBits, desirabilities)
+
+	if nextCity != 3 {
+		t.Fatalf("expected root-1 construction heuristic to choose city 3, got %d", nextCity)
+	}
+}
+
 func TestSelectNextCityFallsBackWhenConstructionHeuristicHasNoFeasibleEdge(t *testing.T) {
 	aco := &ACO{
 		iterations:      10,

@@ -60,6 +60,14 @@ func BuildMsaHeuristicModifiers(msaHeuristic [][]float64) [][]float64 {
 	return modifiers
 }
 
+func BuildRootedMsaHeuristicModifiers(rootedMsas [][][]float64) [][][]float64 {
+	rootedModifiers := make([][][]float64, len(rootedMsas))
+	for root := range rootedMsas {
+		rootedModifiers[root] = BuildPositiveEdgeModifiers(rootedMsas[root])
+	}
+	return rootedModifiers
+}
+
 func BuildRandomSparseModifiers(msaHeuristic [][]float64, seed int64) [][]float64 {
 	dimension := len(msaHeuristic)
 	modifiers := BuildNeutralModifiers(dimension)
@@ -68,26 +76,33 @@ func BuildRandomSparseModifiers(msaHeuristic [][]float64, seed int64) [][]float6
 	}
 
 	boostedEdgeCount := boostedModifierEdgeCount(BuildMsaHeuristicModifiers(msaHeuristic))
-	if boostedEdgeCount == 0 {
+	return buildRandomSparseModifiersForCount(dimension, boostedEdgeCount, seed)
+}
+
+func BuildRootedRandomSparseModifiers(rootedMsas [][][]float64, seed int64) [][][]float64 {
+	rootedModifiers := make([][][]float64, len(rootedMsas))
+	for root := range rootedMsas {
+		dimension := len(rootedMsas[root])
+		edgeCount := positiveEdgeCount(rootedMsas[root])
+		rootedModifiers[root] = buildRandomSparseModifiersForCount(dimension, edgeCount, seed+int64(root)*1000003)
+	}
+	return rootedModifiers
+}
+
+func buildRandomSparseModifiersForCount(dimension, boostedEdgeCount int, seed int64) [][]float64 {
+	modifiers := BuildNeutralModifiers(dimension)
+	if dimension <= 1 || boostedEdgeCount == 0 {
 		return modifiers
 	}
 
-	edges := make([]directedEdge, 0, dimension*(dimension-1))
-	for i := 0; i < dimension; i++ {
-		for j := 0; j < dimension; j++ {
-			if i != j {
-				edges = append(edges, directedEdge{i, j})
-			}
-		}
-	}
-
+	edges := allDirectedEdges(dimension)
 	random := rand.New(rand.NewSource(seed))
 	for i := len(edges) - 1; i > 0; i-- {
 		j := random.Intn(i + 1)
 		edges[i], edges[j] = edges[j], edges[i]
 	}
 
-	for _, edge := range edges[:boostedEdgeCount] {
+	for _, edge := range edges[:min(boostedEdgeCount, len(edges))] {
 		modifiers[edge.from][edge.to] = 1.0
 	}
 
@@ -102,30 +117,17 @@ func BuildShuffledMsaModifiers(msaHeuristic [][]float64, seed int64) [][]float64
 	}
 
 	boostedEdgeCount := boostedModifierEdgeCount(BuildMsaHeuristicModifiers(msaHeuristic))
-	if boostedEdgeCount == 0 {
-		return modifiers
-	}
+	return buildRandomSparseModifiersForCount(dimension, boostedEdgeCount, seed)
+}
 
-	edges := make([]directedEdge, 0, dimension*(dimension-1))
-	for i := 0; i < dimension; i++ {
-		for j := 0; j < dimension; j++ {
-			if i != j {
-				edges = append(edges, directedEdge{i, j})
-			}
-		}
+func BuildRootedShuffledMsaModifiers(rootedMsas [][][]float64, seed int64) [][][]float64 {
+	rootedModifiers := make([][][]float64, len(rootedMsas))
+	for root := range rootedMsas {
+		dimension := len(rootedMsas[root])
+		edgeCount := positiveEdgeCount(rootedMsas[root])
+		rootedModifiers[root] = buildRandomSparseModifiersForCount(dimension, edgeCount, seed+int64(root)*1000003)
 	}
-
-	random := rand.New(rand.NewSource(seed))
-	for i := len(edges) - 1; i > 0; i-- {
-		j := random.Intn(i + 1)
-		edges[i], edges[j] = edges[j], edges[i]
-	}
-
-	for _, edge := range edges[:boostedEdgeCount] {
-		modifiers[edge.from][edge.to] = 1.0
-	}
-
-	return modifiers
+	return rootedModifiers
 }
 
 func BuildDistanceRankedSparseModifiers(matrix, msaHeuristic [][]float64) [][]float64 {
@@ -137,6 +139,25 @@ func BuildDistanceRankedSparseModifiers(matrix, msaHeuristic [][]float64) [][]fl
 
 	boostedEdgeCount := boostedModifierEdgeCount(BuildMsaHeuristicModifiers(msaHeuristic))
 	if boostedEdgeCount == 0 {
+		return modifiers
+	}
+
+	return buildDistanceRankedSparseModifiersForCount(matrix, dimension, boostedEdgeCount)
+}
+
+func BuildRootedDistanceRankedSparseModifiers(matrix [][]float64, rootedMsas [][][]float64) [][][]float64 {
+	rootedModifiers := make([][][]float64, len(rootedMsas))
+	for root := range rootedMsas {
+		dimension := heuristicDimension(matrix, rootedMsas[root])
+		edgeCount := positiveEdgeCount(rootedMsas[root])
+		rootedModifiers[root] = buildDistanceRankedSparseModifiersForCount(matrix, dimension, edgeCount)
+	}
+	return rootedModifiers
+}
+
+func buildDistanceRankedSparseModifiersForCount(matrix [][]float64, dimension, boostedEdgeCount int) [][]float64 {
+	modifiers := BuildNeutralModifiers(dimension)
+	if dimension <= 1 || boostedEdgeCount == 0 {
 		return modifiers
 	}
 
@@ -163,7 +184,7 @@ func BuildDistanceRankedSparseModifiers(matrix, msaHeuristic [][]float64) [][]fl
 		return left.to < right.to
 	})
 
-	for _, edge := range edges[:boostedEdgeCount] {
+	for _, edge := range edges[:min(boostedEdgeCount, len(edges))] {
 		modifiers[edge.from][edge.to] = 1.0
 	}
 
@@ -252,6 +273,10 @@ func BuildCycleCoverModifiers(cycleCover [][]float64) [][]float64 {
 	return modifiers
 }
 
+func BuildPositiveEdgeModifiers(matrix [][]float64) [][]float64 {
+	return copyPositiveEdges(matrix, len(matrix))
+}
+
 func boostedModifierEdgeCount(modifiers [][]float64) int {
 	count := 0
 	for i := 0; i < len(modifiers); i++ {
@@ -263,6 +288,23 @@ func boostedModifierEdgeCount(modifiers [][]float64) int {
 	}
 
 	return count
+}
+
+func positiveEdgeCount(matrix [][]float64) int {
+	return boostedModifierEdgeCount(BuildPositiveEdgeModifiers(matrix))
+}
+
+func allDirectedEdges(dimension int) []directedEdge {
+	edges := make([]directedEdge, 0, dimension*(dimension-1))
+	for i := 0; i < dimension; i++ {
+		for j := 0; j < dimension; j++ {
+			if i != j {
+				edges = append(edges, directedEdge{i, j})
+			}
+		}
+	}
+
+	return edges
 }
 
 func BuildNeutralModifiers(dimension int) [][]float64 {

@@ -3121,6 +3121,21 @@ func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover 
 	}
 }
 
+func buildRootedHeuristicModifiers(heuristic string, matrix [][]float64, rootedMsaHeuristic [][][]float64, parameters ExperimentParameters) [][][]float64 {
+	switch heuristic {
+	case heuristicMsaHeuristic:
+		return heuristics.BuildRootedMsaHeuristicModifiers(rootedMsaHeuristic)
+	case heuristicRandomSparse:
+		return heuristics.BuildRootedRandomSparseModifiers(rootedMsaHeuristic, parameters.randomSeed)
+	case heuristicDistanceRankedSparse:
+		return heuristics.BuildRootedDistanceRankedSparseModifiers(matrix, rootedMsaHeuristic)
+	case heuristicShuffledMsa:
+		return heuristics.BuildRootedShuffledMsaModifiers(rootedMsaHeuristic, parameters.randomSeed)
+	default:
+		return nil
+	}
+}
+
 func heuristicMatrixDimension(matrices ...[][]float64) int {
 	for _, matrix := range matrices {
 		if len(matrix) != 0 {
@@ -3262,6 +3277,10 @@ func calculateStatistics(experimentsData []ExperimentsData) []ExperimentsDataSta
 }
 
 func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOptimal float64, matrix, heuristicModifiers [][]float64, useThreeOpt bool) []ExperimentResult {
+	return runExperimentsWithRootedHeuristicModifiers(numberOfRuns, parameters, knownOptimal, matrix, heuristicModifiers, nil, useThreeOpt)
+}
+
+func runExperimentsWithRootedHeuristicModifiers(numberOfRuns int, parameters ExperimentParameters, knownOptimal float64, matrix, heuristicModifiers [][]float64, rootedHeuristicModifiers [][][]float64, useThreeOpt bool) []ExperimentResult {
 	results := make([]ExperimentResult, numberOfRuns)
 
 	aco := aco.NewACO(
@@ -3273,6 +3292,9 @@ func runExperiments(numberOfRuns int, parameters ExperimentParameters, knownOpti
 		matrix,
 		heuristicModifiers,
 		parameters.heuristicWeight)
+	if rootedHeuristicModifiers != nil {
+		aco.SetRootedHeuristicModifiers(rootedHeuristicModifiers)
+	}
 	aco.SetUseThreeOpt(useThreeOpt)
 
 	for i := 0; i < numberOfRuns; i++ {
@@ -3668,6 +3690,15 @@ func heuristicUsesCycleCover(heuristic string) bool {
 
 func heuristicUsesMsaHeuristic(heuristic string) bool {
 	return heuristic == heuristicMsaHeuristic || heuristic == heuristicCycleCoverMsaPatching || heuristicIsSparseControl(heuristic)
+}
+
+func heuristicUsesRootedMsaImpact(heuristic, resultsRootPath string) bool {
+	return (resultsRootPath == msaImpactResultsDirectoryName || resultsRootPath == msaImpactControlsDirectoryName) &&
+		(heuristic == heuristicMsaHeuristic || heuristicIsSparseControl(heuristic))
+}
+
+func heuristicUsesRootedMsaForTuning(heuristic string) bool {
+	return heuristic == heuristicMsaHeuristic
 }
 
 func heuristicIsRandomSparse(heuristic string) bool {
@@ -4251,7 +4282,14 @@ func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, result
 
 	for _, config := range configurations {
 		var heuristicMatrix [][]float64
-		if heuristicUsesMsaHeuristic(config.heuristic) {
+		var rootedMsaHeuristic [][][]float64
+		if heuristicUsesRootedMsaImpact(config.heuristic, resultsRootPath) {
+			var err error
+			rootedMsaHeuristic, err = readMsaImpactRootedMsaHeuristics(atspData)
+			if err != nil {
+				return err
+			}
+		} else if heuristicUsesMsaHeuristic(config.heuristic) {
 			var err error
 			heuristicMatrix, err = readMsaHeuristicMatrixForResultRoot(atspData, config.heuristic, resultsRootPath)
 			if err != nil {
@@ -4280,6 +4318,7 @@ func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, result
 			knownOptimal,
 			matrix,
 			heuristicMatrix,
+			rootedMsaHeuristic,
 			cycleCover,
 			useThreeOpt,
 			dimension,
@@ -4327,7 +4366,7 @@ func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, result
 	return nil
 }
 
-func runFinalExperimentParameters(instanceName, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments int, knownOptimal float64, matrix, heuristicMatrix, cycleCover [][]float64, useThreeOpt bool, dimension, workers int) ([]ExperimentsData, error) {
+func runFinalExperimentParameters(instanceName, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments int, knownOptimal float64, matrix, heuristicMatrix [][]float64, rootedMsaHeuristic [][][]float64, cycleCover [][]float64, useThreeOpt bool, dimension, workers int) ([]ExperimentsData, error) {
 	experimentData := make([]ExperimentsData, len(experimentParameters))
 	var logMutex sync.Mutex
 
@@ -4336,7 +4375,8 @@ func runFinalExperimentParameters(instanceName, heuristic string, experimentPara
 		setDimensionDependantParameters(dimension, &parameters)
 		parameterStart := time.Now()
 		heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters)
-		results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, useThreeOpt)
+		rootedHeuristicModifiers := buildRootedHeuristicModifiers(heuristic, matrix, rootedMsaHeuristic, parameters)
+		results := runExperimentsWithRootedHeuristicModifiers(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, rootedHeuristicModifiers, useThreeOpt)
 		data := ExperimentsData{parameters, results}
 		experimentData[index] = data
 
@@ -4837,7 +4877,7 @@ func saveMsaDistanceRankedCategoryReport(path string, atspsData []AtspData) erro
 
 	var builder strings.Builder
 	builder.WriteString("# MSA vs Distance-ranked Edge Categories\n\n")
-	builder.WriteString("This report splits directed edges into four categories: edges boosted by both the MSA-impact heuristic and the distance-ranked sparse control, edges boosted only by the MSA-impact heuristic, edges boosted only by the distance-ranked sparse control, and edges boosted by neither. The distance-ranked set uses the same boosted-edge count as the MSA-impact heuristic and the same deterministic ordering as the control heuristic.\n\n")
+	builder.WriteString("This report splits directed edges into four categories: edges boosted by at least one rooted MSA-impact matrix and at least one rooted distance-ranked sparse control matrix, edges boosted only by rooted MSA, edges boosted only by rooted distance-ranked sparse control, and edges boosted by neither. The distance-ranked set uses the same per-root boosted-edge count as the rooted MSA heuristic and the same deterministic ordering as the control heuristic.\n\n")
 	builder.WriteString("Instances without found optimal tours in `solutions.csv` are omitted, because precision and recall need a reference edge set.\n\n")
 	if len(rows) == 0 {
 		builder.WriteString("No instances with found optimal tours were available.\n")
@@ -4866,13 +4906,13 @@ func buildMsaDistanceRankedCategoryRows(atspsData []AtspData) ([]msaDistanceRank
 			continue
 		}
 
-		msaHeuristicMatrix, err := readMsaImpactHeuristicMatrix(atspData)
+		rootedMsas, err := readMsaImpactRootedMsaHeuristics(atspData)
 		if err != nil {
-			return nil, fmt.Errorf("%s: read MSA impact heuristic: %w", atspData.name, err)
+			return nil, fmt.Errorf("%s: read rooted MSA impact heuristics: %w", atspData.name, err)
 		}
 
-		msaEdges := boostedModifierEdgeSet(heuristics.BuildMsaHeuristicModifiers(msaHeuristicMatrix))
-		distanceRankedEdges := boostedModifierEdgeSet(heuristics.BuildDistanceRankedSparseModifiers(atspData.matrix, msaHeuristicMatrix))
+		msaEdges := rootedBoostedModifierEdgeSet(heuristics.BuildRootedMsaHeuristicModifiers(rootedMsas))
+		distanceRankedEdges := rootedBoostedModifierEdgeSet(heuristics.BuildRootedDistanceRankedSparseModifiers(atspData.matrix, rootedMsas))
 		rows = append(rows, calculateMsaDistanceRankedCategoryRow(atspData.name, len(atspData.matrix), len(tours), optimalEdges, msaEdges, distanceRankedEdges))
 	}
 
@@ -4932,6 +4972,17 @@ func boostedModifierEdgeSet(modifiers [][]float64) map[models.Edge]struct{} {
 			if from != to && value > 0.0 {
 				edges[models.Edge{From: from, To: to}] = struct{}{}
 			}
+		}
+	}
+
+	return edges
+}
+
+func rootedBoostedModifierEdgeSet(rootedModifiers [][][]float64) map[models.Edge]struct{} {
+	edges := make(map[models.Edge]struct{})
+	for _, modifiers := range rootedModifiers {
+		for edge := range boostedModifierEdgeSet(modifiers) {
+			edges[edge] = struct{}{}
 		}
 	}
 
@@ -5082,7 +5133,7 @@ func saveMsaImpactSummary(path string, atspsData []AtspData) error {
 
 	var builder strings.Builder
 	builder.WriteString("# MSA Impact Summary\n\n")
-	builder.WriteString("Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline. In this temporary pipeline the MSA heuristic uses the default strict composite MSA matrix and the best heuristic weight from the 0.10-1.00 sweep.\n\n")
+	builder.WriteString("Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline. In this temporary pipeline each ant uses the MSA rooted at its start vertex and the best heuristic weight from the 0.10-1.00 sweep.\n\n")
 	builder.WriteString("## Findings\n\n")
 	fmt.Fprintf(&builder, "- **MSA heuristic improved average best deviation in %d/%d instances, tied in %d, and was worse in %d.**\n", wins, instanceCount, ties, losses)
 	fmt.Fprintf(&builder, "- **Mean average best deviation: baseline %.2f%%, MSA heuristic %.2f%%, delta %s pp.**\n", averageBaselineDeviation, averageMsaDeviation, formatSignedFloat(averageDeviationDelta))
@@ -5139,10 +5190,10 @@ func formatMsaImpactBestWeightCounts(counts map[float64]int) string {
 type msaImpactStructureRow struct {
 	instance                  string
 	dimension                 int
-	boostedEdges              int
+	boostedEdges              float64
 	boostedEdgesPerTreeEdge   float64
-	missingOutgoingVertices   int
-	missingIncomingVertices   int
+	missingOutgoingVertices   float64
+	missingIncomingVertices   float64
 	averageBestDeviationDelta float64
 	successRateDelta          float64
 }
@@ -5167,9 +5218,9 @@ func saveMsaImpactStructureReport(path string, atspsData []AtspData) error {
 
 	for _, row := range rows {
 		boostedRatioTotal += row.boostedEdgesPerTreeEdge
-		missingOutgoingTotal += float64(row.missingOutgoingVertices)
-		missingIncomingTotal += float64(row.missingIncomingVertices)
-		missingEndpoints := float64(row.missingOutgoingVertices + row.missingIncomingVertices)
+		missingOutgoingTotal += row.missingOutgoingVertices
+		missingIncomingTotal += row.missingIncomingVertices
+		missingEndpoints := row.missingOutgoingVertices + row.missingIncomingVertices
 
 		if row.averageBestDeviationDelta < -epsilon {
 			improvedMissingTotal += missingEndpoints
@@ -5189,7 +5240,7 @@ func saveMsaImpactStructureReport(path string, atspsData []AtspData) error {
 
 	var builder strings.Builder
 	builder.WriteString("# MSA Impact Structure\n\n")
-	builder.WriteString("This report describes the default strict composite MSA modifier matrix used by the MSA impact pipeline. Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline.\n\n")
+	builder.WriteString("This report describes the average rooted MSA modifier matrix used by the MSA impact pipeline. Each ant uses the MSA rooted at its start vertex. Negative deviation delta means the MSA heuristic had lower average best deviation than the baseline.\n\n")
 	builder.WriteString("## Findings\n\n")
 	fmt.Fprintf(&builder, "- **Average boosted-edge ratio against n-1: %.2f.**\n", averageBoostedRatio)
 	fmt.Fprintf(&builder, "- **Average missing outgoing vertices: %.2f; average missing incoming vertices: %.2f.**\n", averageMissingOutgoing, averageMissingIncoming)
@@ -5200,12 +5251,12 @@ func saveMsaImpactStructureReport(path string, atspsData []AtspData) error {
 
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
-	builder.WriteString("<tr><th>Instance</th><th>n</th><th>Boosted edges</th><th>Boosted/(n-1)</th><th>Missing outgoing</th><th>Missing incoming</th><th>Dev. delta [pp]</th><th>Success delta [pp]</th></tr>\n")
+	builder.WriteString("<tr><th>Instance</th><th>n</th><th>Avg boosted edges</th><th>Boosted/(n-1)</th><th>Avg missing outgoing</th><th>Avg missing incoming</th><th>Dev. delta [pp]</th><th>Success delta [pp]</th></tr>\n")
 	builder.WriteString("</thead>\n")
 	builder.WriteString("<tbody>\n")
 	for _, row := range rows {
 		fmt.Fprintf(&builder,
-			"<tr><td>%s</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%s</td><td align=\"right\">%s</td></tr>\n",
+			"<tr><td>%s</td><td align=\"right\">%d</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%s</td><td align=\"right\">%s</td></tr>\n",
 			html.EscapeString(row.instance),
 			row.dimension,
 			row.boostedEdges,
@@ -5235,13 +5286,13 @@ func readMsaImpactStructureRows(atspsData []AtspData) ([]msaImpactStructureRow, 
 			return nil, fmt.Errorf("%s: missing baseline metric", atspData.name)
 		}
 
-		msaHeuristicMatrix, err := readMsaImpactHeuristicMatrix(atspData)
+		rootedMsas, err := readMsaImpactRootedMsaHeuristics(atspData)
 		if err != nil {
-			return nil, fmt.Errorf("%s: failed to read MSA impact heuristic matrix: %w", atspData.name, err)
+			return nil, fmt.Errorf("%s: failed to read rooted MSA impact heuristics: %w", atspData.name, err)
 		}
 
-		modifiers := heuristics.BuildMsaHeuristicModifiers(msaHeuristicMatrix)
-		boostedEdges, missingOutgoingVertices, missingIncomingVertices := msaModifierStructure(modifiers)
+		rootedModifiers := heuristics.BuildRootedMsaHeuristicModifiers(rootedMsas)
+		boostedEdges, missingOutgoingVertices, missingIncomingVertices := rootedMsaModifierStructure(rootedModifiers)
 		msaMetric, msaOk := metrics[heuristicMsaHeuristic]
 		if !msaOk {
 			return nil, fmt.Errorf("%s: missing MSA heuristic metric", atspData.name)
@@ -5260,6 +5311,22 @@ func readMsaImpactStructureRows(atspsData []AtspData) ([]msaImpactStructureRow, 
 	}
 
 	return rows, nil
+}
+
+func rootedMsaModifierStructure(rootedModifiers [][][]float64) (boostedEdges, missingOutgoingVertices, missingIncomingVertices float64) {
+	if len(rootedModifiers) == 0 {
+		return 0, 0, 0
+	}
+
+	for _, modifiers := range rootedModifiers {
+		rootBoostedEdges, rootMissingOutgoingVertices, rootMissingIncomingVertices := msaModifierStructure(modifiers)
+		boostedEdges += float64(rootBoostedEdges)
+		missingOutgoingVertices += float64(rootMissingOutgoingVertices)
+		missingIncomingVertices += float64(rootMissingIncomingVertices)
+	}
+
+	count := float64(len(rootedModifiers))
+	return boostedEdges / count, missingOutgoingVertices / count, missingIncomingVertices / count
 }
 
 func msaModifierStructure(modifiers [][]float64) (boostedEdges, missingOutgoingVertices, missingIncomingVertices int) {
@@ -5293,11 +5360,11 @@ func msaModifierStructure(modifiers [][]float64) (boostedEdges, missingOutgoingV
 	return boostedEdges, missingOutgoingVertices, missingIncomingVertices
 }
 
-func boostedEdgesPerTreeEdge(boostedEdges, dimension int) float64 {
+func boostedEdgesPerTreeEdge(boostedEdges float64, dimension int) float64 {
 	if dimension <= 1 {
 		return 0
 	}
-	return float64(boostedEdges) / float64(dimension-1)
+	return boostedEdges / float64(dimension-1)
 }
 
 func safeAverage(total float64, count int) float64 {
@@ -5362,9 +5429,19 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 	dimension := len(matrix)
 	instanceStart := time.Now()
 
-	heuristicMatrix, err := readMsaHeuristicMatrixForHeuristic(atspData, heuristic)
-	if err != nil {
-		return err
+	var heuristicMatrix [][]float64
+	var rootedMsaHeuristic [][][]float64
+	var err error
+	if heuristicUsesRootedMsaForTuning(heuristic) {
+		rootedMsaHeuristic, err = readRootedMsaHeuristics(atspData)
+		if err != nil {
+			return err
+		}
+	} else if heuristicUsesMsaHeuristic(heuristic) {
+		heuristicMatrix, err = readMsaHeuristicMatrixForHeuristic(atspData, heuristic)
+		if err != nil {
+			return err
+		}
 	}
 
 	fmt.Printf("[%s][%s][%s] Starting (dimension=%d, parameters=%d, runs/parameter=%d, parameter workers=%d)\n",
@@ -5398,7 +5475,8 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 		setDimensionDependantParameters(dimension, &parameters)
 		parameterStart := time.Now()
 		heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters)
-		results := runExperiments(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, false)
+		rootedHeuristicModifiers := buildRootedHeuristicModifiers(heuristic, matrix, rootedMsaHeuristic, parameters)
+		results := runExperimentsWithRootedHeuristicModifiers(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, rootedHeuristicModifiers, false)
 		data := ExperimentsData{parameters, results}
 		experimentData[index] = data
 
@@ -5479,6 +5557,22 @@ func readMsaHeuristicMatrixForResultRoot(atspData AtspData, heuristic, resultsRo
 
 func readMsaImpactHeuristicMatrix(atspData AtspData) ([][]float64, error) {
 	return msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
+}
+
+func readMsaImpactRootedMsaHeuristics(atspData AtspData) ([][][]float64, error) {
+	return readRootedMsaHeuristics(atspData)
+}
+
+func readRootedMsaHeuristics(atspData AtspData) ([][][]float64, error) {
+	rootedMsas, err := msaHeuristic.ReadMsas(atspData.msaHeuristicDirectoryPath)
+	if err != nil {
+		return nil, err
+	}
+	if len(rootedMsas) != len(atspData.matrix) {
+		return nil, fmt.Errorf("expected %d rooted MSAs, got %d", len(atspData.matrix), len(rootedMsas))
+	}
+
+	return rootedMsas, nil
 }
 
 func runRebuildMsaMode(atspsData []AtspData, workers int) error {

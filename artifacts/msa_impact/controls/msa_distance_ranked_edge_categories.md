@@ -1,16 +1,16 @@
 # MSA vs Distance-ranked Edge Categories
 
-This report splits directed edges into four categories: edges boosted by both the MSA-impact heuristic and the distance-ranked sparse control, edges boosted only by the MSA-impact heuristic, edges boosted only by the distance-ranked sparse control, and edges boosted by neither. The distance-ranked set uses the same boosted-edge count as the MSA-impact heuristic and the same deterministic ordering as the control heuristic.
+This report splits directed edges into four categories: edges boosted by at least one rooted MSA-impact matrix and at least one rooted distance-ranked sparse control matrix, edges boosted only by rooted MSA, edges boosted only by rooted distance-ranked sparse control, and edges boosted by neither. The distance-ranked set uses the same per-root boosted-edge count as the rooted MSA heuristic and the same deterministic ordering as the control heuristic.
 
 Instances without found optimal tours in `solutions.csv` are omitted, because precision and recall need a reference edge set.
 
 ## Findings
 
 - **Analyzed 6 instances with found optimal tours.**
-- **40.56% of MSA-impact boosted edges are also distance-ranked sparse edges.**
-- **MSA-only precision 62.35% vs distance-only precision 38.82%.**
-- **MSA-only recall 10.67% vs distance-only recall 6.65%.**
-- **Found-optimal edge distribution: both 86, MSA-only 106, distance-only 66, neither 735.**
+- **40.66% of MSA-impact boosted edges are also distance-ranked sparse edges.**
+- **MSA-only precision 49.48% vs distance-only precision 34.29%.**
+- **MSA-only recall 24.07% vs distance-only recall 4.83%.**
+- **Found-optimal edge distribution: both 203, MSA-only 239, distance-only 48, neither 503.**
 
 ## Pooled Categories
 
@@ -19,10 +19,10 @@ Instances without found optimal tours in `solutions.csv` are omitted, because pr
 <tr><th>Category</th><th>Edges</th><th>Found-optimal edges</th><th>Precision [%]</th><th>Recall [%]</th></tr>
 </thead>
 <tbody>
-<tr><td>Both</td><td align="right">116</td><td align="right">86</td><td align="right">74.14</td><td align="right">8.66</td></tr>
-<tr><td>MSA only</td><td align="right">170</td><td align="right">106</td><td align="right">62.35</td><td align="right">10.67</td></tr>
-<tr><td>Distance-ranked only</td><td align="right">170</td><td align="right">66</td><td align="right">38.82</td><td align="right">6.65</td></tr>
-<tr><td>Neither</td><td align="right">39262</td><td align="right">735</td><td align="right">1.87</td><td align="right">74.02</td></tr>
+<tr><td>Both</td><td align="right">331</td><td align="right">203</td><td align="right">61.33</td><td align="right">20.44</td></tr>
+<tr><td>MSA only</td><td align="right">483</td><td align="right">239</td><td align="right">49.48</td><td align="right">24.07</td></tr>
+<tr><td>Distance-ranked only</td><td align="right">140</td><td align="right">48</td><td align="right">34.29</td><td align="right">4.83</td></tr>
+<tr><td>Neither</td><td align="right">38764</td><td align="right">503</td><td align="right">1.30</td><td align="right">50.65</td></tr>
 </tbody>
 </table>
 
@@ -33,11 +33,11 @@ Instances without found optimal tours in `solutions.csv` are omitted, because pr
 <tr><th>Instance</th><th>n</th><th>Optimal edges</th><th>Both edges</th><th>MSA-only edges</th><th>Distance-only edges</th><th>Optimal both</th><th>Optimal MSA-only</th><th>Optimal distance-only</th><th>Optimal neither</th></tr>
 </thead>
 <tbody>
-<tr><td>atex5</td><td align="right">72</td><td align="right">360</td><td align="right">15</td><td align="right">17</td><td align="right">17</td><td align="right">15</td><td align="right">17</td><td align="right">17</td><td align="right">311</td></tr>
-<tr><td>crane100_1</td><td align="right">100</td><td align="right">100</td><td align="right">36</td><td align="right">28</td><td align="right">28</td><td align="right">24</td><td align="right">11</td><td align="right">8</td><td align="right">57</td></tr>
-<tr><td>ftv64</td><td align="right">65</td><td align="right">92</td><td align="right">16</td><td align="right">22</td><td align="right">22</td><td align="right">14</td><td align="right">15</td><td align="right">10</td><td align="right">53</td></tr>
-<tr><td>ftv90</td><td align="right">91</td><td align="right">113</td><td align="right">21</td><td align="right">31</td><td align="right">31</td><td align="right">15</td><td align="right">23</td><td align="right">14</td><td align="right">61</td></tr>
-<tr><td>ry48p</td><td align="right">48</td><td align="right">48</td><td align="right">4</td><td align="right">13</td><td align="right">13</td><td align="right">2</td><td align="right">9</td><td align="right">4</td><td align="right">33</td></tr>
-<tr><td>td100_1</td><td align="right">101</td><td align="right">280</td><td align="right">24</td><td align="right">59</td><td align="right">59</td><td align="right">16</td><td align="right">31</td><td align="right">13</td><td align="right">220</td></tr>
+<tr><td>atex5</td><td align="right">72</td><td align="right">360</td><td align="right">49</td><td align="right">91</td><td align="right">22</td><td align="right">49</td><td align="right">77</td><td align="right">22</td><td align="right">212</td></tr>
+<tr><td>crane100_1</td><td align="right">100</td><td align="right">100</td><td align="right">70</td><td align="right">97</td><td align="right">29</td><td align="right">36</td><td align="right">29</td><td align="right">5</td><td align="right">30</td></tr>
+<tr><td>ftv64</td><td align="right">65</td><td align="right">92</td><td align="right">52</td><td align="right">47</td><td align="right">12</td><td align="right">35</td><td align="right">24</td><td align="right">1</td><td align="right">32</td></tr>
+<tr><td>ftv90</td><td align="right">91</td><td align="right">113</td><td align="right">81</td><td align="right">60</td><td align="right">9</td><td align="right">45</td><td align="right">32</td><td align="right">5</td><td align="right">31</td></tr>
+<tr><td>ry48p</td><td align="right">48</td><td align="right">48</td><td align="right">32</td><td align="right">58</td><td align="right">15</td><td align="right">16</td><td align="right">21</td><td align="right">2</td><td align="right">9</td></tr>
+<tr><td>td100_1</td><td align="right">101</td><td align="right">280</td><td align="right">47</td><td align="right">130</td><td align="right">53</td><td align="right">22</td><td align="right">56</td><td align="right">13</td><td align="right">189</td></tr>
 </tbody>
 </table>

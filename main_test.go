@@ -388,6 +388,18 @@ func TestSaveMsaImpactStructureReportCombinesStructureWithPerformance(t *testing
 		{0, 0, 0, 1},
 		{0, 0, 0, 0},
 	})
+	writeTestRootMsaMatrix(t, first.msaHeuristicDirectoryPath, 2, [][]float64{
+		{0, 1, 0, 0},
+		{0, 0, 0, 1},
+		{1, 0, 0, 0},
+		{0, 0, 0, 0},
+	})
+	writeTestRootMsaMatrix(t, first.msaHeuristicDirectoryPath, 3, [][]float64{
+		{0, 1, 0, 0},
+		{0, 0, 1, 0},
+		{0, 0, 0, 0},
+		{1, 0, 0, 0},
+	})
 	writeTestMsaHeuristicMatrix(t, second.msaHeuristicDirectoryPath, [][]float64{
 		{0, 2, 0},
 		{0, 0, 2},
@@ -397,6 +409,16 @@ func TestSaveMsaImpactStructureReportCombinesStructureWithPerformance(t *testing
 		{0, 1, 0},
 		{0, 0, 1},
 		{0, 0, 0},
+	})
+	writeTestRootMsaMatrix(t, second.msaHeuristicDirectoryPath, 1, [][]float64{
+		{0, 0, 1},
+		{1, 0, 0},
+		{0, 0, 0},
+	})
+	writeTestRootMsaMatrix(t, second.msaHeuristicDirectoryPath, 2, [][]float64{
+		{0, 1, 0},
+		{0, 0, 0},
+		{1, 0, 0},
 	})
 
 	impactFirst := withExperimentOutputRoot(first, msaImpactResultsDirectoryName)
@@ -425,14 +447,14 @@ func TestSaveMsaImpactStructureReportCombinesStructureWithPerformance(t *testing
 	}
 	content := string(contentBytes)
 	assertContains(t, content, "# MSA Impact Structure")
-	assertContains(t, content, "Average boosted-edge ratio against n-1: 1.08.")
-	assertContains(t, content, "Average missing outgoing vertices: 1.00; average missing incoming vertices: 1.00.")
-	assertContains(t, content, "Average missing endpoints: improved cases 4.00, tied/worse cases 0.00.")
-	assertContains(t, content, "<tr><td>sample-a</td><td align=\"right\">4</td><td align=\"right\">2</td><td align=\"right\">0.67</td><td align=\"right\">2</td><td align=\"right\">2</td><td align=\"right\">-2.00</td><td align=\"right\">+10.00</td></tr>")
-	assertContains(t, content, "<tr><td>sample-b</td><td align=\"right\">3</td><td align=\"right\">3</td><td align=\"right\">1.50</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">+2.00</td><td align=\"right\">-20.00</td></tr>")
+	assertContains(t, content, "Average boosted-edge ratio against n-1: 1.00.")
+	assertContains(t, content, "Average missing outgoing vertices: 1.25; average missing incoming vertices: 1.00.")
+	assertContains(t, content, "Average missing endpoints: improved cases 2.50, tied/worse cases 2.00.")
+	assertContains(t, content, "<tr><td>sample-a</td><td align=\"right\">4</td><td align=\"right\">3.00</td><td align=\"right\">1.00</td><td align=\"right\">1.50</td><td align=\"right\">1.00</td><td align=\"right\">-2.00</td><td align=\"right\">+10.00</td></tr>")
+	assertContains(t, content, "<tr><td>sample-b</td><td align=\"right\">3</td><td align=\"right\">2.00</td><td align=\"right\">1.00</td><td align=\"right\">1.00</td><td align=\"right\">1.00</td><td align=\"right\">+2.00</td><td align=\"right\">-20.00</td></tr>")
 }
 
-func TestReadMsaHeuristicMatrixForResultRootUsesDefaultMsaForMsaImpact(t *testing.T) {
+func TestReadMsaHeuristicMatrixForResultRootUsesCompositeMsaForMatrixFallback(t *testing.T) {
 	root := t.TempDir()
 	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{
 		{0, 1, 1},
@@ -457,6 +479,11 @@ func TestReadMsaHeuristicMatrixForResultRootUsesDefaultMsaForMsaImpact(t *testin
 		{0, 0, 1},
 		{0, 0, 0},
 	})
+	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 2, [][]float64{
+		{0, 1, 0},
+		{0, 0, 1},
+		{0, 0, 0},
+	})
 
 	normalMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicMsaHeuristic, finalResultsDirectoryName)
 	if err != nil {
@@ -471,7 +498,7 @@ func TestReadMsaHeuristicMatrixForResultRootUsesDefaultMsaForMsaImpact(t *testin
 		t.Fatalf("read MSA impact matrix: %v", err)
 	}
 	if !reflect.DeepEqual(impactMatrix, compositeMsa) {
-		t.Fatalf("expected MSA impact to use composite MSA, got %v", impactMatrix)
+		t.Fatalf("expected matrix fallback to use composite MSA, got %v", impactMatrix)
 	}
 
 	controlMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicRandomSparse, msaImpactControlsDirectoryName)
@@ -479,7 +506,46 @@ func TestReadMsaHeuristicMatrixForResultRootUsesDefaultMsaForMsaImpact(t *testin
 		t.Fatalf("read MSA impact control matrix: %v", err)
 	}
 	if !reflect.DeepEqual(controlMatrix, compositeMsa) {
-		t.Fatalf("expected MSA impact controls to use composite MSA, got %v", controlMatrix)
+		t.Fatalf("expected control matrix fallback to use composite MSA, got %v", controlMatrix)
+	}
+}
+
+func TestReadRootedMsaHeuristicsRequiresOneMsaPerVertex(t *testing.T) {
+	root := t.TempDir()
+	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{
+		{0, 1, 1},
+		{1, 0, 1},
+		{1, 1, 0},
+	}, 3, filepath.Join(root, "results"))
+	atspData.msaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
+
+	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 0, [][]float64{
+		{0, 1, 1},
+		{0, 0, 0},
+		{0, 0, 0},
+	})
+	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 1, [][]float64{
+		{0, 1, 0},
+		{0, 0, 1},
+		{0, 0, 0},
+	})
+
+	if _, err := readRootedMsaHeuristics(atspData); err == nil {
+		t.Fatal("expected incomplete rooted MSA cache to be rejected")
+	}
+
+	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 2, [][]float64{
+		{0, 1, 0},
+		{0, 0, 1},
+		{0, 0, 0},
+	})
+
+	rootedMsas, err := readRootedMsaHeuristics(atspData)
+	if err != nil {
+		t.Fatalf("expected complete rooted MSA cache to be accepted: %v", err)
+	}
+	if len(rootedMsas) != 3 {
+		t.Fatalf("expected three rooted MSAs, got %d", len(rootedMsas))
 	}
 }
 
@@ -622,6 +688,18 @@ func TestSaveMsaDistanceRankedCategoryReportComparesEdgeCategories(t *testing.T)
 		{0, 0, 0, 0},
 		{0, 0, 0, 0},
 	})
+	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 2, [][]float64{
+		{0, 1, 0, 0},
+		{0, 0, 1, 0},
+		{0, 0, 0, 1},
+		{0, 0, 0, 0},
+	})
+	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 3, [][]float64{
+		{0, 1, 0, 0},
+		{0, 0, 1, 0},
+		{0, 0, 0, 1},
+		{0, 0, 0, 0},
+	})
 	writeTestOptimalToursCsv(t, atspData.optimalUniqueToursCsvPath, []string{"[0,1,2,3]"})
 
 	reportPath := filepath.Join(root, "msa_distance_ranked_edge_categories.md")
@@ -635,11 +713,11 @@ func TestSaveMsaDistanceRankedCategoryReportComparesEdgeCategories(t *testing.T)
 	}
 	content := string(contentBytes)
 	assertContains(t, content, "# MSA vs Distance-ranked Edge Categories")
-	assertContains(t, content, "MSA-only precision 100.00% vs distance-only precision 50.00%.")
+	assertContains(t, content, "MSA-only precision 66.67% vs distance-only precision 100.00%.")
 	assertContains(t, content, "MSA-only recall 50.00% vs distance-only recall 25.00%.")
-	assertContains(t, content, "<tr><td>Both</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">100.00</td><td align=\"right\">25.00</td></tr>")
-	assertContains(t, content, "<tr><td>MSA only</td><td align=\"right\">2</td><td align=\"right\">2</td><td align=\"right\">100.00</td><td align=\"right\">50.00</td></tr>")
-	assertContains(t, content, "<tr><td>Distance-ranked only</td><td align=\"right\">2</td><td align=\"right\">1</td><td align=\"right\">50.00</td><td align=\"right\">25.00</td></tr>")
+	assertContains(t, content, "<tr><td>Both</td><td align=\"right\">2</td><td align=\"right\">1</td><td align=\"right\">50.00</td><td align=\"right\">25.00</td></tr>")
+	assertContains(t, content, "<tr><td>MSA only</td><td align=\"right\">3</td><td align=\"right\">2</td><td align=\"right\">66.67</td><td align=\"right\">50.00</td></tr>")
+	assertContains(t, content, "<tr><td>Distance-ranked only</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">100.00</td><td align=\"right\">25.00</td></tr>")
 }
 
 func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
