@@ -1,22 +1,22 @@
 # Random Sparse Control
 
-This sanity check compares the final MSA heuristic against deterministic random sparse masks. Each random mask boosts the same number of directed edges as the MSA heuristic and uses the same heuristic weight. The comparison reads MSA from the final results and averages the available final-control random seeds for each instance.
+This sanity check compares Strict MSA against deterministic random sparse masks. Each random mask boosts the same number of directed edges as Strict MSA and uses the same heuristic weight. The comparison reads Strict MSA from the final results and averages the available final-control random seeds for each instance.
 
 ## Findings
 
-- **MSA had lower average best deviation than the random-sparse mean in 26/27 instances.**
-- **Mean average best deviation: MSA 4.49%, random sparse 6.66%, delta -2.17 pp.**
-- **Mean success rate: MSA 10.44%, random sparse 6.94%, delta +3.51 pp.**
-- MSA also beat the best random seed in 24/27 instances.
+- **Strict MSA had lower average best deviation than the random-sparse mean in 26/27 instances.**
+- **Mean average best deviation: Strict MSA 4.49%, random sparse 6.66%, delta -2.17 pp.**
+- **Mean success rate: Strict MSA 10.44%, random sparse 6.94%, delta +3.51 pp.**
+- Strict MSA also beat the best random seed in 24/27 instances.
 - Two-sided sign-test p-value for average-best-deviation wins/losses: 0.000000.
 
 ## Per-instance comparison
 
-Negative delta means the MSA heuristic had lower average best deviation than the random-sparse mean.
+Negative delta means Strict MSA had lower average best deviation than the random-sparse mean.
 
 <table>
 <thead>
-<tr><th>Instance</th><th>MSA avg best dev. [%]</th><th>Random mean avg best dev. [%]</th><th>Best random avg best dev. [%]</th><th>Delta [pp]</th><th>MSA success [%]</th><th>Random success [%]</th><th>Seeds</th></tr>
+<tr><th>Instance</th><th>Strict MSA avg best dev. [%]</th><th>Random mean avg best dev. [%]</th><th>Best random avg best dev. [%]</th><th>Delta [pp]</th><th>Strict MSA success [%]</th><th>Random success [%]</th><th>Seeds</th></tr>
 </thead>
 <tbody>
 <tr><td>atex1</td><td align="right"><strong>0.00</strong></td><td align="right">0.01</td><td align="right">0.01 (seed 2)</td><td align="right">-0.01</td><td align="right">100.00</td><td align="right">95.33</td><td align="right">3</td></tr>

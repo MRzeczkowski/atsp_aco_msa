@@ -153,8 +153,8 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 	controlSecond := withExperimentOutputRoot(second, controlsRoot)
 
 	if err := saveHeuristicStatistics(finalFirst.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 10.0)},
-		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first final MSA result: %v", err)
 	}
@@ -165,8 +165,8 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 	})
 
 	if err := saveHeuristicStatistics(finalSecond.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0)},
-		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second final MSA result: %v", err)
 	}
@@ -190,8 +190,8 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 		t.Fatalf("failed to read random sparse control report: %v", err)
 	}
 	content := string(contentBytes)
-	assertContains(t, content, "MSA had lower average best deviation than the random-sparse mean in 1/2 instances.")
-	assertContains(t, content, "Mean average best deviation: MSA 3.00%, random sparse 4.00%, delta -1.00 pp.")
+	assertContains(t, content, "Strict MSA had lower average best deviation than the random-sparse mean in 1/2 instances.")
+	assertContains(t, content, "Mean average best deviation: Strict MSA 3.00%, random sparse 4.00%, delta -1.00 pp.")
 	assertContains(t, content, "<td>sample-a</td>")
 	assertContains(t, content, "<td>sample-b</td>")
 }
@@ -209,21 +209,21 @@ func TestSaveDistanceRankedSparseControlReportComparesMsaAgainstDistanceRankedSp
 	controlSecond := withExperimentOutputRoot(second, controlsRoot)
 
 	if err := saveHeuristicStatistics(finalFirst.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 10.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first final MSA result: %v", err)
 	}
 	saveStatistics(resultFilePathForHeuristic(controlFirst, heuristicDistanceRankedSparse), heuristicDistanceRankedSparse, []ExperimentsDataStatistics{
-		makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0),
+		makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0),
 	})
 
 	if err := saveHeuristicStatistics(finalSecond.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second final MSA result: %v", err)
 	}
 	saveStatistics(resultFilePathForHeuristic(controlSecond, heuristicDistanceRankedSparse), heuristicDistanceRankedSparse, []ExperimentsDataStatistics{
-		makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 20.0),
+		makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 20.0),
 	})
 
 	reportPath := filepath.Join(controlsRoot, "distance_ranked_sparse_control.md")
@@ -240,8 +240,8 @@ func TestSaveDistanceRankedSparseControlReportComparesMsaAgainstDistanceRankedSp
 		t.Fatalf("failed to read distance-ranked sparse control report: %v", err)
 	}
 	content := string(contentBytes)
-	assertContains(t, content, "MSA had lower average best deviation than the distance-ranked sparse control in 1/2 instances.")
-	assertContains(t, content, "Mean average best deviation: MSA 3.00%, distance-ranked sparse 3.00%, delta +0.00 pp.")
+	assertContains(t, content, "Strict MSA had lower average best deviation than the distance-ranked sparse control in 1/2 instances.")
+	assertContains(t, content, "Mean average best deviation: Strict MSA 3.00%, distance-ranked sparse 3.00%, delta +0.00 pp.")
 	assertContains(t, content, "<td>sample-a</td>")
 	assertContains(t, content, "<td>sample-b</td>")
 }
@@ -259,7 +259,7 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 	controlSecond := withExperimentOutputRoot(second, controlsRoot)
 
 	if err := saveHeuristicStatistics(finalFirst.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 2.0, 10.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first final MSA result: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 	})
 
 	if err := saveHeuristicStatistics(finalSecond.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 0.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second final MSA result: %v", err)
 	}
@@ -294,8 +294,8 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 		t.Fatalf("failed to read shuffled MSA control report: %v", err)
 	}
 	content := string(contentBytes)
-	assertContains(t, content, "MSA had lower average best deviation than the shuffled MSA mean in 1/2 instances.")
-	assertContains(t, content, "Mean average best deviation: MSA 3.00%, shuffled MSA 4.00%, delta -1.00 pp.")
+	assertContains(t, content, "Strict MSA had lower average best deviation than the shuffled MSA mean in 1/2 instances.")
+	assertContains(t, content, "Mean average best deviation: Strict MSA 3.00%, shuffled MSA 4.00%, delta -1.00 pp.")
 	assertContains(t, content, "<td>sample-a</td>")
 	assertContains(t, content, "<td>sample-b</td>")
 }
@@ -316,18 +316,18 @@ func TestSaveMsaImpactSummaryComparesMsaAgainstBaseline(t *testing.T) {
 
 	if err := saveHeuristicStatistics(impactFirst.resultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicBaseline, statistics: makeTestExperimentStatistics(defaultBaselineHeuristicWeight, 5.0, 10.0)},
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 15.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 15.0)},
 		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.8, 4.5, 0.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 3.0, 20.0)},
+		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 3.0, 20.0)},
 		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(0.8, 4.0, 0.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first impact result: %v", err)
 	}
 	if err := saveHeuristicStatistics(impactSecond.resultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicBaseline, statistics: makeTestExperimentStatistics(defaultBaselineHeuristicWeight, 2.0, 30.0)},
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 3.0, 25.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 3.0, 25.0)},
 		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.2, 4.0, 10.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 10.0)},
+		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 10.0)},
 		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(0.2, 1.0, 50.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second impact result: %v", err)
@@ -432,13 +432,13 @@ func TestSaveMsaImpactStructureReportCombinesStructureWithPerformance(t *testing
 	impactSecond := withExperimentOutputRoot(second, msaImpactResultsDirectoryName)
 	if err := saveHeuristicStatistics(impactFirst.resultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicBaseline, statistics: makeTestExperimentStatistics(defaultBaselineHeuristicWeight, 5.0, 10.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 3.0, 20.0)},
+		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 3.0, 20.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first impact result: %v", err)
 	}
 	if err := saveHeuristicStatistics(impactSecond.resultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicBaseline, statistics: makeTestExperimentStatistics(defaultBaselineHeuristicWeight, 2.0, 30.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 4.0, 10.0)},
+		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 10.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second impact result: %v", err)
 	}
@@ -492,7 +492,7 @@ func TestReadMsaHeuristicMatrixForResultRootUsesCompositeMsaForMatrixFallback(t 
 		{0, 0, 0},
 	})
 
-	normalMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicMsaHeuristic, finalResultsDirectoryName)
+	normalMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicStrictMsa, finalResultsDirectoryName)
 	if err != nil {
 		t.Fatalf("read normal MSA matrix: %v", err)
 	}
@@ -500,7 +500,7 @@ func TestReadMsaHeuristicMatrixForResultRootUsesCompositeMsaForMatrixFallback(t 
 		t.Fatalf("expected normal run to use composite MSA, got %v", normalMatrix)
 	}
 
-	impactMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicMsaHeuristic, msaImpactResultsDirectoryName)
+	impactMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicStrictMsa, msaImpactResultsDirectoryName)
 	if err != nil {
 		t.Fatalf("read MSA impact matrix: %v", err)
 	}
@@ -585,8 +585,8 @@ func TestReadFinalMsaHeuristicControlMetricUsesBestWeightForMsaImpact(t *testing
 	finalRoot := filepath.Join(root, "final")
 	finalAtspData := withExperimentOutputRoot(atspData, finalRoot)
 	if err := saveHeuristicStatistics(finalAtspData.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 6.0, 0.0)},
-		{heuristic: heuristicMsaHeuristic, statistics: makeTestExperimentStatistics(0.8, 1.0, 100.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 6.0, 0.0)},
+		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.8, 1.0, 100.0)},
 	}); err != nil {
 		t.Fatalf("failed to write final result: %v", err)
 	}
@@ -595,7 +595,7 @@ func TestReadFinalMsaHeuristicControlMetricUsesBestWeightForMsaImpact(t *testing
 	if err != nil {
 		t.Fatalf("read final control metric: %v", err)
 	}
-	if !ok || finalMetric.heuristicWeight != finalMsaHeuristicWeight || finalMetric.averageMinDeviation != 6.0 {
+	if !ok || finalMetric.heuristicWeight != finalStrictMsaHeuristicWeight || finalMetric.averageMinDeviation != 6.0 {
 		t.Fatalf("expected fixed-weight final metric, got metric=%+v ok=%t", finalMetric, ok)
 	}
 }
@@ -796,10 +796,17 @@ func TestSaveFinalResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *te
 			},
 		},
 		{
-			heuristic: heuristicMsaHeuristic,
+			heuristic: heuristicStrictMsa,
 			statistics: ExperimentsDataStatistics{
 				averageBestDeviation: 2.50,
 				successRate:          20.0,
+			},
+		},
+		{
+			heuristic: heuristicRootedMsa,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 3.00,
+				successRate:          15.0,
 			},
 		},
 		{
@@ -826,10 +833,17 @@ func TestSaveFinalResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *te
 			},
 		},
 		{
-			heuristic: heuristicMsaHeuristic,
+			heuristic: heuristicStrictMsa,
 			statistics: ExperimentsDataStatistics{
 				averageBestDeviation: 3.50,
 				successRate:          40.0,
+			},
+		},
+		{
+			heuristic: heuristicRootedMsa,
+			statistics: ExperimentsDataStatistics{
+				averageBestDeviation: 4.00,
+				successRate:          35.0,
 			},
 		},
 		{
@@ -873,17 +887,17 @@ func TestSaveFinalResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *te
 		"",
 		"- **Cycle cover has the lowest average best deviation overall: 2.00%.**",
 		"- **Cycle cover has the highest average success rate overall: 45.00%.**",
-		"- **Best-or-tied average best deviation counts: Baseline 0/2, MSA heuristic 0/2, Cycle cover 2/2, Cycle-cover MSA patching 0/2.**",
+		"- **Best-or-tied average best deviation counts: Baseline 0/2, Strict MSA 0/2, Rooted MSA 0/2, Cycle cover 2/2, Cycle-cover MSA patching 0/2.**",
 		"",
 		"<table>",
 		"<thead>",
-		"<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">Baseline</th><th colspan=\"2\">MSA heuristic</th><th colspan=\"2\">Cycle cover</th><th colspan=\"2\">Cycle-cover MSA patching</th></tr>",
-		"<tr><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th></tr>",
+		"<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">Baseline</th><th colspan=\"2\">Strict MSA</th><th colspan=\"2\">Rooted MSA</th><th colspan=\"2\">Cycle cover</th><th colspan=\"2\">Cycle-cover MSA patching</th></tr>",
+		"<tr><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th></tr>",
 		"</thead>",
 		"<tbody>",
-		"<tr><td>sample-a</td><td align=\"right\">4.25</td><td align=\"right\">10.00</td><td align=\"right\">2.50</td><td align=\"right\">20.00</td><td align=\"right\"><strong>1.75</strong></td><td align=\"right\"><strong>30.00</strong></td><td align=\"right\">2.00</td><td align=\"right\">25.00</td></tr>",
-		"<tr><td>sample-b</td><td align=\"right\">6.75</td><td align=\"right\">20.00</td><td align=\"right\">3.50</td><td align=\"right\">40.00</td><td align=\"right\"><strong>2.25</strong></td><td align=\"right\"><strong>60.00</strong></td><td align=\"right\">2.50</td><td align=\"right\">55.00</td></tr>",
-		"<tr><td><strong>Average</strong></td><td align=\"right\">5.50</td><td align=\"right\">15.00</td><td align=\"right\">3.00</td><td align=\"right\">30.00</td><td align=\"right\"><strong>2.00</strong></td><td align=\"right\"><strong>45.00</strong></td><td align=\"right\">2.25</td><td align=\"right\">40.00</td></tr>",
+		"<tr><td>sample-a</td><td align=\"right\">4.25</td><td align=\"right\">10.00</td><td align=\"right\">2.50</td><td align=\"right\">20.00</td><td align=\"right\">3.00</td><td align=\"right\">15.00</td><td align=\"right\"><strong>1.75</strong></td><td align=\"right\"><strong>30.00</strong></td><td align=\"right\">2.00</td><td align=\"right\">25.00</td></tr>",
+		"<tr><td>sample-b</td><td align=\"right\">6.75</td><td align=\"right\">20.00</td><td align=\"right\">3.50</td><td align=\"right\">40.00</td><td align=\"right\">4.00</td><td align=\"right\">35.00</td><td align=\"right\"><strong>2.25</strong></td><td align=\"right\"><strong>60.00</strong></td><td align=\"right\">2.50</td><td align=\"right\">55.00</td></tr>",
+		"<tr><td><strong>Average</strong></td><td align=\"right\">5.50</td><td align=\"right\">15.00</td><td align=\"right\">3.00</td><td align=\"right\">30.00</td><td align=\"right\">3.50</td><td align=\"right\">25.00</td><td align=\"right\"><strong>2.00</strong></td><td align=\"right\"><strong>45.00</strong></td><td align=\"right\">2.25</td><td align=\"right\">40.00</td></tr>",
 		"</tbody>",
 		"</table>",
 	}
@@ -911,7 +925,7 @@ func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 			},
 		},
 		{
-			heuristic: heuristicMsaHeuristic,
+			heuristic: heuristicStrictMsa,
 			statistics: ExperimentsDataStatistics{
 				averageBestDeviation: 2.50,
 				successRate:          20.0,
@@ -958,7 +972,7 @@ func TestRunFinalResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
 			},
 		},
 		{
-			heuristic: heuristicMsaHeuristic,
+			heuristic: heuristicStrictMsa,
 			statistics: ExperimentsDataStatistics{
 				averageBestDeviation: 2.00,
 				successRate:          20.0,
@@ -1007,7 +1021,7 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 					averageBestIteration: 50.0,
 					iterations:           100,
 				},
-				heuristicMsaHeuristic: {
+				heuristicStrictMsa: {
 					averageMinDeviation:  8.0,
 					successRate:          12.0,
 					averageBestIteration: 60.0,
@@ -1038,7 +1052,7 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 					averageBestIteration: 20.0,
 					iterations:           100,
 				},
-				heuristicMsaHeuristic: {
+				heuristicStrictMsa: {
 					averageMinDeviation:  0.9,
 					successRate:          51.0,
 					averageBestIteration: 19.0,
@@ -1073,7 +1087,7 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 	assertContains(t, content, "# Reduced 3-Opt Impact")
 	assertContains(t, content, "Cycle-cover MSA patching +2.50 -> +0.15 pp")
 	assertContains(t, content, "<tr><th>Heuristic</th><th>Avg best dev. without 3-opt [%]</th><th>Avg best dev. with 3-opt [%]</th><th>Success without 3-opt [%]</th><th>Success with 3-opt [%]</th></tr>")
-	assertContains(t, content, "<tr><td>MSA heuristic</td><td align=\"right\">+2.00</td><td align=\"right\">+0.10</td><td align=\"right\">5.00</td></tr>")
+	assertContains(t, content, "<tr><td>Strict MSA</td><td align=\"right\">+2.00</td><td align=\"right\">+0.10</td><td align=\"right\">5.00</td></tr>")
 	assertContains(t, content, "<tr><td>Cycle cover</td><td align=\"right\">+3.00</td><td align=\"right\">+0.20</td><td align=\"right\">6.67</td></tr>")
 	assertContains(t, content, "<tr><td>Cycle-cover MSA patching</td><td align=\"right\">+2.50</td><td align=\"right\">+0.15</td><td align=\"right\">6.00</td></tr>")
 }
@@ -1188,9 +1202,9 @@ func TestSaveFinalPairwisePerformanceReport(t *testing.T) {
 	}
 
 	content := string(contentBytes)
-	assertContains(t, content, "<tr><td>MSA heuristic vs Baseline</td><td align=\"right\">-1.50</td><td align=\"right\">2</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">+15.00</td></tr>")
+	assertContains(t, content, "<tr><td>Strict MSA vs Baseline</td><td align=\"right\">-1.50</td><td align=\"right\">2</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">+15.00</td></tr>")
 	assertContains(t, content, "<tr><td>Cycle-cover MSA patching vs Baseline</td><td align=\"right\">-2.10</td><td align=\"right\">2</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">+20.00</td></tr>")
-	assertContains(t, content, "<tr><td>MSA heuristic vs Cycle cover</td><td align=\"right\">+0.25</td><td align=\"right\">0</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">-5.00</td></tr>")
+	assertContains(t, content, "<tr><td>Strict MSA vs Cycle cover</td><td align=\"right\">+0.25</td><td align=\"right\">0</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">-5.00</td></tr>")
 }
 
 func TestSaveFinalConvergenceSummaryReport(t *testing.T) {
@@ -1205,9 +1219,9 @@ func TestSaveFinalConvergenceSummaryReport(t *testing.T) {
 	}
 
 	content := string(contentBytes)
-	assertContains(t, content, "- **Average best-iteration position: Baseline 75.00%, MSA heuristic 50.00%, Cycle cover 35.00%, Cycle-cover MSA patching 27.50%.**")
-	assertContains(t, content, "<tr><td>a</td><td align=\"right\">80.00</td><td align=\"right\">60.00</td><td align=\"right\">40.00</td><td align=\"right\"><strong>35.00</strong></td></tr>")
-	assertContains(t, content, "<tr><td><strong>Average</strong></td><td align=\"right\">75.00</td><td align=\"right\">50.00</td><td align=\"right\">35.00</td><td align=\"right\"><strong>27.50</strong></td></tr>")
+	assertContains(t, content, "- **Average best-iteration position: Baseline 75.00%, Strict MSA 50.00%, Cycle cover 35.00%, Cycle-cover MSA patching 27.50%.**")
+	assertContains(t, content, "<tr><td>a</td><td align=\"right\">80.00</td><td align=\"right\">60.00</td><td></td><td align=\"right\">40.00</td><td align=\"right\"><strong>35.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td><strong>Average</strong></td><td align=\"right\">75.00</td><td align=\"right\">50.00</td><td></td><td align=\"right\">35.00</td><td align=\"right\"><strong>27.50</strong></td></tr>")
 }
 
 func TestSaveStructuralPerformanceLinkReport(t *testing.T) {
@@ -1222,7 +1236,7 @@ func TestSaveStructuralPerformanceLinkReport(t *testing.T) {
 	}
 
 	content := string(contentBytes)
-	assertContains(t, content, "<tr><td>MSA heuristic</td><td align=\"right\"><strong>71.43</strong></td><td align=\"right\">35.71</td><td align=\"right\">3.00</td><td align=\"right\">20.00</td></tr>")
+	assertContains(t, content, "<tr><td>Strict MSA</td><td align=\"right\"><strong>71.43</strong></td><td align=\"right\">35.71</td><td align=\"right\">3.00</td><td align=\"right\">20.00</td></tr>")
 	assertContains(t, content, "<tr><td>Cycle cover</td><td align=\"right\">66.67</td><td align=\"right\">42.86</td><td align=\"right\">2.75</td><td align=\"right\"><strong>25.00</strong></td></tr>")
 	assertContains(t, content, "<tr><td>Cycle-cover MSA patching</td><td align=\"right\">63.64</td><td align=\"right\"><strong>50.00</strong></td><td align=\"right\"><strong>2.40</strong></td><td align=\"right\"><strong>25.00</strong></td></tr>")
 }
@@ -1347,8 +1361,12 @@ func TestHeuristicSpecificPathsKeepMsaHeuristicBaselinePaths(t *testing.T) {
 		t.Fatalf("unexpected baseline result path: %s", resultFilePathForHeuristic(atspData, heuristicBaseline))
 	}
 
-	if resultFilePathForHeuristic(atspData, heuristicMsaHeuristic) != filepath.Join(resultsDirectoryName, "test", resultFileName) {
+	if resultFilePathForHeuristic(atspData, heuristicStrictMsa) != filepath.Join(resultsDirectoryName, "test", resultFileName) {
 		t.Fatalf("MSA heuristic result path should keep the existing baseline location")
+	}
+
+	if resultFilePathForHeuristic(atspData, heuristicRootedMsa) != filepath.Join(resultsDirectoryName, "test", "result_rooted_msa.csv") {
+		t.Fatalf("unexpected rooted-MSA result path: %s", resultFilePathForHeuristic(atspData, heuristicRootedMsa))
 	}
 
 	if resultFilePathForHeuristic(atspData, heuristicCycleCover) != filepath.Join(resultsDirectoryName, "test", "result_cycle_cover.csv") {
@@ -1386,7 +1404,8 @@ func TestFinalExperimentConfigurationsUseFixedBalancedComparison(t *testing.T) {
 		bias      float64
 	}{
 		{heuristicBaseline, defaultBaselineHeuristicWeight, 0.0},
-		{heuristicMsaHeuristic, finalMsaHeuristicWeight, 0.0},
+		{heuristicStrictMsa, finalStrictMsaHeuristicWeight, 0.0},
+		{heuristicRootedMsa, finalRootedMsaHeuristicWeight, 0.0},
 		{heuristicCycleCover, finalCycleCoverWeight, 0.0},
 		{heuristicCycleCoverMsaPatching, finalCycleCoverMsaPatchingWeight, finalCycleCoverMsaPatchingMsaPatchBias},
 	}
@@ -1423,7 +1442,7 @@ func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
 		t.Fatalf("unexpected baseline heuristic weight: %+v", baselineParameters[0])
 	}
 
-	msaParameters := generateParameters(heuristicMsaHeuristic)
+	msaParameters := generateParameters(heuristicStrictMsa)
 	if len(msaParameters) != 10 {
 		t.Fatalf("expected 10 MSA heuristic parameter sets, got %d", len(msaParameters))
 	}
@@ -1515,6 +1534,14 @@ func TestSelectExperimentHeuristics(t *testing.T) {
 	}
 	if !reflect.DeepEqual(selected, []string{heuristicCycleCover}) {
 		t.Fatalf("explicit heuristic should select only that heuristic, got %v", selected)
+	}
+
+	selected, err = selectExperimentHeuristics(heuristicRootedMsa, true)
+	if err != nil {
+		t.Fatalf("selectExperimentHeuristics(rooted-msa) returned error: %v", err)
+	}
+	if !reflect.DeepEqual(selected, []string{heuristicRootedMsa}) {
+		t.Fatalf("explicit rooted MSA heuristic should select only rooted MSA, got %v", selected)
 	}
 
 	if _, err := selectExperimentHeuristics(heuristicBaseline, true); err == nil {
@@ -1685,12 +1712,20 @@ func TestFinalConfigurationsUseMsaHeuristicOnlyWhenNeeded(t *testing.T) {
 		t.Fatal("cycle-cover-only final run should not require MSA heuristic")
 	}
 
-	msaHeuristicConfigurations, err := selectFinalExperimentConfigurations(heuristicMsaHeuristic)
+	strictMsaConfigurations, err := selectFinalExperimentConfigurations(heuristicStrictMsa)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(msa-heuristic) returned error: %v", err)
+		t.Fatalf("selectFinalExperimentConfigurations(strict-msa) returned error: %v", err)
 	}
-	if !finalConfigurationsUseMsaHeuristic(msaHeuristicConfigurations) {
-		t.Fatal("MSA heuristic final run should require MSA heuristic")
+	if !finalConfigurationsUseMsaHeuristic(strictMsaConfigurations) {
+		t.Fatal("strict MSA final run should require MSA heuristic")
+	}
+
+	rootedMsaConfigurations, err := selectFinalExperimentConfigurations(heuristicRootedMsa)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(rooted-msa) returned error: %v", err)
+	}
+	if !finalConfigurationsUseMsaHeuristic(rootedMsaConfigurations) {
+		t.Fatal("rooted MSA final run should require MSA heuristic")
 	}
 
 	patchingConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCoverMsaPatching)
@@ -1710,8 +1745,8 @@ func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCs
 			statistics: makeTestExperimentStatistics(0.0, 5.0, 10.0),
 		},
 		{
-			heuristic:  heuristicMsaHeuristic,
-			statistics: makeTestExperimentStatistics(finalMsaHeuristicWeight, 3.0, 20.0),
+			heuristic:  heuristicStrictMsa,
+			statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 3.0, 20.0),
 		},
 		{
 			heuristic:  heuristicCycleCover,
@@ -1756,8 +1791,8 @@ func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCs
 	if byHeuristic[heuristicBaseline].statistics.averageBestDeviation != 5.0 {
 		t.Fatalf("baseline row was not preserved: %+v", byHeuristic[heuristicBaseline])
 	}
-	if byHeuristic[heuristicMsaHeuristic].statistics.averageBestDeviation != 3.0 {
-		t.Fatalf("MSA heuristic row was not preserved: %+v", byHeuristic[heuristicMsaHeuristic])
+	if byHeuristic[heuristicStrictMsa].statistics.averageBestDeviation != 3.0 {
+		t.Fatalf("strict MSA row was not preserved: %+v", byHeuristic[heuristicStrictMsa])
 	}
 	if byHeuristic[heuristicCycleCover].statistics.averageBestDeviation != 1.5 ||
 		byHeuristic[heuristicCycleCover].statistics.successRate != 40.0 {
@@ -1817,7 +1852,7 @@ func TestFullFinalRunsTriggerAnalysis(t *testing.T) {
 	if !shouldRunAnalysisAfterFinalExperiments(runModeFinal3Opt, finalHeuristicAll) {
 		t.Fatal("full final+3opt run should trigger analysis")
 	}
-	if shouldRunAnalysisAfterFinalExperiments(runModeFinal, heuristicMsaHeuristic) {
+	if shouldRunAnalysisAfterFinalExperiments(runModeFinal, heuristicStrictMsa) {
 		t.Fatal("single final heuristic should not trigger analysis")
 	}
 	if shouldRunAnalysisAfterFinalExperiments(runModeFinal, finalHeuristicControls) {
@@ -2398,7 +2433,7 @@ func sampleFinalSummaryRows() []finalResultsSummaryRow {
 					averageBestIteration: 80.0,
 					iterations:           100,
 				},
-				heuristicMsaHeuristic: {
+				heuristicStrictMsa: {
 					averageMinDeviation:  2.5,
 					successRate:          20.0,
 					averageBestIteration: 60.0,
@@ -2427,7 +2462,7 @@ func sampleFinalSummaryRows() []finalResultsSummaryRow {
 					averageBestIteration: 70.0,
 					iterations:           100,
 				},
-				heuristicMsaHeuristic: {
+				heuristicStrictMsa: {
 					averageMinDeviation:  3.5,
 					successRate:          20.0,
 					averageBestIteration: 40.0,
@@ -2473,7 +2508,7 @@ func makeTestExperimentStatistics(heuristicWeight, averageBestDeviation, success
 }
 
 func makeTestRandomSparseExperimentStatistics(randomSeed int64, averageBestDeviation, successRate float64) ExperimentsDataStatistics {
-	statistics := makeTestExperimentStatistics(finalMsaHeuristicWeight, averageBestDeviation, successRate)
+	statistics := makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, averageBestDeviation, successRate)
 	statistics.randomSeed = randomSeed
 	return statistics
 }

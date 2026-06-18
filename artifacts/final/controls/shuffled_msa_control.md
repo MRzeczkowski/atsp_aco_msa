@@ -1,22 +1,22 @@
 # Shuffled MSA Control
 
-This sanity check compares the final MSA heuristic against deterministic shuffles of the MSA mask. Each shuffle preserves the number and boost values of MSA-boosted directed edges, but assigns them to shuffled directed edges. The control uses the same `heuristicWeight=0.40`.
+This sanity check compares Strict MSA against deterministic shuffles of the strict MSA mask. Each shuffle preserves the number and boost values of strict-MSA boosted directed edges, but assigns them to shuffled directed edges. The control uses the same `heuristicWeight=0.40`.
 
 ## Findings
 
-- **MSA had lower average best deviation than the shuffled MSA mean in 25/27 instances.**
-- **Mean average best deviation: MSA 4.49%, shuffled MSA 6.69%, delta -2.19 pp.**
-- **Mean success rate: MSA 10.44%, shuffled MSA 7.06%, delta +3.38 pp.**
-- MSA also beat the best shuffled MSA seed in 25/27 instances.
+- **Strict MSA had lower average best deviation than the shuffled MSA mean in 25/27 instances.**
+- **Mean average best deviation: Strict MSA 4.49%, shuffled MSA 6.69%, delta -2.19 pp.**
+- **Mean success rate: Strict MSA 10.44%, shuffled MSA 7.06%, delta +3.38 pp.**
+- Strict MSA also beat the best shuffled MSA seed in 25/27 instances.
 - Two-sided sign-test p-value for average-best-deviation wins/losses: 0.000000.
 
 ## Per-instance comparison
 
-Negative delta means the MSA heuristic had lower average best deviation than the shuffled MSA mean.
+Negative delta means Strict MSA had lower average best deviation than the shuffled MSA mean.
 
 <table>
 <thead>
-<tr><th>Instance</th><th>MSA avg best dev. [%]</th><th>shuffled MSA mean avg best dev. [%]</th><th>Best shuffled MSA avg best dev. [%]</th><th>Delta [pp]</th><th>MSA success [%]</th><th>shuffled MSA success [%]</th><th>Seeds</th></tr>
+<tr><th>Instance</th><th>Strict MSA avg best dev. [%]</th><th>shuffled MSA mean avg best dev. [%]</th><th>Best shuffled MSA avg best dev. [%]</th><th>Delta [pp]</th><th>Strict MSA success [%]</th><th>shuffled MSA success [%]</th><th>Seeds</th></tr>
 </thead>
 <tbody>
 <tr><td>atex1</td><td align="right"><strong>0.00</strong></td><td align="right">0.01</td><td align="right">0.01 (seed 103)</td><td align="right">-0.01</td><td align="right">100.00</td><td align="right">94.00</td><td align="right">3</td></tr>

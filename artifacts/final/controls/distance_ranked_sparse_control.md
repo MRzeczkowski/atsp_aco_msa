@@ -1,21 +1,21 @@
-# Distance-ranked Sparse Control
+# Strict MSA Distance-ranked Sparse Control
 
-This sanity check compares the final MSA heuristic against a deterministic sparse mask built from the cheapest directed edges. The control boosts the same number of directed edges as the MSA heuristic and uses the same `heuristicWeight=0.40`.
+This sanity check compares Strict MSA against a deterministic sparse mask built from the cheapest directed edges. The control preserves the matching edge-count structure and uses the same `heuristicWeight=0.40`.
 
 ## Findings
 
-- **MSA had lower average best deviation than the distance-ranked sparse control in 17/27 instances.**
-- **Mean average best deviation: MSA 4.49%, distance-ranked sparse 4.64%, delta -0.15 pp.**
-- **Mean success rate: MSA 10.44%, distance-ranked sparse 8.96%, delta +1.48 pp.**
+- **Strict MSA had lower average best deviation than the distance-ranked sparse control in 17/27 instances.**
+- **Mean average best deviation: Strict MSA 4.49%, distance-ranked sparse 4.64%, delta -0.15 pp.**
+- **Mean success rate: Strict MSA 10.44%, distance-ranked sparse 8.96%, delta +1.48 pp.**
 - Two-sided sign-test p-value for average-best-deviation wins/losses: 0.063915.
 
 ## Per-instance comparison
 
-Negative delta means the MSA heuristic had lower average best deviation than the distance-ranked sparse control.
+Negative delta means Strict MSA had lower average best deviation than the distance-ranked sparse control.
 
 <table>
 <thead>
-<tr><th>Instance</th><th>MSA avg best dev. [%]</th><th>Distance-ranked avg best dev. [%]</th><th>Delta [pp]</th><th>MSA success [%]</th><th>Distance-ranked success [%]</th></tr>
+<tr><th>Instance</th><th>Strict MSA avg best dev. [%]</th><th>distance-ranked sparse avg best dev. [%]</th><th>Delta [pp]</th><th>Strict MSA success [%]</th><th>distance-ranked sparse success [%]</th></tr>
 </thead>
 <tbody>
 <tr><td>atex1</td><td align="right">0.00</td><td align="right"><strong>0.00</strong></td><td align="right">+0.00</td><td align="right">100.00</td><td align="right">100.00</td></tr>
