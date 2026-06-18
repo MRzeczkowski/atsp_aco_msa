@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"atsp_aco_msa/modules/analysis/structuralComparison"
@@ -2140,32 +2140,8 @@ func TestRunRebuildMsaModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T) {
 	}
 }
 
-func TestStartCPUProfileIsOptional(t *testing.T) {
-	stopProfiling, err := startCPUProfile("")
-	if err != nil {
-		t.Fatalf("startCPUProfile returned unexpected error: %v", err)
-	}
-	stopProfiling()
-}
-
-func TestStartCPUProfileWritesRequestedPath(t *testing.T) {
-	profilePath := filepath.Join(t.TempDir(), "profiles", "cpu.prof")
-	stopProfiling, err := startCPUProfile(profilePath)
-	if err != nil {
-		t.Fatalf("startCPUProfile returned unexpected error: %v", err)
-	}
-	for i := 0; i < 10000; i++ {
-		_ = i * i
-	}
-	stopProfiling()
-
-	if _, err := os.Stat(profilePath); err != nil {
-		t.Fatalf("expected CPU profile to be written: %v", err)
-	}
-}
-
 func TestSelectAtspFilesTuning(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
+	paths, err := testTsplibFiles()
 	if err != nil {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
@@ -2186,7 +2162,7 @@ func TestSelectAtspFilesTuning(t *testing.T) {
 }
 
 func TestSelectAtspFilesSmoke(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
+	paths, err := testTsplibFiles()
 	if err != nil {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
@@ -2207,7 +2183,7 @@ func TestSelectAtspFilesSmoke(t *testing.T) {
 }
 
 func TestSelectAtspFilesMsaImpact(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
+	paths, err := testTsplibFiles()
 	if err != nil {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
@@ -2228,7 +2204,7 @@ func TestSelectAtspFilesMsaImpact(t *testing.T) {
 }
 
 func TestSelectAtspFilesEvaluation(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
+	paths, err := testTsplibFiles()
 	if err != nil {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
@@ -2249,7 +2225,7 @@ func TestSelectAtspFilesEvaluation(t *testing.T) {
 }
 
 func TestSelectedAtspFilesHaveKnownOptima(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
+	paths, err := testTsplibFiles()
 	if err != nil {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
@@ -2274,7 +2250,7 @@ func TestSelectedAtspFilesHaveKnownOptima(t *testing.T) {
 }
 
 func TestTuningAndEvaluationPartitionKnownInstances(t *testing.T) {
-	paths, err := filepath.Glob(filepath.Join("tsplib_files", "*.atsp"))
+	paths, err := testTsplibFiles()
 	if err != nil {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
@@ -2326,6 +2302,10 @@ func TestTuningAndEvaluationPartitionKnownInstances(t *testing.T) {
 			t.Fatalf("%s is known but missing from tuning/evaluation partition", fileName)
 		}
 	}
+}
+
+func testTsplibFiles() ([]string, error) {
+	return filepath.Glob(filepath.Join("..", "..", "tsplib_files", "*.atsp"))
 }
 
 func TestSelectedInstanceSetForMode(t *testing.T) {
