@@ -4,6 +4,7 @@ import (
 	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
 	"atsp_aco_msa/modules/analysis/structuralComparison"
 	"atsp_aco_msa/modules/analysis/tuningSummary"
+	"atsp_aco_msa/modules/project"
 	"atsp_aco_msa/modules/utilities"
 	"fmt"
 	"image/color"
@@ -15,22 +16,22 @@ import (
 
 func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristics []string, workers int) error {
 	if analysisScope == analysisScopeTuning {
-		if err := saveTuningSummary(resultsDirectoryName, atspsData, tuningHeuristics); err != nil {
+		if err := saveTuningSummary(project.ResultsDirectoryName, atspsData, tuningHeuristics); err != nil {
 			return err
 		}
-		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(resultsDirectoryName, tuningSummary.ReportFileName))
+		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(project.ResultsDirectoryName, tuningSummary.ReportFileName))
 		return nil
 	}
 
 	if analysisScope == analysisScopeAll {
-		if err := saveTuningSummary(resultsDirectoryName, atspsData, tuningHeuristics); err != nil {
+		if err := saveTuningSummary(project.ResultsDirectoryName, atspsData, tuningHeuristics); err != nil {
 			return err
 		}
-		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(resultsDirectoryName, tuningSummary.ReportFileName))
+		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(project.ResultsDirectoryName, tuningSummary.ReportFileName))
 	}
 
-	gksDeviationReportPath := filepath.Join(finalResultsDirectoryName, "gks_deviation.md")
-	gksDeviationAtspData, err := loadSelectedAtspData(instanceSetAllKnown)
+	gksDeviationReportPath := filepath.Join(project.FinalResultsDirectoryName, "gks_deviation.md")
+	gksDeviationAtspData, err := project.LoadSelectedAtspData(instanceSetAllKnown)
 	if err != nil {
 		return err
 	}
@@ -54,21 +55,21 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	structuralConfigs := make([]structuralComparison.InstanceConfig, 0, len(atspsData))
 	for _, atspData := range atspsData {
 		msaHeuristicTourConfigs = append(msaHeuristicTourConfigs, msaHeuristicTours.InstanceConfig{
-			Name:                                atspData.name,
-			Dimension:                           len(atspData.matrix),
-			MsaHeuristicDirectoryPath:           atspData.msaHeuristicDirectoryPath,
-			OptimalToursCsvPath:                 atspData.optimalUniqueToursCsvPath,
-			ToursHeatmapPath:                    atspData.toursHeatmapPlotPath,
-			ToursHistogramPath:                  atspData.toursHistogramPlotPath,
-			MsaHeuristicToursOverlapHeatmapPath: atspData.msaHeuristicToursOverlapHeatmapPlotPath,
+			Name:                                atspData.Name,
+			Dimension:                           len(atspData.Matrix),
+			MsaHeuristicDirectoryPath:           atspData.MsaHeuristicDirectoryPath,
+			OptimalToursCsvPath:                 atspData.OptimalUniqueToursCsvPath,
+			ToursHeatmapPath:                    atspData.ToursHeatmapPlotPath,
+			ToursHistogramPath:                  atspData.ToursHistogramPlotPath,
+			MsaHeuristicToursOverlapHeatmapPath: atspData.MsaHeuristicToursOverlapHeatmapPlotPath,
 		})
 
 		structuralConfigs = append(structuralConfigs, structuralComparison.InstanceConfig{
-			Name:                      atspData.name,
-			Dimension:                 len(atspData.matrix),
-			Matrix:                    atspData.matrix,
-			MsaHeuristicDirectoryPath: atspData.msaHeuristicDirectoryPath,
-			OptimalToursCsvPath:       atspData.optimalUniqueToursCsvPath,
+			Name:                      atspData.Name,
+			Dimension:                 len(atspData.Matrix),
+			Matrix:                    atspData.Matrix,
+			MsaHeuristicDirectoryPath: atspData.MsaHeuristicDirectoryPath,
+			OptimalToursCsvPath:       atspData.OptimalUniqueToursCsvPath,
 		})
 	}
 
@@ -85,44 +86,44 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		return err
 	}
 
-	structuralSimilarityReportPath := filepath.Join(finalResultsDirectoryName, "structural_similarity.md")
+	structuralSimilarityReportPath := filepath.Join(project.FinalResultsDirectoryName, "structural_similarity.md")
 	if err := saveStructuralSimilarityReport(structuralSimilarityReportPath, structuralAnalyses); err != nil {
 		return err
 	}
 
-	heuristicOverlapReportPath := filepath.Join(finalResultsDirectoryName, "msa_cycle_cover_overlap.md")
+	heuristicOverlapReportPath := filepath.Join(project.FinalResultsDirectoryName, "msa_cycle_cover_overlap.md")
 	if err := saveMsaHeuristicCycleCoverOverlapReport(heuristicOverlapReportPath, structuralAnalyses); err != nil {
 		return err
 	}
 
-	msaCountScalingReportPath := filepath.Join(finalResultsDirectoryName, "msa_count_scaling.md")
+	msaCountScalingReportPath := filepath.Join(project.FinalResultsDirectoryName, "msa_count_scaling.md")
 	if err := saveMsaCountScalingReport(msaCountScalingReportPath, atspsData); err != nil {
 		return err
 	}
 
-	finalControlsRootPath := finalControlsResultsRootPath(finalResultsDirectoryName)
+	finalControlsRootPath := finalControlsResultsRootPath(project.FinalResultsDirectoryName)
 	randomSparseControlReportPath := filepath.Join(finalControlsRootPath, "random_sparse_control.md")
-	randomSparseControlReportSaved, err := saveRandomSparseControlReport(randomSparseControlReportPath, atspsData, finalResultsDirectoryName, finalControlsRootPath)
+	randomSparseControlReportSaved, err := saveRandomSparseControlReport(randomSparseControlReportPath, atspsData, project.FinalResultsDirectoryName, finalControlsRootPath)
 	if err != nil {
 		return err
 	}
 	distanceRankedSparseControlReportPath := filepath.Join(finalControlsRootPath, "distance_ranked_sparse_control.md")
-	distanceRankedSparseControlReportSaved, err := saveDistanceRankedSparseControlReport(distanceRankedSparseControlReportPath, atspsData, finalResultsDirectoryName, finalControlsRootPath)
+	distanceRankedSparseControlReportSaved, err := saveDistanceRankedSparseControlReport(distanceRankedSparseControlReportPath, atspsData, project.FinalResultsDirectoryName, finalControlsRootPath)
 	if err != nil {
 		return err
 	}
 	shuffledMsaControlReportPath := filepath.Join(finalControlsRootPath, "shuffled_msa_control.md")
-	shuffledMsaControlReportSaved, err := saveShuffledMsaControlReport(shuffledMsaControlReportPath, atspsData, finalResultsDirectoryName, finalControlsRootPath)
+	shuffledMsaControlReportSaved, err := saveShuffledMsaControlReport(shuffledMsaControlReportPath, atspsData, project.FinalResultsDirectoryName, finalControlsRootPath)
 	if err != nil {
 		return err
 	}
-	if err := removeFileIfExists(filepath.Join(finalResultsDirectoryName, "random_sparse_control.md")); err != nil {
+	if err := removeFileIfExists(filepath.Join(project.FinalResultsDirectoryName, "random_sparse_control.md")); err != nil {
 		return err
 	}
-	if err := removeFileIfExists(filepath.Join(finalResultsDirectoryName, "distance_ranked_sparse_control.md")); err != nil {
+	if err := removeFileIfExists(filepath.Join(project.FinalResultsDirectoryName, "distance_ranked_sparse_control.md")); err != nil {
 		return err
 	}
-	if err := removeFileIfExists(filepath.Join(finalResultsDirectoryName, "shuffled_msa_control.md")); err != nil {
+	if err := removeFileIfExists(filepath.Join(project.FinalResultsDirectoryName, "shuffled_msa_control.md")); err != nil {
 		return err
 	}
 
@@ -134,12 +135,12 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		return err
 	}
 
-	finalResultsSummaryPath, finalRows, finalSummarySaved, err := runFinalResultsAnalysis(atspsData, structuralAnalyses, finalResultsDirectoryName)
+	finalResultsSummaryPath, finalRows, finalSummarySaved, err := runFinalResultsAnalysis(atspsData, structuralAnalyses, project.FinalResultsDirectoryName)
 	if err != nil {
 		return err
 	}
 
-	finalThreeOptResultsSummaryPath, finalThreeOptRows, finalThreeOptSummarySaved, err := runFinalResultsAnalysis(atspsData, structuralAnalyses, finalThreeOptResultsDirectoryName)
+	finalThreeOptResultsSummaryPath, finalThreeOptRows, finalThreeOptSummarySaved, err := runFinalResultsAnalysis(atspsData, structuralAnalyses, project.FinalThreeOptResultsDirectoryName)
 	if err != nil {
 		return err
 	}
@@ -159,18 +160,18 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	fmt.Printf("GKS deviation report saved to %s using %d all-known instance(s)\n", gksDeviationReportPath, len(gksDeviationAtspData))
 	if finalSummarySaved {
 		fmt.Printf("Final results summary saved to %s\n", finalResultsSummaryPath)
-		fmt.Printf("Pairwise performance report saved to %s\n", filepath.Join(finalResultsDirectoryName, "pairwise_performance.md"))
-		fmt.Printf("Convergence summary report saved to %s\n", filepath.Join(finalResultsDirectoryName, "convergence_summary.md"))
-		fmt.Printf("Structural/performance link report saved to %s\n", filepath.Join(finalResultsDirectoryName, "structural_performance_link.md"))
+		fmt.Printf("Pairwise performance report saved to %s\n", filepath.Join(project.FinalResultsDirectoryName, "pairwise_performance.md"))
+		fmt.Printf("Convergence summary report saved to %s\n", filepath.Join(project.FinalResultsDirectoryName, "convergence_summary.md"))
+		fmt.Printf("Structural/performance link report saved to %s\n", filepath.Join(project.FinalResultsDirectoryName, "structural_performance_link.md"))
 	}
 	if finalThreeOptSummarySaved {
 		fmt.Printf("Final+3opt results summary saved to %s\n", finalThreeOptResultsSummaryPath)
-		fmt.Printf("Final+3opt pairwise performance report saved to %s\n", filepath.Join(finalThreeOptResultsDirectoryName, "pairwise_performance.md"))
-		fmt.Printf("Final+3opt convergence summary report saved to %s\n", filepath.Join(finalThreeOptResultsDirectoryName, "convergence_summary.md"))
-		fmt.Printf("Final+3opt structural/performance link report saved to %s\n", filepath.Join(finalThreeOptResultsDirectoryName, "structural_performance_link.md"))
+		fmt.Printf("Final+3opt pairwise performance report saved to %s\n", filepath.Join(project.FinalThreeOptResultsDirectoryName, "pairwise_performance.md"))
+		fmt.Printf("Final+3opt convergence summary report saved to %s\n", filepath.Join(project.FinalThreeOptResultsDirectoryName, "convergence_summary.md"))
+		fmt.Printf("Final+3opt structural/performance link report saved to %s\n", filepath.Join(project.FinalThreeOptResultsDirectoryName, "structural_performance_link.md"))
 	}
 	if finalSummarySaved && finalThreeOptSummarySaved {
-		threeOptComparisonPath := filepath.Join(finalThreeOptResultsDirectoryName, "comparison_to_final.md")
+		threeOptComparisonPath := filepath.Join(project.FinalThreeOptResultsDirectoryName, "comparison_to_final.md")
 		if err := saveFinalThreeOptComparisonReport(threeOptComparisonPath, finalRows, finalThreeOptRows); err != nil {
 			return err
 		}
@@ -184,10 +185,10 @@ func runFinalResultsAnalysis(atspsData []AtspData, structuralAnalyses []structur
 	missingInstances := make([]string, 0)
 
 	for _, atspData := range atspsData {
-		finalAtspData := withExperimentOutputRoot(atspData, resultsRootPath)
-		if _, err := os.Stat(finalAtspData.resultFilePath); err != nil {
+		finalAtspData := project.WithExperimentOutputRoot(atspData, resultsRootPath)
+		if _, err := os.Stat(finalAtspData.ResultFilePath); err != nil {
 			if os.IsNotExist(err) {
-				missingInstances = append(missingInstances, atspData.name)
+				missingInstances = append(missingInstances, atspData.Name)
 				continue
 			}
 

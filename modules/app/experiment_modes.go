@@ -4,6 +4,7 @@ import (
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
 	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
 	"atsp_aco_msa/modules/analysis/tuningSummary"
+	"atsp_aco_msa/modules/project"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -23,7 +24,7 @@ func runExperimentMode(atspsData []AtspData, heuristics []string, workers int) e
 		}
 	}
 
-	return saveTuningSummary(resultsDirectoryName, atspsData, heuristics)
+	return saveTuningSummary(project.ResultsDirectoryName, atspsData, heuristics)
 }
 
 func saveTuningSummary(resultsRootPath string, atspsData []AtspData, heuristics []string) error {
@@ -36,7 +37,7 @@ func saveTuningSummary(resultsRootPath string, atspsData []AtspData, heuristics 
 		resultFiles := make([]tuningSummary.ResultFile, 0, len(atspsData))
 		for _, atspData := range atspsData {
 			resultFiles = append(resultFiles, tuningSummary.ResultFile{
-				Instance: atspData.name,
+				Instance: atspData.Name,
 				Path:     resultFilePathForHeuristic(atspData, heuristic),
 			})
 		}
@@ -87,7 +88,7 @@ func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThr
 	}
 
 	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
-		finalAtspData := withExperimentOutputRoot(atspData, resultsRootPath)
+		finalAtspData := project.WithExperimentOutputRoot(atspData, resultsRootPath)
 		return runFinalExperimentForInstance(finalAtspData, resultsRootPath, useThreeOpt, configurations, numberOfExperiments)
 	})
 }
@@ -97,8 +98,8 @@ func runFinalExperimentForInstance(atspData AtspData, resultsRootPath string, us
 }
 
 func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration, numberOfExperiments, parameterWorkers int) error {
-	matrix := atspData.matrix
-	knownOptimal := atspData.knownOptimal
+	matrix := atspData.Matrix
+	knownOptimal := atspData.KnownOptimal
 	dimension := len(matrix)
 	instanceStart := time.Now()
 	controlRun := finalConfigurationsAreSparseControls(configurations)
@@ -115,7 +116,7 @@ func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, result
 	}
 
 	if controlRun {
-		if err := removeFileIfExists(atspData.resultFilePath); err != nil {
+		if err := removeFileIfExists(atspData.ResultFilePath); err != nil {
 			return err
 		}
 	} else {
@@ -126,7 +127,7 @@ func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, result
 
 	fmt.Printf("[%s][%s] Starting %s (dimension=%d, heuristics=%d, parameter sets=%d, runs/parameter=%d)\n",
 		logTimestamp(instanceStart),
-		atspData.name,
+		atspData.Name,
 		finalRunName,
 		dimension,
 		len(configurations),
@@ -163,13 +164,13 @@ func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, result
 			}
 			cycleCoverReady = true
 			fmt.Printf("\t[%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
-				atspData.name,
+				atspData.Name,
 				cycleCoverCost,
 				100*(knownOptimal-cycleCoverCost)/knownOptimal)
 		}
 
 		experimentData, err := runFinalExperimentParameters(
-			atspData.name,
+			atspData.Name,
 			config.heuristic,
 			config.parameters,
 			numberOfExperiments,
@@ -215,12 +216,12 @@ func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, result
 	}
 
 	if !controlRun {
-		if err := saveFinalHeuristicStatistics(atspData.resultFilePath, finalStatistics, configurations); err != nil {
+		if err := saveFinalHeuristicStatistics(atspData.ResultFilePath, finalStatistics, configurations); err != nil {
 			return err
 		}
 	}
 
-	fmt.Printf("[%s][%s] Finished %s in %s\n", logTimestamp(time.Now()), atspData.name, finalRunName, time.Since(instanceStart).Round(time.Millisecond))
+	fmt.Printf("[%s][%s] Finished %s in %s\n", logTimestamp(time.Now()), atspData.Name, finalRunName, time.Since(instanceStart).Round(time.Millisecond))
 	return nil
 }
 
@@ -298,7 +299,7 @@ func removeLegacyFinalResultFiles(atspData AtspData) error {
 		resultFilePathForHeuristic(atspData, heuristicBaseline),
 		resultFilePathForHeuristic(atspData, heuristicCycleCover),
 		resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching),
-		filepath.Join(filepath.Dir(atspData.resultFilePath), "solutions.csv"),
+		filepath.Join(filepath.Dir(atspData.ResultFilePath), "solutions.csv"),
 	}
 
 	for _, path := range legacyFiles {
@@ -328,8 +329,8 @@ func runExperimentSet(atspsData []AtspData, heuristic string, experimentParamete
 }
 
 func runExperimentSetForInstance(atspData AtspData, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments int, workerGate chan struct{}) error {
-	matrix := atspData.matrix
-	knownOptimal := atspData.knownOptimal
+	matrix := atspData.Matrix
+	knownOptimal := atspData.KnownOptimal
 	dimension := len(matrix)
 	instanceStart := time.Now()
 
@@ -350,7 +351,7 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 
 	fmt.Printf("[%s][%s][%s] Starting (dimension=%d, parameters=%d, runs/parameter=%d, parameter workers=%d)\n",
 		logTimestamp(instanceStart),
-		atspData.name,
+		atspData.Name,
 		heuristic,
 		dimension,
 		len(experimentParameters),
@@ -365,7 +366,7 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 			return err
 		}
 		fmt.Printf("\t[%s][%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
-			atspData.name,
+			atspData.Name,
 			heuristic,
 			cycleCoverCost,
 			100*(knownOptimal-cycleCoverCost)/knownOptimal)
@@ -393,7 +394,7 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 			}
 			logMutex.Lock()
 			fmt.Printf("\t[%s][%s] heuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
-				atspData.name,
+				atspData.Name,
 				heuristic,
 				parameters.heuristicWeight,
 				parameters.msaPatchBias,
@@ -424,7 +425,7 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 	}
 
 	if !heuristicIsSparseControl(heuristic) {
-		uniqueOptimalTours, err := msaHeuristicTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
+		uniqueOptimalTours, err := msaHeuristicTours.ReadOptimalTours(atspData.OptimalUniqueToursCsvPath)
 		if err != nil {
 			return err
 		}
@@ -437,17 +438,17 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 			}
 		}
 
-		if err := msaHeuristicTours.SaveOptimalToursStatistics(atspData.optimalUniqueToursCsvPath, atspData.msaHeuristicDirectoryPath, uniqueOptimalTours); err != nil {
+		if err := msaHeuristicTours.SaveOptimalToursStatistics(atspData.OptimalUniqueToursCsvPath, atspData.MsaHeuristicDirectoryPath, uniqueOptimalTours); err != nil {
 			return err
 		}
 	}
 
-	fmt.Printf("[%s][%s][%s] Finished in %s\n", logTimestamp(time.Now()), atspData.name, heuristic, time.Since(instanceStart).Round(time.Millisecond))
+	fmt.Printf("[%s][%s][%s] Finished in %s\n", logTimestamp(time.Now()), atspData.Name, heuristic, time.Since(instanceStart).Round(time.Millisecond))
 	return nil
 }
 
 func readMsaHeuristicMatrixForHeuristic(atspData AtspData, heuristic string) ([][]float64, error) {
-	return msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
+	return msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath)
 }
 
 func readMsaHeuristicMatrixForResultRoot(atspData AtspData, heuristic, resultsRootPath string) ([][]float64, error) {
@@ -455,12 +456,12 @@ func readMsaHeuristicMatrixForResultRoot(atspData AtspData, heuristic, resultsRo
 }
 
 func readRootedMsaHeuristics(atspData AtspData) ([][][]float64, error) {
-	rootedMsas, err := msaHeuristic.ReadMsas(atspData.msaHeuristicDirectoryPath)
+	rootedMsas, err := msaHeuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)
 	if err != nil {
 		return nil, err
 	}
-	if len(rootedMsas) != len(atspData.matrix) {
-		return nil, fmt.Errorf("expected %d rooted MSAs, got %d", len(atspData.matrix), len(rootedMsas))
+	if len(rootedMsas) != len(atspData.Matrix) {
+		return nil, fmt.Errorf("expected %d rooted MSAs, got %d", len(atspData.Matrix), len(rootedMsas))
 	}
 
 	return rootedMsas, nil

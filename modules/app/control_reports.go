@@ -1,6 +1,7 @@
 package app
 
 import (
+	"atsp_aco_msa/modules/project"
 	"errors"
 	"fmt"
 	"html"
@@ -64,22 +65,22 @@ func buildRandomSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 			return nil, nil, err
 		}
 		if !ok {
-			missingData = append(missingData, randomSparseControlMissingData{instance: atspData.name, reason: "missing final MSA result"})
+			missingData = append(missingData, randomSparseControlMissingData{instance: atspData.Name, reason: "missing final MSA result"})
 			continue
 		}
 
-		controlAtspData := withExperimentOutputRoot(atspData, controlResultsRootPath)
+		controlAtspData := project.WithExperimentOutputRoot(atspData, controlResultsRootPath)
 		randomStatistics, err := readStatistics(resultFilePathForHeuristic(controlAtspData, heuristicRandomSparse))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				missingData = append(missingData, randomSparseControlMissingData{instance: atspData.name, reason: "missing final-control random-sparse result CSV"})
+				missingData = append(missingData, randomSparseControlMissingData{instance: atspData.Name, reason: "missing final-control random-sparse result CSV"})
 				continue
 			}
 			return nil, nil, err
 		}
 		randomStatisticsForWeight := statisticsForHeuristicWeightAll(randomStatistics, msaMetric.heuristicWeight)
 		if len(randomStatisticsForWeight) == 0 {
-			missingData = append(missingData, randomSparseControlMissingData{instance: atspData.name, reason: fmt.Sprintf("missing random-sparse rows for heuristic weight %.2f", msaMetric.heuristicWeight)})
+			missingData = append(missingData, randomSparseControlMissingData{instance: atspData.Name, reason: fmt.Sprintf("missing random-sparse rows for heuristic weight %.2f", msaMetric.heuristicWeight)})
 			continue
 		}
 
@@ -99,7 +100,7 @@ func buildRandomSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 		randomSuccessRate /= float64(len(randomStatisticsForWeight))
 
 		rows = append(rows, randomSparseControlRow{
-			instance:                           atspData.name,
+			instance:                           atspData.Name,
 			msaAverageBestDeviation:            msaMetric.averageMinDeviation,
 			randomAverageBestDeviation:         randomAverageBestDeviation,
 			randomBestAverageBestDeviation:     randomBestAverageBestDeviation,
@@ -148,8 +149,8 @@ func readFinalMsaHeuristicControlMetric(atspData AtspData, finalResultsRootPath 
 }
 
 func readMsaControlMetric(atspData AtspData, finalResultsRootPath, referenceHeuristic string) (finalResultsSummaryMetric, bool, error) {
-	finalAtspData := withExperimentOutputRoot(atspData, finalResultsRootPath)
-	statistics, err := readHeuristicStatistics(finalAtspData.resultFilePath)
+	finalAtspData := project.WithExperimentOutputRoot(atspData, finalResultsRootPath)
+	statistics, err := readHeuristicStatistics(finalAtspData.ResultFilePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return finalResultsSummaryMetric{}, false, nil
@@ -377,15 +378,15 @@ func buildDistanceRankedSparseControlRows(atspsData []AtspData, finalResultsRoot
 			return nil, nil, err
 		}
 		if !ok {
-			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.name, reason: "missing final " + referenceHeuristic + " result"})
+			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.Name, reason: "missing final " + referenceHeuristic + " result"})
 			continue
 		}
 
-		controlAtspData := withExperimentOutputRoot(atspData, controlResultsRootPath)
+		controlAtspData := project.WithExperimentOutputRoot(atspData, controlResultsRootPath)
 		controlStatistics, err := readStatistics(resultFilePathForHeuristic(controlAtspData, controlHeuristic))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.name, reason: "missing final-control " + controlHeuristic + " result CSV"})
+				missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.Name, reason: "missing final-control " + controlHeuristic + " result CSV"})
 				continue
 			}
 			return nil, nil, err
@@ -393,12 +394,12 @@ func buildDistanceRankedSparseControlRows(atspsData []AtspData, finalResultsRoot
 
 		controlStatistic, ok := statisticsForHeuristicWeight(controlStatistics, msaMetric.heuristicWeight)
 		if !ok {
-			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.name, reason: fmt.Sprintf("missing %s row for heuristic weight %.2f", controlHeuristic, msaMetric.heuristicWeight)})
+			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.Name, reason: fmt.Sprintf("missing %s row for heuristic weight %.2f", controlHeuristic, msaMetric.heuristicWeight)})
 			continue
 		}
 
 		rows = append(rows, distanceRankedSparseControlRow{
-			instance:                    atspData.name,
+			instance:                    atspData.Name,
 			msaAverageBestDeviation:     msaMetric.averageMinDeviation,
 			controlAverageBestDeviation: controlStatistic.averageBestDeviation,
 			averageBestDeviationDelta:   msaMetric.averageMinDeviation - controlStatistic.averageBestDeviation,
@@ -591,22 +592,22 @@ func buildSeededSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 			return nil, nil, err
 		}
 		if !ok {
-			missingData = append(missingData, seededSparseControlMissingData{instance: atspData.name, reason: "missing final " + config.referenceHeuristic + " result"})
+			missingData = append(missingData, seededSparseControlMissingData{instance: atspData.Name, reason: "missing final " + config.referenceHeuristic + " result"})
 			continue
 		}
 
-		controlAtspData := withExperimentOutputRoot(atspData, controlResultsRootPath)
+		controlAtspData := project.WithExperimentOutputRoot(atspData, controlResultsRootPath)
 		controlStatistics, err := readStatistics(resultFilePathForHeuristic(controlAtspData, config.controlHeuristic))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				missingData = append(missingData, seededSparseControlMissingData{instance: atspData.name, reason: "missing final-control " + config.missingResultLabel})
+				missingData = append(missingData, seededSparseControlMissingData{instance: atspData.Name, reason: "missing final-control " + config.missingResultLabel})
 				continue
 			}
 			return nil, nil, err
 		}
 		controlStatisticsForWeight := statisticsForHeuristicWeightAll(controlStatistics, msaMetric.heuristicWeight)
 		if len(controlStatisticsForWeight) == 0 {
-			missingData = append(missingData, seededSparseControlMissingData{instance: atspData.name, reason: fmt.Sprintf("missing %s rows for heuristic weight %.2f", config.missingResultLabel, msaMetric.heuristicWeight)})
+			missingData = append(missingData, seededSparseControlMissingData{instance: atspData.Name, reason: fmt.Sprintf("missing %s rows for heuristic weight %.2f", config.missingResultLabel, msaMetric.heuristicWeight)})
 			continue
 		}
 
@@ -626,7 +627,7 @@ func buildSeededSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 		controlSuccessRate /= float64(len(controlStatisticsForWeight))
 
 		rows = append(rows, seededSparseControlRow{
-			instance:                            atspData.name,
+			instance:                            atspData.Name,
 			msaAverageBestDeviation:             msaMetric.averageMinDeviation,
 			controlAverageBestDeviation:         controlAverageBestDeviation,
 			controlBestAverageBestDeviation:     controlBestAverageBestDeviation,

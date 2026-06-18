@@ -26,12 +26,12 @@ func saveFinalResultsSummary(atspsData []AtspData, summaryPath string) error {
 func readFinalResultsSummaryRows(atspsData []AtspData) ([]finalResultsSummaryRow, error) {
 	rows := make([]finalResultsSummaryRow, 0, len(atspsData))
 	for _, atspData := range atspsData {
-		metrics, err := readFinalResultSummaryMetrics(atspData.resultFilePath)
+		metrics, err := readFinalResultSummaryMetrics(atspData.ResultFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("%s: failed to read final result metrics: %w", atspData.name, err)
+			return nil, fmt.Errorf("%s: failed to read final result metrics: %w", atspData.Name, err)
 		}
 
-		rows = append(rows, finalResultsSummaryRow{instance: atspData.name, metrics: metrics})
+		rows = append(rows, finalResultsSummaryRow{instance: atspData.Name, metrics: metrics})
 	}
 
 	return rows, nil

@@ -4,6 +4,7 @@ import (
 	"atsp_aco_msa/modules/analysis/structuralComparison"
 	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/parsing"
+	"atsp_aco_msa/modules/project"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -145,14 +146,14 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 	sourceRoot := filepath.Join(root, "results")
 	finalRoot := filepath.Join(root, "final")
 	controlsRoot := finalControlsResultsRootPath(finalRoot)
-	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	finalFirst := withExperimentOutputRoot(first, finalRoot)
-	finalSecond := withExperimentOutputRoot(second, finalRoot)
-	controlFirst := withExperimentOutputRoot(first, controlsRoot)
-	controlSecond := withExperimentOutputRoot(second, controlsRoot)
+	first := project.MakeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	second := project.MakeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	finalFirst := project.WithExperimentOutputRoot(first, finalRoot)
+	finalSecond := project.WithExperimentOutputRoot(second, finalRoot)
+	controlFirst := project.WithExperimentOutputRoot(first, controlsRoot)
+	controlSecond := project.WithExperimentOutputRoot(second, controlsRoot)
 
-	if err := saveHeuristicStatistics(finalFirst.resultFilePath, []HeuristicExperimentStatistics{
+	if err := saveHeuristicStatistics(finalFirst.ResultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
 		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
 	}); err != nil {
@@ -164,7 +165,7 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 		makeTestRandomSparseExperimentStatistics(3, 6.0, 0.0),
 	})
 
-	if err := saveHeuristicStatistics(finalSecond.resultFilePath, []HeuristicExperimentStatistics{
+	if err := saveHeuristicStatistics(finalSecond.ResultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
 		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
 	}); err != nil {
@@ -201,14 +202,14 @@ func TestSaveDistanceRankedSparseControlReportComparesMsaAgainstDistanceRankedSp
 	sourceRoot := filepath.Join(root, "results")
 	finalRoot := filepath.Join(root, "final")
 	controlsRoot := finalControlsResultsRootPath(finalRoot)
-	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	finalFirst := withExperimentOutputRoot(first, finalRoot)
-	finalSecond := withExperimentOutputRoot(second, finalRoot)
-	controlFirst := withExperimentOutputRoot(first, controlsRoot)
-	controlSecond := withExperimentOutputRoot(second, controlsRoot)
+	first := project.MakeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	second := project.MakeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	finalFirst := project.WithExperimentOutputRoot(first, finalRoot)
+	finalSecond := project.WithExperimentOutputRoot(second, finalRoot)
+	controlFirst := project.WithExperimentOutputRoot(first, controlsRoot)
+	controlSecond := project.WithExperimentOutputRoot(second, controlsRoot)
 
-	if err := saveHeuristicStatistics(finalFirst.resultFilePath, []HeuristicExperimentStatistics{
+	if err := saveHeuristicStatistics(finalFirst.ResultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first final MSA result: %v", err)
@@ -217,7 +218,7 @@ func TestSaveDistanceRankedSparseControlReportComparesMsaAgainstDistanceRankedSp
 		makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0),
 	})
 
-	if err := saveHeuristicStatistics(finalSecond.resultFilePath, []HeuristicExperimentStatistics{
+	if err := saveHeuristicStatistics(finalSecond.ResultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second final MSA result: %v", err)
@@ -251,14 +252,14 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 	sourceRoot := filepath.Join(root, "results")
 	finalRoot := filepath.Join(root, "final")
 	controlsRoot := finalControlsResultsRootPath(finalRoot)
-	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	finalFirst := withExperimentOutputRoot(first, finalRoot)
-	finalSecond := withExperimentOutputRoot(second, finalRoot)
-	controlFirst := withExperimentOutputRoot(first, controlsRoot)
-	controlSecond := withExperimentOutputRoot(second, controlsRoot)
+	first := project.MakeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	second := project.MakeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
+	finalFirst := project.WithExperimentOutputRoot(first, finalRoot)
+	finalSecond := project.WithExperimentOutputRoot(second, finalRoot)
+	controlFirst := project.WithExperimentOutputRoot(first, controlsRoot)
+	controlSecond := project.WithExperimentOutputRoot(second, controlsRoot)
 
-	if err := saveHeuristicStatistics(finalFirst.resultFilePath, []HeuristicExperimentStatistics{
+	if err := saveHeuristicStatistics(finalFirst.ResultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first final MSA result: %v", err)
@@ -269,7 +270,7 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 		makeTestRandomSparseExperimentStatistics(3, 6.0, 0.0),
 	})
 
-	if err := saveHeuristicStatistics(finalSecond.resultFilePath, []HeuristicExperimentStatistics{
+	if err := saveHeuristicStatistics(finalSecond.ResultFilePath, []HeuristicExperimentStatistics{
 		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second final MSA result: %v", err)
@@ -302,36 +303,36 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 
 func TestReadMsaHeuristicMatrixForResultRootUsesCompositeMsaForMatrixFallback(t *testing.T) {
 	root := t.TempDir()
-	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{
+	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{
 		{0, 1, 1},
 		{1, 0, 1},
 		{1, 1, 0},
 	}, 3, filepath.Join(root, "results"))
-	atspData.msaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
+	atspData.MsaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
 
 	compositeMsa := [][]float64{
 		{0, 2, 0},
 		{0, 0, 2},
 		{2, 0, 0},
 	}
-	writeTestMsaHeuristicMatrix(t, atspData.msaHeuristicDirectoryPath, compositeMsa)
-	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 0, [][]float64{
+	writeTestMsaHeuristicMatrix(t, atspData.MsaHeuristicDirectoryPath, compositeMsa)
+	writeTestRootMsaMatrix(t, atspData.MsaHeuristicDirectoryPath, 0, [][]float64{
 		{0, 1, 1},
 		{0, 0, 0},
 		{0, 0, 0},
 	})
-	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 1, [][]float64{
+	writeTestRootMsaMatrix(t, atspData.MsaHeuristicDirectoryPath, 1, [][]float64{
 		{0, 1, 0},
 		{0, 0, 1},
 		{0, 0, 0},
 	})
-	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 2, [][]float64{
+	writeTestRootMsaMatrix(t, atspData.MsaHeuristicDirectoryPath, 2, [][]float64{
 		{0, 1, 0},
 		{0, 0, 1},
 		{0, 0, 0},
 	})
 
-	normalMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicStrictMsa, finalResultsDirectoryName)
+	normalMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicStrictMsa, project.FinalResultsDirectoryName)
 	if err != nil {
 		t.Fatalf("read normal MSA matrix: %v", err)
 	}
@@ -342,19 +343,19 @@ func TestReadMsaHeuristicMatrixForResultRootUsesCompositeMsaForMatrixFallback(t 
 
 func TestReadRootedMsaHeuristicsRequiresOneMsaPerVertex(t *testing.T) {
 	root := t.TempDir()
-	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{
+	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{
 		{0, 1, 1},
 		{1, 0, 1},
 		{1, 1, 0},
 	}, 3, filepath.Join(root, "results"))
-	atspData.msaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
+	atspData.MsaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
 
-	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 0, [][]float64{
+	writeTestRootMsaMatrix(t, atspData.MsaHeuristicDirectoryPath, 0, [][]float64{
 		{0, 1, 1},
 		{0, 0, 0},
 		{0, 0, 0},
 	})
-	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 1, [][]float64{
+	writeTestRootMsaMatrix(t, atspData.MsaHeuristicDirectoryPath, 1, [][]float64{
 		{0, 1, 0},
 		{0, 0, 1},
 		{0, 0, 0},
@@ -364,7 +365,7 @@ func TestReadRootedMsaHeuristicsRequiresOneMsaPerVertex(t *testing.T) {
 		t.Fatal("expected incomplete rooted MSA cache to be rejected")
 	}
 
-	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 2, [][]float64{
+	writeTestRootMsaMatrix(t, atspData.MsaHeuristicDirectoryPath, 2, [][]float64{
 		{0, 1, 0},
 		{0, 0, 1},
 		{0, 0, 0},
@@ -436,8 +437,8 @@ func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
 
 func TestSaveFinalResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *testing.T) {
 	resultsRoot := t.TempDir()
-	firstAtspData := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
-	secondAtspData := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	firstAtspData := project.MakeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	secondAtspData := project.MakeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
 	rows := []HeuristicExperimentStatistics{
 		{
 			heuristic: heuristicBaseline,
@@ -513,10 +514,10 @@ func TestSaveFinalResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *te
 		},
 	}
 
-	if err := saveHeuristicStatistics(firstAtspData.resultFilePath, rows); err != nil {
+	if err := saveHeuristicStatistics(firstAtspData.ResultFilePath, rows); err != nil {
 		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
 	}
-	if err := saveHeuristicStatistics(secondAtspData.resultFilePath, secondRows); err != nil {
+	if err := saveHeuristicStatistics(secondAtspData.ResultFilePath, secondRows); err != nil {
 		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
@@ -559,14 +560,14 @@ func TestSaveFinalResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *te
 
 func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 	resultsRoot := t.TempDir()
-	oldFinalResultsDirectoryName := finalResultsDirectoryName
-	finalResultsDirectoryName = filepath.Join(resultsRoot, "final")
+	oldFinalResultsDirectoryName := project.FinalResultsDirectoryName
+	project.FinalResultsDirectoryName = filepath.Join(resultsRoot, "final")
 	defer func() {
-		finalResultsDirectoryName = oldFinalResultsDirectoryName
+		project.FinalResultsDirectoryName = oldFinalResultsDirectoryName
 	}()
 
-	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
-	finalAtspData := withExperimentOutputRoot(atspData, finalResultsDirectoryName)
+	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	finalAtspData := project.WithExperimentOutputRoot(atspData, project.FinalResultsDirectoryName)
 	rows := []HeuristicExperimentStatistics{
 		{
 			heuristic: heuristicBaseline,
@@ -590,18 +591,18 @@ func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 			},
 		},
 	}
-	if err := saveHeuristicStatistics(finalAtspData.resultFilePath, rows); err != nil {
+	if err := saveHeuristicStatistics(finalAtspData.ResultFilePath, rows); err != nil {
 		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
-	summaryPath, _, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil, finalResultsDirectoryName)
+	summaryPath, _, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil, project.FinalResultsDirectoryName)
 	if err != nil {
 		t.Fatalf("runFinalResultsAnalysis returned unexpected error: %v", err)
 	}
 	if !saved {
 		t.Fatal("expected final results summary to be saved")
 	}
-	if summaryPath != filepath.Join(finalResultsDirectoryName, "summary.md") {
+	if summaryPath != filepath.Join(project.FinalResultsDirectoryName, "summary.md") {
 		t.Fatalf("unexpected summary path: %s", summaryPath)
 	}
 	if _, err := os.Stat(summaryPath); err != nil {
@@ -612,8 +613,8 @@ func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 func TestRunFinalResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
 	resultsRoot := t.TempDir()
 	finalThreeOptRoot := filepath.Join(resultsRoot, "final_3opt")
-	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
-	finalThreeOptAtspData := withExperimentOutputRoot(atspData, finalThreeOptRoot)
+	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
+	finalThreeOptAtspData := project.WithExperimentOutputRoot(atspData, finalThreeOptRoot)
 	rows := []HeuristicExperimentStatistics{
 		{
 			heuristic: heuristicBaseline,
@@ -637,7 +638,7 @@ func TestRunFinalResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
 			},
 		},
 	}
-	if err := saveHeuristicStatistics(finalThreeOptAtspData.resultFilePath, rows); err != nil {
+	if err := saveHeuristicStatistics(finalThreeOptAtspData.ResultFilePath, rows); err != nil {
 		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
@@ -1006,44 +1007,44 @@ func TestBuildMinimumCycleCoverMatrix(t *testing.T) {
 }
 
 func TestHeuristicSpecificPathsKeepMsaHeuristicBaselinePaths(t *testing.T) {
-	atspData := makeAtspData("test.atsp", [][]float64{{0, 1}, {1, 0}}, 2)
+	atspData := project.MakeAtspData("test.atsp", [][]float64{{0, 1}, {1, 0}}, 2)
 
-	if resultFilePathForHeuristic(atspData, heuristicBaseline) != filepath.Join(resultsDirectoryName, "test", "result_baseline.csv") {
+	if resultFilePathForHeuristic(atspData, heuristicBaseline) != filepath.Join(project.ResultsDirectoryName, "test", "result_baseline.csv") {
 		t.Fatalf("unexpected baseline result path: %s", resultFilePathForHeuristic(atspData, heuristicBaseline))
 	}
 
-	if resultFilePathForHeuristic(atspData, heuristicStrictMsa) != filepath.Join(resultsDirectoryName, "test", resultFileName) {
+	if resultFilePathForHeuristic(atspData, heuristicStrictMsa) != filepath.Join(project.ResultsDirectoryName, "test", project.ResultFileName) {
 		t.Fatalf("MSA heuristic result path should keep the existing baseline location")
 	}
 
-	if resultFilePathForHeuristic(atspData, heuristicRootedMsa) != filepath.Join(resultsDirectoryName, "test", "result_rooted_msa.csv") {
+	if resultFilePathForHeuristic(atspData, heuristicRootedMsa) != filepath.Join(project.ResultsDirectoryName, "test", "result_rooted_msa.csv") {
 		t.Fatalf("unexpected rooted-MSA result path: %s", resultFilePathForHeuristic(atspData, heuristicRootedMsa))
 	}
 
-	if resultFilePathForHeuristic(atspData, heuristicCycleCover) != filepath.Join(resultsDirectoryName, "test", "result_cycle_cover.csv") {
+	if resultFilePathForHeuristic(atspData, heuristicCycleCover) != filepath.Join(project.ResultsDirectoryName, "test", "result_cycle_cover.csv") {
 		t.Fatalf("unexpected cycle-cover result path: %s", resultFilePathForHeuristic(atspData, heuristicCycleCover))
 	}
 
-	if resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching) != filepath.Join(resultsDirectoryName, "test", "result_cycle_cover_msa_patching.csv") {
+	if resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching) != filepath.Join(project.ResultsDirectoryName, "test", "result_cycle_cover_msa_patching.csv") {
 		t.Fatalf("unexpected cycle-cover MSA-patching result path: %s", resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching))
 	}
 }
 
 func TestWithExperimentOutputRootMovesOutputsButKeepsMsaHeuristicCache(t *testing.T) {
-	atspData := makeAtspData("test.atsp", [][]float64{{0, 1}, {1, 0}}, 2)
-	output := withExperimentOutputRoot(atspData, finalResultsDirectoryName)
+	atspData := project.MakeAtspData("test.atsp", [][]float64{{0, 1}, {1, 0}}, 2)
+	output := project.WithExperimentOutputRoot(atspData, project.FinalResultsDirectoryName)
 
-	if output.msaHeuristicDirectoryPath != atspData.msaHeuristicDirectoryPath {
-		t.Fatalf("expected MSA heuristic cache path to stay %s, got %s", atspData.msaHeuristicDirectoryPath, output.msaHeuristicDirectoryPath)
+	if output.MsaHeuristicDirectoryPath != atspData.MsaHeuristicDirectoryPath {
+		t.Fatalf("expected MSA heuristic cache path to stay %s, got %s", atspData.MsaHeuristicDirectoryPath, output.MsaHeuristicDirectoryPath)
 	}
 
-	expectedResultPath := filepath.Join(finalResultsDirectoryName, "test", resultFileName)
-	if output.resultFilePath != expectedResultPath {
-		t.Fatalf("unexpected final result path\nwant: %s\n got: %s", expectedResultPath, output.resultFilePath)
+	expectedResultPath := filepath.Join(project.FinalResultsDirectoryName, "test", project.ResultFileName)
+	if output.ResultFilePath != expectedResultPath {
+		t.Fatalf("unexpected final result path\nwant: %s\n got: %s", expectedResultPath, output.ResultFilePath)
 	}
 
-	if output.optimalUniqueToursCsvPath != atspData.optimalUniqueToursCsvPath {
-		t.Fatalf("expected solutions path to stay %s, got %s", atspData.optimalUniqueToursCsvPath, output.optimalUniqueToursCsvPath)
+	if output.OptimalUniqueToursCsvPath != atspData.OptimalUniqueToursCsvPath {
+		t.Fatalf("expected solutions path to stay %s, got %s", atspData.OptimalUniqueToursCsvPath, output.OptimalUniqueToursCsvPath)
 	}
 }
 
@@ -1269,15 +1270,15 @@ func TestFinalExperimentOutputRootUsesControlsSubdirectoryForSparseControls(t *t
 	if err != nil {
 		t.Fatalf("selectFinalExperimentConfigurations(all) returned error: %v", err)
 	}
-	if finalExperimentOutputRootForConfigurations(runModeFinal, mainConfigurations) != finalResultsDirectoryName {
-		t.Fatalf("main final run should use %s", finalResultsDirectoryName)
+	if finalExperimentOutputRootForConfigurations(runModeFinal, mainConfigurations) != project.FinalResultsDirectoryName {
+		t.Fatalf("main final run should use %s", project.FinalResultsDirectoryName)
 	}
 
 	controlConfigurations, err := selectFinalExperimentConfigurations(finalHeuristicControls)
 	if err != nil {
 		t.Fatalf("selectFinalExperimentConfigurations(controls) returned error: %v", err)
 	}
-	expectedControlsRoot := filepath.Join(filepath.Dir(finalResultsDirectoryName), "controls")
+	expectedControlsRoot := filepath.Join(filepath.Dir(project.FinalResultsDirectoryName), "controls")
 	if finalExperimentOutputRootForConfigurations(runModeFinal, controlConfigurations) != expectedControlsRoot {
 		t.Fatalf("final controls should use %s", expectedControlsRoot)
 	}
@@ -1416,11 +1417,11 @@ func TestFinalModesAndExperimentHeuristicsAreValid(t *testing.T) {
 }
 
 func TestFinal3OptModeUsesSeparateOutputRootAndThreeOpt(t *testing.T) {
-	if finalExperimentOutputRoot(runModeFinal3Opt) != finalThreeOptResultsDirectoryName {
-		t.Fatalf("final+3opt should use %s", finalThreeOptResultsDirectoryName)
+	if finalExperimentOutputRoot(runModeFinal3Opt) != project.FinalThreeOptResultsDirectoryName {
+		t.Fatalf("final+3opt should use %s", project.FinalThreeOptResultsDirectoryName)
 	}
-	if finalExperimentOutputRoot(runModeFinal) != finalResultsDirectoryName {
-		t.Fatalf("final should use %s", finalResultsDirectoryName)
+	if finalExperimentOutputRoot(runModeFinal) != project.FinalResultsDirectoryName {
+		t.Fatalf("final should use %s", project.FinalResultsDirectoryName)
 	}
 	if !finalExperimentUsesThreeOpt(runModeFinal3Opt) {
 		t.Fatal("final+3opt should enable reduced 3-opt")
@@ -1455,13 +1456,13 @@ func TestAnalysisScopeTuningIsValid(t *testing.T) {
 }
 
 func TestRunAnalysisModeTuningRegeneratesTuningSummary(t *testing.T) {
-	originalResultsDirectoryName := resultsDirectoryName
-	resultsDirectoryName = t.TempDir()
+	originalResultsDirectoryName := project.ResultsDirectoryName
+	project.ResultsDirectoryName = t.TempDir()
 	t.Cleanup(func() {
-		resultsDirectoryName = originalResultsDirectoryName
+		project.ResultsDirectoryName = originalResultsDirectoryName
 	})
 
-	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsDirectoryName)
+	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, project.ResultsDirectoryName)
 	saveStatistics(resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching), heuristicCycleCoverMsaPatching, []ExperimentsDataStatistics{
 		makeTestExperimentStatistics(0.6, 2.0, 20.0),
 	})
@@ -1470,7 +1471,7 @@ func TestRunAnalysisModeTuningRegeneratesTuningSummary(t *testing.T) {
 		t.Fatalf("runAnalysisMode(tuning) returned unexpected error: %v", err)
 	}
 
-	contentBytes, err := os.ReadFile(filepath.Join(resultsDirectoryName, "tuning_summary.md"))
+	contentBytes, err := os.ReadFile(filepath.Join(project.ResultsDirectoryName, "tuning_summary.md"))
 	if err != nil {
 		t.Fatalf("expected tuning summary to be regenerated: %v", err)
 	}
@@ -1516,11 +1517,11 @@ func TestResolveWorkerCount(t *testing.T) {
 
 func TestRunBoundedInstanceJobsRespectsWorkerLimit(t *testing.T) {
 	atspsData := []AtspData{
-		makeAtspDataInResultsDirectory("a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-		makeAtspDataInResultsDirectory("b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-		makeAtspDataInResultsDirectory("c.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-		makeAtspDataInResultsDirectory("d.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-		makeAtspDataInResultsDirectory("e.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		project.MakeAtspDataInResultsDirectory("a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		project.MakeAtspDataInResultsDirectory("b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		project.MakeAtspDataInResultsDirectory("c.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		project.MakeAtspDataInResultsDirectory("d.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		project.MakeAtspDataInResultsDirectory("e.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
 	}
 
 	var activeWorkers int32
@@ -1637,7 +1638,7 @@ func TestRunIndexJobsWithSharedWorkersReturnsFirstError(t *testing.T) {
 }
 
 func TestRunFinalExperimentForInstanceWithParameterWorkersRejectsInvalidWorkerCount(t *testing.T) {
-	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir())
+	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir())
 	configurations := []finalExperimentConfiguration{
 		{
 			heuristic: heuristicBaseline,
@@ -1655,12 +1656,12 @@ func TestRunFinalExperimentForInstanceWithParameterWorkersRejectsInvalidWorkerCo
 
 func TestRunBoundedInstanceJobsReturnsFirstError(t *testing.T) {
 	atspsData := []AtspData{
-		makeAtspDataInResultsDirectory("ok.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-		makeAtspDataInResultsDirectory("bad.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		project.MakeAtspDataInResultsDirectory("ok.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
+		project.MakeAtspDataInResultsDirectory("bad.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
 	}
 
 	err := runBoundedInstanceJobs(atspsData, 1, func(atspData AtspData) error {
-		if atspData.name == "bad" {
+		if atspData.Name == "bad" {
 			return os.ErrInvalid
 		}
 		return nil
@@ -1692,13 +1693,13 @@ func TestRunRebuildMsaModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T) {
 		{2, 4, 0, 1},
 		{1, 2, 4, 0},
 	}
-	atspData := makeAtspDataInResultsDirectory("sample.atsp", matrix, 0, filepath.Join(root, "results"))
-	atspData.msaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
-	atspData.msaHeuristicHeatmapPlotPath = filepath.Join(atspData.msaHeuristicDirectoryPath, "plots", "msa_heuristic_heatmap.png")
-	atspData.msaHeuristicHistogramPlotPath = filepath.Join(atspData.msaHeuristicDirectoryPath, "plots", "msa_heuristic_histogram.png")
+	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", matrix, 0, filepath.Join(root, "results"))
+	atspData.MsaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
+	atspData.MsaHeuristicHeatmapPlotPath = filepath.Join(atspData.MsaHeuristicDirectoryPath, "plots", "msa_heuristic_heatmap.png")
+	atspData.MsaHeuristicHistogramPlotPath = filepath.Join(atspData.MsaHeuristicDirectoryPath, "plots", "msa_heuristic_histogram.png")
 
-	stalePath := filepath.Join(atspData.msaHeuristicDirectoryPath, "stale.txt")
-	if err := os.MkdirAll(atspData.msaHeuristicDirectoryPath, 0700); err != nil {
+	stalePath := filepath.Join(atspData.MsaHeuristicDirectoryPath, "stale.txt")
+	if err := os.MkdirAll(atspData.MsaHeuristicDirectoryPath, 0700); err != nil {
 		t.Fatalf("failed to create stale MSA directory: %v", err)
 	}
 	if err := os.WriteFile(stalePath, []byte("stale"), 0644); err != nil {
@@ -1712,11 +1713,11 @@ func TestRunRebuildMsaModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T) {
 	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
 		t.Fatalf("expected stale file to be removed, stat error: %v", err)
 	}
-	assertPathExists(t, filepath.Join(atspData.msaHeuristicDirectoryPath, "msa_heuristic.csv"))
-	assertPathExists(t, atspData.msaHeuristicHeatmapPlotPath)
-	assertPathExists(t, atspData.msaHeuristicHistogramPlotPath)
+	assertPathExists(t, filepath.Join(atspData.MsaHeuristicDirectoryPath, "msa_heuristic.csv"))
+	assertPathExists(t, atspData.MsaHeuristicHeatmapPlotPath)
+	assertPathExists(t, atspData.MsaHeuristicHistogramPlotPath)
 
-	rootMsaFiles, err := filepath.Glob(filepath.Join(atspData.msaHeuristicDirectoryPath, "msas", "*.csv"))
+	rootMsaFiles, err := filepath.Glob(filepath.Join(atspData.MsaHeuristicDirectoryPath, "msas", "*.csv"))
 	if err != nil {
 		t.Fatalf("failed to glob root MSA files: %v", err)
 	}
@@ -1731,9 +1732,9 @@ func TestSelectAtspFilesTuning(t *testing.T) {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
 
-	selected, err := selectAtspFiles(paths, instanceSetTuning)
+	selected, err := project.SelectAtspFiles(paths, instanceSetTuning)
 	if err != nil {
-		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
+		t.Fatalf("project.SelectAtspFiles returned unexpected error: %v", err)
 	}
 
 	selectedFiles := make([]string, len(selected))
@@ -1741,8 +1742,8 @@ func TestSelectAtspFilesTuning(t *testing.T) {
 		selectedFiles[i] = filepath.Base(selectedPath)
 	}
 
-	if !reflect.DeepEqual(selectedFiles, tuningInstanceFiles) {
-		t.Fatalf("tuning selection mismatch\nwant: %v\n got: %v", tuningInstanceFiles, selectedFiles)
+	if !reflect.DeepEqual(selectedFiles, project.TuningInstanceFiles) {
+		t.Fatalf("tuning selection mismatch\nwant: %v\n got: %v", project.TuningInstanceFiles, selectedFiles)
 	}
 }
 
@@ -1752,9 +1753,9 @@ func TestSelectAtspFilesSmoke(t *testing.T) {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
 
-	selected, err := selectAtspFiles(paths, instanceSetSmoke)
+	selected, err := project.SelectAtspFiles(paths, instanceSetSmoke)
 	if err != nil {
-		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
+		t.Fatalf("project.SelectAtspFiles returned unexpected error: %v", err)
 	}
 
 	selectedFiles := make([]string, len(selected))
@@ -1762,8 +1763,8 @@ func TestSelectAtspFilesSmoke(t *testing.T) {
 		selectedFiles[i] = filepath.Base(selectedPath)
 	}
 
-	if !reflect.DeepEqual(selectedFiles, smokeInstanceFiles) {
-		t.Fatalf("smoke selection mismatch\nwant: %v\n got: %v", smokeInstanceFiles, selectedFiles)
+	if !reflect.DeepEqual(selectedFiles, project.SmokeInstanceFiles) {
+		t.Fatalf("smoke selection mismatch\nwant: %v\n got: %v", project.SmokeInstanceFiles, selectedFiles)
 	}
 }
 
@@ -1773,9 +1774,9 @@ func TestSelectAtspFilesEvaluation(t *testing.T) {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
 
-	selected, err := selectAtspFiles(paths, instanceSetEvaluation)
+	selected, err := project.SelectAtspFiles(paths, instanceSetEvaluation)
 	if err != nil {
-		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
+		t.Fatalf("project.SelectAtspFiles returned unexpected error: %v", err)
 	}
 
 	selectedFiles := make([]string, len(selected))
@@ -1783,8 +1784,8 @@ func TestSelectAtspFilesEvaluation(t *testing.T) {
 		selectedFiles[i] = filepath.Base(selectedPath)
 	}
 
-	if !reflect.DeepEqual(selectedFiles, evaluationInstanceFiles) {
-		t.Fatalf("evaluation selection mismatch\nwant: %v\n got: %v", evaluationInstanceFiles, selectedFiles)
+	if !reflect.DeepEqual(selectedFiles, project.EvaluationInstanceFiles) {
+		t.Fatalf("evaluation selection mismatch\nwant: %v\n got: %v", project.EvaluationInstanceFiles, selectedFiles)
 	}
 }
 
@@ -1795,9 +1796,9 @@ func TestSelectedAtspFilesHaveKnownOptima(t *testing.T) {
 	}
 
 	for _, instanceSet := range []string{instanceSetSmoke, instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown} {
-		selected, err := selectAtspFiles(paths, instanceSet)
+		selected, err := project.SelectAtspFiles(paths, instanceSet)
 		if err != nil {
-			t.Fatalf("selectAtspFiles(%s) returned unexpected error: %v", instanceSet, err)
+			t.Fatalf("project.SelectAtspFiles(%s) returned unexpected error: %v", instanceSet, err)
 		}
 
 		for _, selectedPath := range selected {
@@ -1819,21 +1820,21 @@ func TestTuningAndEvaluationPartitionKnownInstances(t *testing.T) {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
 
-	tuning, err := selectAtspFiles(paths, instanceSetTuning)
+	tuning, err := project.SelectAtspFiles(paths, instanceSetTuning)
 	if err != nil {
-		t.Fatalf("selectAtspFiles(tuning) returned unexpected error: %v", err)
+		t.Fatalf("project.SelectAtspFiles(tuning) returned unexpected error: %v", err)
 	}
-	evaluation, err := selectAtspFiles(paths, instanceSetEvaluation)
+	evaluation, err := project.SelectAtspFiles(paths, instanceSetEvaluation)
 	if err != nil {
-		t.Fatalf("selectAtspFiles(evaluation) returned unexpected error: %v", err)
+		t.Fatalf("project.SelectAtspFiles(evaluation) returned unexpected error: %v", err)
 	}
-	allKnown, err := selectAtspFiles(paths, instanceSetAllKnown)
+	allKnown, err := project.SelectAtspFiles(paths, instanceSetAllKnown)
 	if err != nil {
-		t.Fatalf("selectAtspFiles(all-known) returned unexpected error: %v", err)
+		t.Fatalf("project.SelectAtspFiles(all-known) returned unexpected error: %v", err)
 	}
-	smoke, err := selectAtspFiles(paths, instanceSetSmoke)
+	smoke, err := project.SelectAtspFiles(paths, instanceSetSmoke)
 	if err != nil {
-		t.Fatalf("selectAtspFiles(smoke) returned unexpected error: %v", err)
+		t.Fatalf("project.SelectAtspFiles(smoke) returned unexpected error: %v", err)
 	}
 
 	partition := make(map[string]string, len(tuning)+len(evaluation))
@@ -2054,7 +2055,7 @@ func makeTestRandomSparseExperimentStatistics(randomSeed int64, averageBestDevia
 func writeTestControlStatisticsForWeightSummary(t *testing.T, atspData AtspData, heuristic string) {
 	t.Helper()
 
-	firstInstance := strings.Contains(atspData.name, "sample-a")
+	firstInstance := strings.Contains(atspData.Name, "sample-a")
 	statistics := []ExperimentsDataStatistics{
 		makeTestSeededExperimentStatistics(0.4, 1, 4.0, 0.0),
 		makeTestSeededExperimentStatistics(0.4, 2, 4.0, 0.0),

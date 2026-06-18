@@ -244,28 +244,28 @@ func saveGksDeviationReport(path string, atspsData []AtspData, msaPatchBiases []
 func buildGksDeviationRows(atspsData []AtspData, msaPatchBiases []float64) ([]gksDeviationRow, error) {
 	rows := make([]gksDeviationRow, 0, len(atspsData)*len(msaPatchBiases))
 	for _, atspData := range atspsData {
-		msaHeuristicMatrix, err := msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
+		msaHeuristicMatrix, err := msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath)
 		if err != nil {
-			return nil, fmt.Errorf("%s: failed to read MSA heuristic: %w", atspData.name, err)
+			return nil, fmt.Errorf("%s: failed to read MSA heuristic: %w", atspData.Name, err)
 		}
 
-		cycleCoverMatrix, _, err := buildMinimumCycleCoverMatrix(atspData.matrix)
+		cycleCoverMatrix, _, err := buildMinimumCycleCoverMatrix(atspData.Matrix)
 		if err != nil {
-			return nil, fmt.Errorf("%s: failed to compute minimum cycle cover: %w", atspData.name, err)
+			return nil, fmt.Errorf("%s: failed to compute minimum cycle cover: %w", atspData.Name, err)
 		}
 
 		for _, msaPatchBias := range msaPatchBiases {
-			patchingMatrix := heuristics.BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(atspData.matrix, msaHeuristicMatrix, cycleCoverMatrix, msaPatchBias)
-			tourLength, err := tourMatrixLength(atspData.matrix, patchingMatrix)
+			patchingMatrix := heuristics.BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(atspData.Matrix, msaHeuristicMatrix, cycleCoverMatrix, msaPatchBias)
+			tourLength, err := tourMatrixLength(atspData.Matrix, patchingMatrix)
 			if err != nil {
-				return nil, fmt.Errorf("%s: invalid GKS tour for MSA patch bias %.2f: %w", atspData.name, msaPatchBias, err)
+				return nil, fmt.Errorf("%s: invalid GKS tour for MSA patch bias %.2f: %w", atspData.Name, msaPatchBias, err)
 			}
 
 			rows = append(rows, gksDeviationRow{
-				instance:     atspData.name,
+				instance:     atspData.Name,
 				msaPatchBias: msaPatchBias,
 				tourLength:   tourLength,
-				deviation:    100.0 * (tourLength - atspData.knownOptimal) / atspData.knownOptimal,
+				deviation:    100.0 * (tourLength - atspData.KnownOptimal) / atspData.KnownOptimal,
 			})
 		}
 	}
@@ -571,9 +571,9 @@ func buildMsaCountScalingRows(atspsData []AtspData, requestedCounts []int) ([]ms
 			row.boostedEdges += len(boostedEdges)
 			row.boostedTargetEdges += maxIntValue(len(msas)-1, 0)
 
-			tours, err := msaHeuristicTours.ReadOptimalTours(atspData.optimalUniqueToursCsvPath)
+			tours, err := msaHeuristicTours.ReadOptimalTours(atspData.OptimalUniqueToursCsvPath)
 			if err != nil {
-				return nil, fmt.Errorf("%s: read found optimal tours: %w", atspData.name, err)
+				return nil, fmt.Errorf("%s: read found optimal tours: %w", atspData.Name, err)
 			}
 			optimalEdges := buildAnalysisTourEdgeSet(tours)
 			if len(optimalEdges) == 0 {
@@ -594,21 +594,21 @@ func buildMsaCountScalingRows(atspsData []AtspData, requestedCounts []int) ([]ms
 }
 
 func readOrCreateIndividualMsas(atspData AtspData) ([][][]float64, error) {
-	msas, err := msaHeuristic.ReadMsas(atspData.msaHeuristicDirectoryPath)
-	if err == nil && len(msas) == len(atspData.matrix) {
+	msas, err := msaHeuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)
+	if err == nil && len(msas) == len(atspData.Matrix) {
 		return msas, nil
 	}
 
-	if _, createErr := msaHeuristic.Create(atspData.matrix, atspData.msaHeuristicDirectoryPath); createErr != nil {
+	if _, createErr := msaHeuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath); createErr != nil {
 		if err != nil {
-			return nil, fmt.Errorf("%s: read individual MSAs: %w; create MSA heuristic: %w", atspData.name, err, createErr)
+			return nil, fmt.Errorf("%s: read individual MSAs: %w; create MSA heuristic: %w", atspData.Name, err, createErr)
 		}
-		return nil, fmt.Errorf("%s: create MSA heuristic: %w", atspData.name, createErr)
+		return nil, fmt.Errorf("%s: create MSA heuristic: %w", atspData.Name, createErr)
 	}
 
-	msas, err = msaHeuristic.ReadMsas(atspData.msaHeuristicDirectoryPath)
+	msas, err = msaHeuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)
 	if err != nil {
-		return nil, fmt.Errorf("%s: read individual MSAs: %w", atspData.name, err)
+		return nil, fmt.Errorf("%s: read individual MSAs: %w", atspData.Name, err)
 	}
 
 	return msas, nil

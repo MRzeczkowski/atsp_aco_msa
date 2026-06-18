@@ -1,6 +1,7 @@
 package app
 
 import (
+	"atsp_aco_msa/modules/project"
 	"flag"
 	"fmt"
 	"path/filepath"
@@ -124,14 +125,14 @@ func heuristicFileSuffix(heuristic string) string {
 func resultFilePathForHeuristic(atspData AtspData, heuristic string) string {
 	suffix := heuristicFileSuffix(heuristic)
 	if suffix == "" {
-		return atspData.resultFilePath
+		return atspData.ResultFilePath
 	}
 
-	return strings.TrimSuffix(atspData.resultFilePath, ".csv") + suffix + ".csv"
+	return strings.TrimSuffix(atspData.ResultFilePath, ".csv") + suffix + ".csv"
 }
 
 func resultPlotFilePrefixForHeuristic(atspData AtspData, heuristic string) string {
-	return atspData.resultPlotFilePrefix + heuristicFileSuffix(heuristic)
+	return atspData.ResultPlotFilePrefix + heuristicFileSuffix(heuristic)
 }
 
 func shouldRunExperiments(mode string) bool {
@@ -160,10 +161,10 @@ func shouldRunMsaRebuild(mode string) bool {
 
 func finalExperimentOutputRoot(mode string) string {
 	if mode == runModeFinal3Opt {
-		return finalThreeOptResultsDirectoryName
+		return project.FinalThreeOptResultsDirectoryName
 	}
 
-	return finalResultsDirectoryName
+	return project.FinalResultsDirectoryName
 }
 
 func finalControlsResultsRootPath(finalResultsRootPath string) string {
@@ -292,7 +293,7 @@ func Run(args []string) {
 		finalConfigurations = configurations
 	}
 
-	atspsData, err := loadSelectedAtspData(selectedInstances)
+	atspsData, err := project.LoadSelectedAtspData(selectedInstances)
 	if err != nil {
 		fmt.Println(err)
 		return

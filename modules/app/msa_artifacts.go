@@ -11,33 +11,33 @@ import (
 func runRebuildMsaMode(atspsData []AtspData, workers int) error {
 	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
 		start := time.Now()
-		fmt.Printf("[%s][%s] Rebuilding MSA artifacts in %s\n", logTimestamp(start), atspData.name, atspData.msaHeuristicDirectoryPath)
+		fmt.Printf("[%s][%s] Rebuilding MSA artifacts in %s\n", logTimestamp(start), atspData.Name, atspData.MsaHeuristicDirectoryPath)
 
-		if err := os.RemoveAll(atspData.msaHeuristicDirectoryPath); err != nil {
-			return fmt.Errorf("%s: remove MSA artifacts: %w", atspData.name, err)
+		if err := os.RemoveAll(atspData.MsaHeuristicDirectoryPath); err != nil {
+			return fmt.Errorf("%s: remove MSA artifacts: %w", atspData.Name, err)
 		}
 
-		msaHeuristicMatrix, err := msaHeuristic.Create(atspData.matrix, atspData.msaHeuristicDirectoryPath)
+		msaHeuristicMatrix, err := msaHeuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath)
 		if err != nil {
-			return fmt.Errorf("%s: create MSA artifacts: %w", atspData.name, err)
+			return fmt.Errorf("%s: create MSA artifacts: %w", atspData.Name, err)
 		}
 
 		if err := saveMsaHeuristicPlots(atspData, msaHeuristicMatrix); err != nil {
-			return fmt.Errorf("%s: save MSA plots: %w", atspData.name, err)
+			return fmt.Errorf("%s: save MSA plots: %w", atspData.Name, err)
 		}
 
-		fmt.Printf("[%s][%s] Rebuilt MSA artifacts in %s\n", logTimestamp(time.Now()), atspData.name, time.Since(start).Round(time.Millisecond))
+		fmt.Printf("[%s][%s] Rebuilt MSA artifacts in %s\n", logTimestamp(time.Now()), atspData.Name, time.Since(start).Round(time.Millisecond))
 		return nil
 	})
 }
 
 func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int, requireRooted bool) error {
 	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
-		name := atspData.name
-		matrix := atspData.matrix
-		msaHeuristicDirectoryPath := atspData.msaHeuristicDirectoryPath
+		name := atspData.Name
+		matrix := atspData.Matrix
+		msaHeuristicDirectoryPath := atspData.MsaHeuristicDirectoryPath
 
-		msaHeuristicMatrix, err := msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
+		msaHeuristicMatrix, err := msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath)
 
 		if err != nil {
 			start := time.Now()
@@ -55,7 +55,7 @@ func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int, requireRoote
 			if _, err := readOrCreateIndividualMsas(atspData); err != nil {
 				return err
 			}
-			msaHeuristicMatrix, err = msaHeuristic.Read(atspData.msaHeuristicDirectoryPath)
+			msaHeuristicMatrix, err = msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath)
 			if err != nil {
 				return err
 			}
@@ -66,15 +66,15 @@ func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int, requireRoote
 }
 
 func saveMsaHeuristicPlots(atspData AtspData, msaHeuristicMatrix [][]float64) error {
-	msaHeuristicHeatmapPlotTitle := atspData.name + " MSA heuristic heatmap"
-	if err := utilities.SaveHeatmapFromMatrix(msaHeuristicMatrix, msaHeuristicHeatmapPlotTitle, atspData.msaHeuristicHeatmapPlotPath); err != nil {
+	msaHeuristicHeatmapPlotTitle := atspData.Name + " MSA heuristic heatmap"
+	if err := utilities.SaveHeatmapFromMatrix(msaHeuristicMatrix, msaHeuristicHeatmapPlotTitle, atspData.MsaHeuristicHeatmapPlotPath); err != nil {
 		return err
 	}
 
 	dataForHistogram := filterZeroes(flattenMatrix(msaHeuristicMatrix))
-	msaHeuristicHistogramPlotTitle := atspData.name + " MSA heuristic histogram"
-	dimension := len(atspData.matrix)
-	if err := utilities.SaveHistogramFromData(dataForHistogram, dimension-1, msaHeuristicHistogramPlotTitle, atspData.msaHeuristicHistogramPlotPath); err != nil {
+	msaHeuristicHistogramPlotTitle := atspData.Name + " MSA heuristic histogram"
+	dimension := len(atspData.Matrix)
+	if err := utilities.SaveHistogramFromData(dataForHistogram, dimension-1, msaHeuristicHistogramPlotTitle, atspData.MsaHeuristicHistogramPlotPath); err != nil {
 		return err
 	}
 
@@ -83,7 +83,7 @@ func saveMsaHeuristicPlots(atspData AtspData, msaHeuristicMatrix [][]float64) er
 
 func ensureMsaHeuristicCache(atspsData []AtspData, workers int, requireRooted bool) error {
 	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
-		if _, err := msaHeuristic.Read(atspData.msaHeuristicDirectoryPath); err == nil {
+		if _, err := msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath); err == nil {
 			if requireRooted {
 				_, err = readOrCreateIndividualMsas(atspData)
 			}
@@ -91,7 +91,7 @@ func ensureMsaHeuristicCache(atspsData []AtspData, workers int, requireRooted bo
 		}
 
 		start := time.Now()
-		if _, err := msaHeuristic.Create(atspData.matrix, atspData.msaHeuristicDirectoryPath); err != nil {
+		if _, err := msaHeuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath); err != nil {
 			return fmt.Errorf("error saving MSA heuristic: %w", err)
 		}
 
@@ -101,7 +101,7 @@ func ensureMsaHeuristicCache(atspsData []AtspData, workers int, requireRooted bo
 			}
 		}
 
-		fmt.Printf("\t[%s] Creating %s took: %d ms\n", atspData.name, atspData.msaHeuristicDirectoryPath, time.Since(start).Milliseconds())
+		fmt.Printf("\t[%s] Creating %s took: %d ms\n", atspData.Name, atspData.MsaHeuristicDirectoryPath, time.Since(start).Milliseconds())
 		return nil
 	})
 }

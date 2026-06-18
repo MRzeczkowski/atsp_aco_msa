@@ -1,5 +1,9 @@
 package app
 
+import "atsp_aco_msa/modules/project"
+
+type AtspData = project.AtspData
+
 type ExperimentsData struct {
 	ExperimentParameters
 	results []ExperimentResult
@@ -48,10 +52,10 @@ type finalResultsSummaryRow struct {
 }
 
 const (
-	instanceSetSmoke      = "smoke"
-	instanceSetTuning     = "tuning"
-	instanceSetEvaluation = "evaluation"
-	instanceSetAllKnown   = "all-known"
+	instanceSetSmoke      = project.InstanceSetSmoke
+	instanceSetTuning     = project.InstanceSetTuning
+	instanceSetEvaluation = project.InstanceSetEvaluation
+	instanceSetAllKnown   = project.InstanceSetAllKnown
 )
 
 const (
@@ -122,55 +126,3 @@ var finalResultsSummaryHeuristics = []string{
 }
 
 var msaCountScalingCounts = []int{1, 2, 4, 8, 16, 32, 64, 0}
-
-var smokeInstanceFiles = []string{
-	"br17.atsp",
-}
-
-var tuningInstanceFiles = []string{
-	"ftv33.atsp",
-	"p43.atsp",
-	"ft53.atsp",
-	"ftv64.atsp",
-	"crane66_1.atsp",
-	"atex5.atsp",
-	"ftv90.atsp",
-	"ry48p.atsp",
-	"crane100_1.atsp",
-	"td100_1.atsp",
-	"ftv120.atsp",
-	"dc134.atsp",
-	"ftv150.atsp",
-	"dc188.atsp",
-	"rbg323.atsp",
-}
-
-var evaluationInstanceFiles = []string{
-	"atex1.atsp",
-	"atex3.atsp",
-	"atex4.atsp",
-	"ftv35.atsp",
-	"ftv38.atsp",
-	"ftv44.atsp",
-	"ftv47.atsp",
-	"ftv55.atsp",
-	"crane66_0.atsp",
-	"crane66_2.atsp",
-	"ft70.atsp",
-	"ftv70.atsp",
-	"crane100_0.atsp",
-	"crane100_2.atsp",
-	"ftv100.atsp",
-	"ftv110.atsp",
-	"dc112.atsp",
-	"dc126.atsp",
-	"ftv130.atsp",
-	"ftv140.atsp",
-	"ftv160.atsp",
-	"ftv170.atsp",
-	"dc176.atsp",
-	"code198.atsp",
-	"rbg358.atsp",
-	"rbg403.atsp",
-	"rbg443.atsp",
-}
