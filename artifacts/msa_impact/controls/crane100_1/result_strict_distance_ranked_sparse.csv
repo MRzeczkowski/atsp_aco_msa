@@ -1,2 +1,0 @@
-Alpha,Beta,Rho,Heuristic weight,Iterations,Min best at iteration,Avg best at iteration,Max best at iteration,Min local search improvements,Avg local search improvements,Max local search improvements,Min best deviation,Avg best deviation,Max best deviation,Success rate [%]
-1.00,2.00,0.80,0.40,3000,1342,2672.40,2968,0,0.00,0,3.06,5.31,8.78,0.00

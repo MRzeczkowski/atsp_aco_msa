@@ -10,7 +10,7 @@ import (
 )
 
 func isValidRunMode(mode string) bool {
-	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeFinal || mode == runModeFinal3Opt || mode == runModeRebuildMsa || mode == runModeMsaImpact
+	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeFinal || mode == runModeFinal3Opt || mode == runModeRebuildMsa
 }
 
 func isValidHeuristic(heuristic string) bool {
@@ -154,10 +154,6 @@ func shouldRunFinalExperiments(mode string) bool {
 	return mode == runModeFinal || mode == runModeFinal3Opt
 }
 
-func shouldRunMsaImpact(mode string) bool {
-	return mode == runModeMsaImpact
-}
-
 func shouldRunMsaRebuild(mode string) bool {
 	return mode == runModeRebuildMsa
 }
@@ -209,9 +205,6 @@ func selectedInstanceSetForMode(mode, requestedInstanceSet string, instanceSetEx
 	if shouldRunFinalExperiments(mode) && !instanceSetExplicit {
 		return instanceSetEvaluation
 	}
-	if shouldRunMsaImpact(mode) && !instanceSetExplicit {
-		return instanceSetMsaImpact
-	}
 	if shouldRunMsaRebuild(mode) && !instanceSetExplicit {
 		return instanceSetAllKnown
 	}
@@ -245,8 +238,8 @@ func configureWorkerCount(requestedWorkers int) (int, error) {
 
 func Run(args []string) {
 	flags := flag.NewFlagSet("atsp_aco_msa", flag.ExitOnError)
-	instances := flags.String("instances", instanceSetTuning, "ATSP instance set to run: smoke, msa-impact, tuning, evaluation, or all-known")
-	mode := flags.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, final+3opt, rebuild-msa, or msa-impact")
+	instances := flags.String("instances", instanceSetTuning, "ATSP instance set to run: smoke, tuning, evaluation, or all-known")
+	mode := flags.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, final+3opt, or rebuild-msa")
 	analysisScope := flags.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all, tuning, or gks-deviation")
 	heuristic := flags.String("heuristic", "", "ACO heuristic modifier to use in experiment mode: omit or use all; otherwise strict-msa, rooted-msa, cycle-cover, or cycle-cover-msa-patching")
 	finalHeuristic := flags.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, controls, baseline, strict-msa, rooted-msa, random-sparse, distance-ranked-sparse, shuffled-msa, cycle-cover, or cycle-cover-msa-patching")
@@ -272,7 +265,7 @@ func Run(args []string) {
 	selectedFinalHeuristic := *finalHeuristic
 
 	if !isValidRunMode(*mode) {
-		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal, runModeFinal3Opt, runModeRebuildMsa, runModeMsaImpact)
+		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal, runModeFinal3Opt, runModeRebuildMsa)
 		return
 	}
 
@@ -308,15 +301,6 @@ func Run(args []string) {
 
 	if shouldRunMsaRebuild(*mode) {
 		err = runRebuildMsaMode(atspsData, effectiveWorkers)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		return
-	}
-
-	if shouldRunMsaImpact(*mode) {
-		err = runMsaImpactMode(atspsData, effectiveWorkers)
 		if err != nil {
 			fmt.Println(err)
 			return

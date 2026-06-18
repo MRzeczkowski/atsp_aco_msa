@@ -12,11 +12,6 @@ var artifactsDirectoryName = "artifacts"
 var resultsDirectoryName = filepath.Join(artifactsDirectoryName, "tuning")
 var finalResultsDirectoryName = filepath.Join(artifactsDirectoryName, "final", "no_3opt")
 var finalThreeOptResultsDirectoryName = filepath.Join(artifactsDirectoryName, "final", "with_3opt")
-
-// Temporary prototype artifact roots for msa-impact runs. These outputs are for
-// heuristic development only and are expected to be deleted later.
-var msaImpactResultsDirectoryName = filepath.Join(artifactsDirectoryName, "msa_impact", "results")
-var msaImpactControlsDirectoryName = filepath.Join(artifactsDirectoryName, "msa_impact", "controls")
 var msaHeuristicArtifactsDirectoryName = filepath.Join(artifactsDirectoryName, "msa")
 var solutionArtifactsDirectoryName = filepath.Join(artifactsDirectoryName, "solutions")
 var resultFileName = "result.csv"
@@ -94,8 +89,6 @@ func selectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, erro
 	switch instanceSet {
 	case instanceSetSmoke:
 		return selectConfiguredAtspFiles(atspFilePaths, smokeInstanceFiles)
-	case instanceSetMsaImpact:
-		return selectConfiguredAtspFiles(atspFilePaths, msaImpactInstanceFiles)
 	case instanceSetTuning:
 		return selectConfiguredAtspFiles(atspFilePaths, tuningInstanceFiles)
 	case instanceSetEvaluation:
@@ -115,7 +108,7 @@ func selectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, erro
 
 		return selected, nil
 	default:
-		return nil, fmt.Errorf("unsupported -instances value %q; use %q, %q, %q, %q, or %q", instanceSet, instanceSetSmoke, instanceSetMsaImpact, instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown)
+		return nil, fmt.Errorf("unsupported -instances value %q; use %q, %q, %q, or %q", instanceSet, instanceSetSmoke, instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown)
 	}
 }
 

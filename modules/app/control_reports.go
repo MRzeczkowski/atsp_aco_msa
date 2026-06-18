@@ -144,29 +144,10 @@ func statisticsForHeuristicWeightAll(statistics []ExperimentsDataStatistics, heu
 }
 
 func readFinalMsaHeuristicControlMetric(atspData AtspData, finalResultsRootPath string) (finalResultsSummaryMetric, bool, error) {
-	referenceHeuristic := heuristicStrictMsa
-	if finalResultsRootPath == msaImpactResultsDirectoryName {
-		referenceHeuristic = heuristicRootedMsa
-	}
-
-	return readMsaControlMetric(atspData, finalResultsRootPath, referenceHeuristic)
+	return readMsaControlMetric(atspData, finalResultsRootPath, heuristicStrictMsa)
 }
 
 func readMsaControlMetric(atspData AtspData, finalResultsRootPath, referenceHeuristic string) (finalResultsSummaryMetric, bool, error) {
-	if finalResultsRootPath == msaImpactResultsDirectoryName {
-		finalAtspData := withExperimentOutputRoot(atspData, finalResultsRootPath)
-		metrics, err := readFinalResultSummaryMetrics(finalAtspData.resultFilePath)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return finalResultsSummaryMetric{}, false, nil
-			}
-			return finalResultsSummaryMetric{}, false, err
-		}
-
-		metric, ok := metrics[referenceHeuristic]
-		return metric, ok, nil
-	}
-
 	finalAtspData := withExperimentOutputRoot(atspData, finalResultsRootPath)
 	statistics, err := readHeuristicStatistics(finalAtspData.resultFilePath)
 	if err != nil {
@@ -375,7 +356,7 @@ func saveDistanceRankedSparseControlReportForReference(path string, atspsData []
 
 	var builder strings.Builder
 	fmt.Fprintf(&builder, "# %s Distance-ranked Sparse Control\n\n", referenceName)
-	fmt.Fprintf(&builder, "This sanity check compares %s against a deterministic sparse mask built from the cheapest directed edges. The control preserves the matching edge-count structure and %s.\n\n", referenceName, controlWeightDescription(finalResultsRootPath, referenceName))
+	fmt.Fprintf(&builder, "This sanity check compares %s against a deterministic sparse mask built from the cheapest directed edges. The control preserves the matching edge-count structure and %s.\n\n", referenceName, controlWeightDescription())
 	writeDistanceRankedSparseControlFindings(&builder, rows, referenceName, controlName)
 	builder.WriteString("\n")
 	writeDistanceRankedSparseControlTable(&builder, rows, referenceName, controlName)
@@ -789,7 +770,7 @@ func writeSeededSparseControlMissingData(builder *strings.Builder, missingData [
 func saveShuffledMsaControlReport(path string, atspsData []AtspData, finalResultsRootPath, controlResultsRootPath string) (bool, error) {
 	return saveSeededSparseControlReport(path, atspsData, finalResultsRootPath, controlResultsRootPath, seededSparseControlReportConfig{
 		title:              "Shuffled MSA Control",
-		description:        fmt.Sprintf("This sanity check compares Strict MSA against deterministic shuffles of the strict MSA mask. Each shuffle preserves the number and boost values of strict-MSA boosted directed edges, but assigns them to shuffled directed edges. The control %s.", controlWeightDescription(finalResultsRootPath, "Strict MSA")),
+		description:        fmt.Sprintf("This sanity check compares Strict MSA against deterministic shuffles of the strict MSA mask. Each shuffle preserves the number and boost values of strict-MSA boosted directed edges, but assigns them to shuffled directed edges. The control %s.", controlWeightDescription()),
 		referenceHeuristic: heuristicStrictMsa,
 		referenceName:      "Strict MSA",
 		controlName:        "shuffled MSA",
@@ -798,14 +779,6 @@ func saveShuffledMsaControlReport(path string, atspsData []AtspData, finalResult
 	})
 }
 
-func controlWeightDescription(finalResultsRootPath string, referenceNames ...string) string {
-	if finalResultsRootPath == msaImpactResultsDirectoryName {
-		referenceName := "MSA"
-		if len(referenceNames) != 0 {
-			referenceName = referenceNames[0]
-		}
-		return fmt.Sprintf("uses the best %s impact heuristic weight selected separately for each instance", referenceName)
-	}
-
+func controlWeightDescription() string {
 	return fmt.Sprintf("uses the same `heuristicWeight=%.2f`", finalStrictMsaHeuristicWeight)
 }

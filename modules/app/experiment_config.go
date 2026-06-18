@@ -108,58 +108,6 @@ func finalControlExperimentConfigurations() []finalExperimentConfiguration {
 	}
 }
 
-func msaImpactControlExperimentConfigurations(referenceHeuristic string, heuristicWeight float64) []finalExperimentConfiguration {
-	distanceRankedHeuristic := heuristicStrictDistanceRanked
-	shuffledHeuristic := heuristicStrictShuffledMsa
-	if referenceHeuristic == heuristicRootedMsa {
-		distanceRankedHeuristic = heuristicRootedDistanceRanked
-		shuffledHeuristic = heuristicRootedShuffledMsa
-	}
-
-	return []finalExperimentConfiguration{
-		{
-			heuristic: distanceRankedHeuristic,
-			parameters: []ExperimentParameters{
-				newDefaultExperimentParameters(heuristicWeight),
-			},
-		},
-		{
-			heuristic:  shuffledHeuristic,
-			parameters: newSeededControlExperimentParametersForWeights(shuffledMsaSeeds, []float64{heuristicWeight}),
-		},
-	}
-}
-
-func msaImpactExperimentConfigurations() []finalExperimentConfiguration {
-	return []finalExperimentConfiguration{
-		{
-			heuristic: heuristicBaseline,
-			parameters: []ExperimentParameters{
-				newDefaultExperimentParameters(defaultBaselineHeuristicWeight),
-			},
-		},
-		{
-			heuristic:            heuristicStrictMsa,
-			parameters:           newMsaImpactExperimentParameters(),
-			saveAllParameterRows: true,
-		},
-		{
-			heuristic:            heuristicRootedMsa,
-			parameters:           newMsaImpactExperimentParameters(),
-			saveAllParameterRows: true,
-		},
-	}
-}
-
-func newMsaImpactExperimentParameters() []ExperimentParameters {
-	parameters := make([]ExperimentParameters, 0, len(msaImpactHeuristicWeights))
-	for _, heuristicWeight := range msaImpactHeuristicWeights {
-		parameters = append(parameters, newDefaultExperimentParameters(heuristicWeight))
-	}
-
-	return parameters
-}
-
 func selectFinalExperimentConfigurations(finalHeuristic string) ([]finalExperimentConfiguration, error) {
 	configurations := finalExperimentConfigurations()
 	if finalHeuristic == finalHeuristicAll {

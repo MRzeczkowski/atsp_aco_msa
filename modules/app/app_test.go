@@ -300,167 +300,6 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 	assertContains(t, content, "<td>sample-b</td>")
 }
 
-// Temporary msa-impact prototype tests. Remove with the msa-impact pipeline.
-func TestSaveMsaImpactSummaryComparesMsaAgainstBaseline(t *testing.T) {
-	originalMsaImpactResultsDirectoryName := msaImpactResultsDirectoryName
-	msaImpactResultsDirectoryName = t.TempDir()
-	t.Cleanup(func() {
-		msaImpactResultsDirectoryName = originalMsaImpactResultsDirectoryName
-	})
-
-	sourceRoot := filepath.Join(t.TempDir(), "results")
-	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	impactFirst := withExperimentOutputRoot(first, msaImpactResultsDirectoryName)
-	impactSecond := withExperimentOutputRoot(second, msaImpactResultsDirectoryName)
-
-	if err := saveHeuristicStatistics(impactFirst.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicBaseline, statistics: makeTestExperimentStatistics(defaultBaselineHeuristicWeight, 5.0, 10.0)},
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 15.0)},
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.8, 4.5, 0.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 3.0, 20.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(0.8, 4.0, 0.0)},
-	}); err != nil {
-		t.Fatalf("failed to write first impact result: %v", err)
-	}
-	if err := saveHeuristicStatistics(impactSecond.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicBaseline, statistics: makeTestExperimentStatistics(defaultBaselineHeuristicWeight, 2.0, 30.0)},
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 3.0, 25.0)},
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.2, 4.0, 10.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 10.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(0.2, 1.0, 50.0)},
-	}); err != nil {
-		t.Fatalf("failed to write second impact result: %v", err)
-	}
-
-	reportPath := filepath.Join(msaImpactResultsDirectoryName, "msa_impact_summary.md")
-	if err := saveMsaImpactSummary(reportPath, []AtspData{second, first}); err != nil {
-		t.Fatalf("saveMsaImpactSummary returned unexpected error: %v", err)
-	}
-
-	contentBytes, err := os.ReadFile(reportPath)
-	if err != nil {
-		t.Fatalf("failed to read MSA impact summary: %v", err)
-	}
-	content := string(contentBytes)
-	assertContains(t, content, "# MSA Impact Summary")
-	assertContains(t, content, "Strict MSA improved average best deviation in 1/2 instances, tied in 0, and was worse in 1.")
-	assertContains(t, content, "Mean average best deviation: baseline 3.50%, Strict MSA 3.50%, delta +0.00 pp; success-rate delta +0.00 pp.")
-	assertContains(t, content, "Rooted MSA improved average best deviation in 2/2 instances, tied in 0, and was worse in 0.")
-	assertContains(t, content, "Mean average best deviation: baseline 3.50%, Rooted MSA 2.00%, delta -1.50 pp; success-rate delta +15.00 pp.")
-	assertContains(t, content, "Best Rooted MSA weights: 0.20 (1), 0.40 (1).")
-	assertContains(t, content, "<tr><th>Instance</th><th>Baseline avg best dev. [%]</th><th>Strict MSA avg best dev. [%]</th><th>Strict weight</th><th>Strict delta [pp]</th><th>Rooted MSA avg best dev. [%]</th><th>Rooted weight</th><th>Rooted delta [pp]</th><th>Baseline success [%]</th><th>Strict success [%]</th><th>Rooted success [%]</th></tr>")
-	assertContains(t, content, "<tr><td>sample-a</td><td align=\"right\">5.00</td><td align=\"right\">4.00</td><td align=\"right\">0.40</td><td align=\"right\">-1.00</td><td align=\"right\">3.00</td><td align=\"right\">0.40</td><td align=\"right\">-2.00</td><td align=\"right\">10.00</td><td align=\"right\">15.00</td><td align=\"right\">20.00</td></tr>")
-	assertContains(t, content, "<tr><td>sample-b</td><td align=\"right\">2.00</td><td align=\"right\">3.00</td><td align=\"right\">0.40</td><td align=\"right\">+1.00</td><td align=\"right\">1.00</td><td align=\"right\">0.20</td><td align=\"right\">-1.00</td><td align=\"right\">30.00</td><td align=\"right\">25.00</td><td align=\"right\">50.00</td></tr>")
-}
-
-func TestSaveMsaImpactStructureReportCombinesStructureWithPerformance(t *testing.T) {
-	originalMsaImpactResultsDirectoryName := msaImpactResultsDirectoryName
-	msaImpactResultsDirectoryName = t.TempDir()
-	t.Cleanup(func() {
-		msaImpactResultsDirectoryName = originalMsaImpactResultsDirectoryName
-	})
-
-	sourceRoot := filepath.Join(t.TempDir(), "results")
-	msaRoot := filepath.Join(t.TempDir(), "msa")
-	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{
-		{0, 1, 1, 1},
-		{1, 0, 1, 1},
-		{1, 1, 0, 1},
-		{1, 1, 1, 0},
-	}, 4, sourceRoot)
-	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{
-		{0, 1, 1},
-		{1, 0, 1},
-		{1, 1, 0},
-	}, 3, sourceRoot)
-	first.msaHeuristicDirectoryPath = filepath.Join(msaRoot, "sample-a")
-	second.msaHeuristicDirectoryPath = filepath.Join(msaRoot, "sample-b")
-
-	writeTestMsaHeuristicMatrix(t, first.msaHeuristicDirectoryPath, [][]float64{
-		{0, 3, 0, 0},
-		{0, 0, 3, 0},
-		{0, 0, 0, 0},
-		{0, 0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, first.msaHeuristicDirectoryPath, 0, [][]float64{
-		{0, 1, 1, 1},
-		{0, 0, 0, 0},
-		{0, 0, 0, 0},
-		{0, 0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, first.msaHeuristicDirectoryPath, 1, [][]float64{
-		{0, 0, 1, 0},
-		{1, 0, 0, 0},
-		{0, 0, 0, 1},
-		{0, 0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, first.msaHeuristicDirectoryPath, 2, [][]float64{
-		{0, 1, 0, 0},
-		{0, 0, 0, 1},
-		{1, 0, 0, 0},
-		{0, 0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, first.msaHeuristicDirectoryPath, 3, [][]float64{
-		{0, 1, 0, 0},
-		{0, 0, 1, 0},
-		{0, 0, 0, 0},
-		{1, 0, 0, 0},
-	})
-	writeTestMsaHeuristicMatrix(t, second.msaHeuristicDirectoryPath, [][]float64{
-		{0, 2, 0},
-		{0, 0, 2},
-		{2, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, second.msaHeuristicDirectoryPath, 0, [][]float64{
-		{0, 1, 0},
-		{0, 0, 1},
-		{0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, second.msaHeuristicDirectoryPath, 1, [][]float64{
-		{0, 0, 1},
-		{1, 0, 0},
-		{0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, second.msaHeuristicDirectoryPath, 2, [][]float64{
-		{0, 1, 0},
-		{0, 0, 0},
-		{1, 0, 0},
-	})
-
-	impactFirst := withExperimentOutputRoot(first, msaImpactResultsDirectoryName)
-	impactSecond := withExperimentOutputRoot(second, msaImpactResultsDirectoryName)
-	if err := saveHeuristicStatistics(impactFirst.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicBaseline, statistics: makeTestExperimentStatistics(defaultBaselineHeuristicWeight, 5.0, 10.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 3.0, 20.0)},
-	}); err != nil {
-		t.Fatalf("failed to write first impact result: %v", err)
-	}
-	if err := saveHeuristicStatistics(impactSecond.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicBaseline, statistics: makeTestExperimentStatistics(defaultBaselineHeuristicWeight, 2.0, 30.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 10.0)},
-	}); err != nil {
-		t.Fatalf("failed to write second impact result: %v", err)
-	}
-
-	reportPath := filepath.Join(msaImpactResultsDirectoryName, "msa_impact_structure.md")
-	if err := saveMsaImpactStructureReport(reportPath, []AtspData{first, second}); err != nil {
-		t.Fatalf("saveMsaImpactStructureReport returned unexpected error: %v", err)
-	}
-
-	contentBytes, err := os.ReadFile(reportPath)
-	if err != nil {
-		t.Fatalf("failed to read MSA impact structure report: %v", err)
-	}
-	content := string(contentBytes)
-	assertContains(t, content, "# MSA Impact Structure")
-	assertContains(t, content, "Average boosted-edge ratio against n-1: 1.00.")
-	assertContains(t, content, "Average missing outgoing vertices: 1.25; average missing incoming vertices: 1.00.")
-	assertContains(t, content, "Average missing endpoints: improved cases 2.50, tied/worse cases 2.00.")
-	assertContains(t, content, "<tr><td>sample-a</td><td align=\"right\">4</td><td align=\"right\">3.00</td><td align=\"right\">1.00</td><td align=\"right\">1.50</td><td align=\"right\">1.00</td><td align=\"right\">-2.00</td><td align=\"right\">+10.00</td></tr>")
-	assertContains(t, content, "<tr><td>sample-b</td><td align=\"right\">3</td><td align=\"right\">2.00</td><td align=\"right\">1.00</td><td align=\"right\">1.00</td><td align=\"right\">1.00</td><td align=\"right\">+2.00</td><td align=\"right\">-20.00</td></tr>")
-}
-
 func TestReadMsaHeuristicMatrixForResultRootUsesCompositeMsaForMatrixFallback(t *testing.T) {
 	root := t.TempDir()
 	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{
@@ -498,22 +337,6 @@ func TestReadMsaHeuristicMatrixForResultRootUsesCompositeMsaForMatrixFallback(t 
 	}
 	if !reflect.DeepEqual(normalMatrix, compositeMsa) {
 		t.Fatalf("expected normal run to use composite MSA, got %v", normalMatrix)
-	}
-
-	impactMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicStrictMsa, msaImpactResultsDirectoryName)
-	if err != nil {
-		t.Fatalf("read MSA impact matrix: %v", err)
-	}
-	if !reflect.DeepEqual(impactMatrix, compositeMsa) {
-		t.Fatalf("expected matrix fallback to use composite MSA, got %v", impactMatrix)
-	}
-
-	controlMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicRandomSparse, msaImpactControlsDirectoryName)
-	if err != nil {
-		t.Fatalf("read MSA impact control matrix: %v", err)
-	}
-	if !reflect.DeepEqual(controlMatrix, compositeMsa) {
-		t.Fatalf("expected control matrix fallback to use composite MSA, got %v", controlMatrix)
 	}
 }
 
@@ -554,178 +377,6 @@ func TestReadRootedMsaHeuristicsRequiresOneMsaPerVertex(t *testing.T) {
 	if len(rootedMsas) != 3 {
 		t.Fatalf("expected three rooted MSAs, got %d", len(rootedMsas))
 	}
-}
-
-func TestReadFinalMsaHeuristicControlMetricUsesBestWeightForMsaImpact(t *testing.T) {
-	originalMsaImpactResultsDirectoryName := msaImpactResultsDirectoryName
-	root := t.TempDir()
-	msaImpactResultsDirectoryName = filepath.Join(root, "msa-impact")
-	t.Cleanup(func() {
-		msaImpactResultsDirectoryName = originalMsaImpactResultsDirectoryName
-	})
-
-	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, filepath.Join(root, "source"))
-	impactAtspData := withExperimentOutputRoot(atspData, msaImpactResultsDirectoryName)
-	if err := saveHeuristicStatistics(impactAtspData.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.4, 1.0, 100.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(0.4, 5.0, 0.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(0.8, 2.0, 10.0)},
-	}); err != nil {
-		t.Fatalf("failed to write MSA impact result: %v", err)
-	}
-
-	impactMetric, ok, err := readFinalMsaHeuristicControlMetric(atspData, msaImpactResultsDirectoryName)
-	if err != nil {
-		t.Fatalf("read MSA impact control metric: %v", err)
-	}
-	if !ok || impactMetric.heuristicWeight != 0.8 || impactMetric.averageMinDeviation != 2.0 {
-		t.Fatalf("expected best MSA impact metric, got metric=%+v ok=%t", impactMetric, ok)
-	}
-
-	finalRoot := filepath.Join(root, "final")
-	finalAtspData := withExperimentOutputRoot(atspData, finalRoot)
-	if err := saveHeuristicStatistics(finalAtspData.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 6.0, 0.0)},
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.8, 1.0, 100.0)},
-	}); err != nil {
-		t.Fatalf("failed to write final result: %v", err)
-	}
-
-	finalMetric, ok, err := readFinalMsaHeuristicControlMetric(atspData, finalRoot)
-	if err != nil {
-		t.Fatalf("read final control metric: %v", err)
-	}
-	if !ok || finalMetric.heuristicWeight != finalStrictMsaHeuristicWeight || finalMetric.averageMinDeviation != 6.0 {
-		t.Fatalf("expected fixed-weight final metric, got metric=%+v ok=%t", finalMetric, ok)
-	}
-}
-
-func TestSaveMsaImpactControlWeightSummaryReportsPValuePerWeight(t *testing.T) {
-	originalMsaImpactResultsDirectoryName := msaImpactResultsDirectoryName
-	originalMsaImpactControlsDirectoryName := msaImpactControlsDirectoryName
-	root := t.TempDir()
-	msaImpactResultsDirectoryName = filepath.Join(root, "results")
-	msaImpactControlsDirectoryName = filepath.Join(root, "controls")
-	t.Cleanup(func() {
-		msaImpactResultsDirectoryName = originalMsaImpactResultsDirectoryName
-		msaImpactControlsDirectoryName = originalMsaImpactControlsDirectoryName
-	})
-
-	sourceRoot := filepath.Join(t.TempDir(), "source")
-	first := makeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	second := makeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	impactFirst := withExperimentOutputRoot(first, msaImpactResultsDirectoryName)
-	impactSecond := withExperimentOutputRoot(second, msaImpactResultsDirectoryName)
-	controlFirst := withExperimentOutputRoot(first, msaImpactControlsDirectoryName)
-	controlSecond := withExperimentOutputRoot(second, msaImpactControlsDirectoryName)
-
-	if err := saveHeuristicStatistics(impactFirst.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(0.4, 2.0, 10.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(0.8, 5.0, 0.0)},
-	}); err != nil {
-		t.Fatalf("failed to write first MSA impact result: %v", err)
-	}
-	if err := saveHeuristicStatistics(impactSecond.resultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(0.4, 1.0, 20.0)},
-		{heuristic: heuristicRootedMsa, statistics: makeTestExperimentStatistics(0.8, 1.0, 30.0)},
-	}); err != nil {
-		t.Fatalf("failed to write second MSA impact result: %v", err)
-	}
-
-	writeTestControlStatisticsForWeightSummary(t, controlFirst, heuristicRootedShuffledMsa)
-	writeTestControlStatisticsForWeightSummary(t, controlSecond, heuristicRootedShuffledMsa)
-	saveStatistics(resultFilePathForHeuristic(controlFirst, heuristicRootedDistanceRanked), heuristicRootedDistanceRanked, []ExperimentsDataStatistics{
-		makeTestExperimentStatistics(0.4, 4.0, 0.0),
-		makeTestExperimentStatistics(0.8, 3.0, 0.0),
-	})
-	saveStatistics(resultFilePathForHeuristic(controlSecond, heuristicRootedDistanceRanked), heuristicRootedDistanceRanked, []ExperimentsDataStatistics{
-		makeTestExperimentStatistics(0.4, 2.0, 0.0),
-		makeTestExperimentStatistics(0.8, 4.0, 0.0),
-	})
-
-	reportPath := filepath.Join(msaImpactControlsDirectoryName, "msa_weight_control_summary.md")
-	saved, err := saveMsaImpactControlWeightSummary(reportPath, []AtspData{second, first})
-	if err != nil {
-		t.Fatalf("saveMsaImpactControlWeightSummary returned unexpected error: %v", err)
-	}
-	if !saved {
-		t.Fatal("expected MSA impact control weight summary to be saved")
-	}
-
-	contentBytes, err := os.ReadFile(reportPath)
-	if err != nil {
-		t.Fatalf("failed to read MSA impact control weight summary: %v", err)
-	}
-	content := string(contentBytes)
-	assertContains(t, content, "# MSA Weight Control Summary")
-	if strings.Contains(content, "## Random Sparse") {
-		t.Fatal("MSA impact control summary should not include the removed random-sparse control")
-	}
-	assertContains(t, content, "## Rooted MSA vs Rooted Distance-ranked Sparse")
-	assertContains(t, content, "## Rooted MSA vs Rooted Shuffled MSA")
-	assertContains(t, content, "<tr><td align=\"right\">0.40</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">1.000000")
-	assertContains(t, content, "<tr><td align=\"right\">0.80</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">1.000000")
-}
-
-func TestSaveMsaDistanceRankedCategoryReportComparesEdgeCategories(t *testing.T) {
-	root := t.TempDir()
-	atspData := makeAtspDataInResultsDirectory("sample.atsp", [][]float64{
-		{0, 1, 2, 100},
-		{100, 0, 50, 100},
-		{100, 100, 0, 60},
-		{3, 100, 100, 0},
-	}, 10, filepath.Join(root, "results"))
-	atspData.msaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
-	atspData.optimalUniqueToursCsvPath = filepath.Join(root, "solutions", "sample", "solutions.csv")
-
-	writeTestMsaHeuristicMatrix(t, atspData.msaHeuristicDirectoryPath, [][]float64{
-		{0, 3, 0, 0},
-		{0, 0, 3, 0},
-		{0, 0, 0, 3},
-		{0, 0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 0, [][]float64{
-		{0, 1, 0, 0},
-		{0, 0, 1, 0},
-		{0, 0, 0, 1},
-		{0, 0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 1, [][]float64{
-		{0, 1, 1, 1},
-		{0, 0, 0, 0},
-		{0, 0, 0, 0},
-		{0, 0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 2, [][]float64{
-		{0, 1, 0, 0},
-		{0, 0, 1, 0},
-		{0, 0, 0, 1},
-		{0, 0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, atspData.msaHeuristicDirectoryPath, 3, [][]float64{
-		{0, 1, 0, 0},
-		{0, 0, 1, 0},
-		{0, 0, 0, 1},
-		{0, 0, 0, 0},
-	})
-	writeTestOptimalToursCsv(t, atspData.optimalUniqueToursCsvPath, []string{"[0,1,2,3]"})
-
-	reportPath := filepath.Join(root, "msa_distance_ranked_edge_categories.md")
-	if err := saveMsaDistanceRankedCategoryReport(reportPath, []AtspData{atspData}); err != nil {
-		t.Fatalf("saveMsaDistanceRankedCategoryReport returned unexpected error: %v", err)
-	}
-
-	contentBytes, err := os.ReadFile(reportPath)
-	if err != nil {
-		t.Fatalf("failed to read MSA distance-ranked category report: %v", err)
-	}
-	content := string(contentBytes)
-	assertContains(t, content, "# MSA vs Distance-ranked Edge Categories")
-	assertContains(t, content, "MSA-only precision 66.67% vs distance-only precision 100.00%.")
-	assertContains(t, content, "MSA-only recall 50.00% vs distance-only recall 25.00%.")
-	assertContains(t, content, "<tr><td>Both</td><td align=\"right\">2</td><td align=\"right\">1</td><td align=\"right\">50.00</td><td align=\"right\">25.00</td></tr>")
-	assertContains(t, content, "<tr><td>MSA only</td><td align=\"right\">3</td><td align=\"right\">2</td><td align=\"right\">66.67</td><td align=\"right\">50.00</td></tr>")
-	assertContains(t, content, "<tr><td>Distance-ranked only</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">100.00</td><td align=\"right\">25.00</td></tr>")
 }
 
 func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
@@ -1613,69 +1264,6 @@ func TestSelectFinalExperimentConfigurations(t *testing.T) {
 	}
 }
 
-func TestMsaImpactExperimentConfigurationsSweepMsaHeuristicWeights(t *testing.T) {
-	configurations := msaImpactExperimentConfigurations()
-	if len(configurations) != 3 {
-		t.Fatalf("expected baseline, strict MSA, and rooted MSA impact configurations, got %+v", configurations)
-	}
-
-	for index, expectedHeuristic := range []string{heuristicStrictMsa, heuristicRootedMsa} {
-		configuration := configurations[index+1]
-		if configuration.heuristic != expectedHeuristic {
-			t.Fatalf("expected configuration %d to be %s, got %+v", index+1, expectedHeuristic, configuration)
-		}
-		if !configuration.saveAllParameterRows {
-			t.Fatalf("%s impact should save every swept parameter row", expectedHeuristic)
-		}
-		if len(configuration.parameters) != len(msaImpactHeuristicWeights) {
-			t.Fatalf("expected %d %s impact weights, got %d", len(msaImpactHeuristicWeights), expectedHeuristic, len(configuration.parameters))
-		}
-		for i, expectedWeight := range msaImpactHeuristicWeights {
-			if configuration.parameters[i].heuristicWeight != expectedWeight {
-				t.Fatalf("unexpected %s impact weight at %d: want %.2f got %.2f", expectedHeuristic, i, expectedWeight, configuration.parameters[i].heuristicWeight)
-			}
-		}
-	}
-}
-
-func TestMsaImpactControlExperimentConfigurationsUseSelectedControlWeight(t *testing.T) {
-	const selectedWeight = 0.3
-
-	strictConfigurations := msaImpactControlExperimentConfigurations(heuristicStrictMsa, selectedWeight)
-	if len(strictConfigurations) != 2 {
-		t.Fatalf("expected two strict MSA impact control configurations, got %+v", strictConfigurations)
-	}
-
-	if strictConfigurations[0].heuristic != heuristicStrictDistanceRanked || len(strictConfigurations[0].parameters) != 1 {
-		t.Fatalf("unexpected strict distance-ranked MSA impact control configuration: %+v", strictConfigurations[0])
-	}
-	if strictConfigurations[0].parameters[0].heuristicWeight != selectedWeight {
-		t.Fatalf("strict distance-ranked control should use selected weight %.2f, got %+v", selectedWeight, strictConfigurations[0].parameters[0])
-	}
-
-	if strictConfigurations[1].heuristic != heuristicStrictShuffledMsa || len(strictConfigurations[1].parameters) != len(shuffledMsaSeeds) {
-		t.Fatalf("unexpected strict shuffled-MSA impact control configuration: %+v", strictConfigurations[1])
-	}
-	for i, parameter := range strictConfigurations[1].parameters {
-		if parameter.heuristicWeight != selectedWeight || parameter.randomSeed != shuffledMsaSeeds[i] {
-			t.Fatalf("unexpected strict shuffled-MSA parameter at %d: %+v", i, parameter)
-		}
-	}
-
-	rootedConfigurations := msaImpactControlExperimentConfigurations(heuristicRootedMsa, selectedWeight)
-	if rootedConfigurations[0].heuristic != heuristicRootedDistanceRanked || len(rootedConfigurations[0].parameters) != 1 {
-		t.Fatalf("unexpected rooted distance-ranked MSA impact control configuration: %+v", rootedConfigurations[0])
-	}
-	if rootedConfigurations[1].heuristic != heuristicRootedShuffledMsa || len(rootedConfigurations[1].parameters) != len(shuffledMsaSeeds) {
-		t.Fatalf("unexpected rooted shuffled-MSA impact control configuration: %+v", rootedConfigurations[1])
-	}
-	for i, parameter := range rootedConfigurations[1].parameters {
-		if parameter.heuristicWeight != selectedWeight || parameter.randomSeed != shuffledMsaSeeds[i] {
-			t.Fatalf("unexpected rooted shuffled-MSA parameter at %d: %+v", i, parameter)
-		}
-	}
-}
-
 func TestFinalExperimentOutputRootUsesControlsSubdirectoryForSparseControls(t *testing.T) {
 	mainConfigurations, err := selectFinalExperimentConfigurations(finalHeuristicAll)
 	if err != nil {
@@ -1812,9 +1400,6 @@ func TestFinalModesAndExperimentHeuristicsAreValid(t *testing.T) {
 	}
 	if !isValidRunMode(runModeRebuildMsa) {
 		t.Fatal("rebuild-msa run mode should be valid")
-	}
-	if !isValidRunMode(runModeMsaImpact) {
-		t.Fatal("MSA impact run mode should be valid")
 	}
 	if isValidHeuristic(heuristicBaseline) {
 		t.Fatal("baseline heuristic should not be valid in normal experiment mode")
@@ -2182,27 +1767,6 @@ func TestSelectAtspFilesSmoke(t *testing.T) {
 	}
 }
 
-func TestSelectAtspFilesMsaImpact(t *testing.T) {
-	paths, err := testTsplibFiles()
-	if err != nil {
-		t.Fatalf("failed to glob ATSP files: %v", err)
-	}
-
-	selected, err := selectAtspFiles(paths, instanceSetMsaImpact)
-	if err != nil {
-		t.Fatalf("selectAtspFiles returned unexpected error: %v", err)
-	}
-
-	selectedFiles := make([]string, len(selected))
-	for i, selectedPath := range selected {
-		selectedFiles[i] = filepath.Base(selectedPath)
-	}
-
-	if !reflect.DeepEqual(selectedFiles, msaImpactInstanceFiles) {
-		t.Fatalf("MSA impact selection mismatch\nwant: %v\n got: %v", msaImpactInstanceFiles, selectedFiles)
-	}
-}
-
 func TestSelectAtspFilesEvaluation(t *testing.T) {
 	paths, err := testTsplibFiles()
 	if err != nil {
@@ -2230,7 +1794,7 @@ func TestSelectedAtspFilesHaveKnownOptima(t *testing.T) {
 		t.Fatalf("failed to glob ATSP files: %v", err)
 	}
 
-	for _, instanceSet := range []string{instanceSetSmoke, instanceSetMsaImpact, instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown} {
+	for _, instanceSet := range []string{instanceSetSmoke, instanceSetTuning, instanceSetEvaluation, instanceSetAllKnown} {
 		selected, err := selectAtspFiles(paths, instanceSet)
 		if err != nil {
 			t.Fatalf("selectAtspFiles(%s) returned unexpected error: %v", instanceSet, err)
@@ -2315,17 +1879,11 @@ func TestSelectedInstanceSetForMode(t *testing.T) {
 	if selected := selectedInstanceSetForMode(runModeFinal3Opt, instanceSetTuning, false); selected != instanceSetEvaluation {
 		t.Fatalf("final+3opt mode without explicit instances should default to %s, got %s", instanceSetEvaluation, selected)
 	}
-	if selected := selectedInstanceSetForMode(runModeMsaImpact, instanceSetTuning, false); selected != instanceSetMsaImpact {
-		t.Fatalf("MSA impact mode without explicit instances should default to %s, got %s", instanceSetMsaImpact, selected)
-	}
 	if selected := selectedInstanceSetForMode(runModeRebuildMsa, instanceSetTuning, false); selected != instanceSetAllKnown {
 		t.Fatalf("rebuild-msa mode without explicit instances should default to %s, got %s", instanceSetAllKnown, selected)
 	}
 	if selected := selectedInstanceSetForMode(runModeFinal, instanceSetTuning, true); selected != instanceSetTuning {
 		t.Fatalf("final mode should respect explicit instances, got %s", selected)
-	}
-	if selected := selectedInstanceSetForMode(runModeMsaImpact, instanceSetTuning, true); selected != instanceSetTuning {
-		t.Fatalf("MSA impact mode should respect explicit instances, got %s", selected)
 	}
 	if selected := selectedInstanceSetForMode(runModeRebuildMsa, instanceSetTuning, true); selected != instanceSetTuning {
 		t.Fatalf("rebuild-msa mode should respect explicit instances, got %s", selected)

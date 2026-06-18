@@ -51,9 +51,7 @@ const (
 	instanceSetSmoke      = "smoke"
 	instanceSetTuning     = "tuning"
 	instanceSetEvaluation = "evaluation"
-	// Temporary prototype set for fast MSA impact experiments. Remove with the msa-impact pipeline.
-	instanceSetMsaImpact = "msa-impact"
-	instanceSetAllKnown  = "all-known"
+	instanceSetAllKnown   = "all-known"
 )
 
 const (
@@ -63,8 +61,6 @@ const (
 	runModeFinal      = "final"
 	runModeFinal3Opt  = "final+3opt"
 	runModeRebuildMsa = "rebuild-msa"
-	// Temporary prototype mode for fast MSA impact experiments. Remove after MSA integration is settled.
-	runModeMsaImpact = "msa-impact"
 )
 
 const (
@@ -85,8 +81,6 @@ const (
 	defaultExperimentRho                   = 0.8
 	defaultExperimentRunCount              = 30
 	defaultBaselineHeuristicWeight         = 0.0
-	// Temporary prototype run count for msa-impact; final/evaluation runs keep their own budgets.
-	msaImpactNumberOfExperiments = 10
 )
 
 const (
@@ -128,22 +122,9 @@ var finalResultsSummaryHeuristics = []string{
 }
 
 var msaCountScalingCounts = []int{1, 2, 4, 8, 16, 32, 64, 0}
-var msaImpactHeuristicWeights = []float64{0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0}
 
 var smokeInstanceFiles = []string{
 	"br17.atsp",
-}
-
-// Temporary prototype instance set for quick MSA impact checks. It is not intended
-// as a final benchmark set and should be removed with the msa-impact mode.
-var msaImpactInstanceFiles = []string{
-	"atex5.atsp",
-	"ftv64.atsp",
-	"ftv90.atsp",
-	"crane100_1.atsp",
-	"td100_1.atsp",
-	"ry48p.atsp",
-	"dc134.atsp",
 }
 
 var tuningInstanceFiles = []string{

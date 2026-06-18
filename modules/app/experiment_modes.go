@@ -143,7 +143,7 @@ func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, result
 		var rootedMsaHeuristic [][][]float64
 		if heuristicUsesRootedMsa(config.heuristic) {
 			var err error
-			rootedMsaHeuristic, err = readMsaImpactRootedMsaHeuristics(atspData)
+			rootedMsaHeuristic, err = readRootedMsaHeuristics(atspData)
 			if err != nil {
 				return err
 			}
@@ -452,10 +452,6 @@ func readMsaHeuristicMatrixForHeuristic(atspData AtspData, heuristic string) ([]
 
 func readMsaHeuristicMatrixForResultRoot(atspData AtspData, heuristic, resultsRootPath string) ([][]float64, error) {
 	return readMsaHeuristicMatrixForHeuristic(atspData, heuristic)
-}
-
-func readMsaImpactRootedMsaHeuristics(atspData AtspData) ([][][]float64, error) {
-	return readRootedMsaHeuristics(atspData)
 }
 
 func readRootedMsaHeuristics(atspData AtspData) ([][][]float64, error) {
