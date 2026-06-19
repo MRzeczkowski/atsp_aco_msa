@@ -2,6 +2,7 @@ package app
 
 import (
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
+	workerpool "atsp_aco_msa/modules/experiments/workers"
 	"atsp_aco_msa/modules/utilities"
 	"fmt"
 	"os"
@@ -9,7 +10,7 @@ import (
 )
 
 func runRebuildMsaMode(atspsData []AtspData, workers int) error {
-	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
+	return workerpool.RunBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
 		start := time.Now()
 		fmt.Printf("[%s][%s] Rebuilding MSA artifacts in %s\n", logTimestamp(start), atspData.Name, atspData.MsaHeuristicDirectoryPath)
 
@@ -32,7 +33,7 @@ func runRebuildMsaMode(atspsData []AtspData, workers int) error {
 }
 
 func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int, requireRooted bool) error {
-	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
+	return workerpool.RunBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
 		name := atspData.Name
 		matrix := atspData.Matrix
 		msaHeuristicDirectoryPath := atspData.MsaHeuristicDirectoryPath
@@ -82,7 +83,7 @@ func saveMsaHeuristicPlots(atspData AtspData, msaHeuristicMatrix [][]float64) er
 }
 
 func ensureMsaHeuristicCache(atspsData []AtspData, workers int, requireRooted bool) error {
-	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
+	return workerpool.RunBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
 		if _, err := msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath); err == nil {
 			if requireRooted {
 				_, err = readOrCreateIndividualMsas(atspData)

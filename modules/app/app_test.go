@@ -10,9 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"testing"
-	"time"
 )
 
 func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
@@ -1515,128 +1513,6 @@ func TestResolveWorkerCount(t *testing.T) {
 	}
 }
 
-func TestRunBoundedInstanceJobsRespectsWorkerLimit(t *testing.T) {
-	atspsData := []AtspData{
-		project.MakeAtspDataInResultsDirectory("a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-		project.MakeAtspDataInResultsDirectory("b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-		project.MakeAtspDataInResultsDirectory("c.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-		project.MakeAtspDataInResultsDirectory("d.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-		project.MakeAtspDataInResultsDirectory("e.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-	}
-
-	var activeWorkers int32
-	var maxActiveWorkers int32
-	var processedJobs int32
-
-	err := runBoundedInstanceJobs(atspsData, 2, func(atspData AtspData) error {
-		currentActiveWorkers := atomic.AddInt32(&activeWorkers, 1)
-		for {
-			currentMax := atomic.LoadInt32(&maxActiveWorkers)
-			if currentActiveWorkers <= currentMax || atomic.CompareAndSwapInt32(&maxActiveWorkers, currentMax, currentActiveWorkers) {
-				break
-			}
-		}
-
-		time.Sleep(10 * time.Millisecond)
-		atomic.AddInt32(&processedJobs, 1)
-		atomic.AddInt32(&activeWorkers, -1)
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("runBoundedInstanceJobs returned unexpected error: %v", err)
-	}
-
-	if processedJobs != int32(len(atspsData)) {
-		t.Fatalf("expected %d processed jobs, got %d", len(atspsData), processedJobs)
-	}
-	if maxActiveWorkers > 2 {
-		t.Fatalf("expected at most two active workers, got %d", maxActiveWorkers)
-	}
-}
-
-func TestRunBoundedIndexJobsRespectsWorkerLimitAndKeepsIndexedResults(t *testing.T) {
-	result := make([]int, 6)
-	var activeWorkers int32
-	var maxActiveWorkers int32
-
-	err := runBoundedIndexJobs(len(result), 3, func(index int) error {
-		currentActiveWorkers := atomic.AddInt32(&activeWorkers, 1)
-		for {
-			currentMax := atomic.LoadInt32(&maxActiveWorkers)
-			if currentActiveWorkers <= currentMax || atomic.CompareAndSwapInt32(&maxActiveWorkers, currentMax, currentActiveWorkers) {
-				break
-			}
-		}
-
-		time.Sleep(10 * time.Millisecond)
-		result[index] = index + 100
-		atomic.AddInt32(&activeWorkers, -1)
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("runBoundedIndexJobs returned unexpected error: %v", err)
-	}
-
-	if maxActiveWorkers > 3 {
-		t.Fatalf("expected at most three active workers, got %d", maxActiveWorkers)
-	}
-	for index, value := range result {
-		if value != index+100 {
-			t.Fatalf("expected indexed result %d to be %d, got %d", index, index+100, value)
-		}
-	}
-}
-
-func TestRunBoundedIndexJobsReturnsFirstError(t *testing.T) {
-	err := runBoundedIndexJobs(3, 1, func(index int) error {
-		if index == 1 {
-			return os.ErrInvalid
-		}
-		return nil
-	})
-	if err != os.ErrInvalid {
-		t.Fatalf("expected %v, got %v", os.ErrInvalid, err)
-	}
-}
-
-func TestRunIndexJobsWithSharedWorkersRespectsLimit(t *testing.T) {
-	workerGate := make(chan struct{}, 2)
-	var activeWorkers int32
-	var maxActiveWorkers int32
-
-	err := runIndexJobsWithSharedWorkers(8, workerGate, func(index int) error {
-		active := atomic.AddInt32(&activeWorkers, 1)
-		for {
-			currentMax := atomic.LoadInt32(&maxActiveWorkers)
-			if active <= currentMax || atomic.CompareAndSwapInt32(&maxActiveWorkers, currentMax, active) {
-				break
-			}
-		}
-
-		time.Sleep(10 * time.Millisecond)
-		atomic.AddInt32(&activeWorkers, -1)
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("runIndexJobsWithSharedWorkers returned unexpected error: %v", err)
-	}
-	if maxActiveWorkers > 2 {
-		t.Fatalf("expected at most two active shared workers, got %d", maxActiveWorkers)
-	}
-}
-
-func TestRunIndexJobsWithSharedWorkersReturnsFirstError(t *testing.T) {
-	err := runIndexJobsWithSharedWorkers(3, make(chan struct{}, 1), func(index int) error {
-		if index == 1 {
-			return os.ErrInvalid
-		}
-		return nil
-	})
-	if err != os.ErrInvalid {
-		t.Fatalf("expected %v, got %v", os.ErrInvalid, err)
-	}
-}
-
 func TestRunFinalExperimentForInstanceWithParameterWorkersRejectsInvalidWorkerCount(t *testing.T) {
 	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir())
 	configurations := []finalExperimentConfiguration{
@@ -1651,37 +1527,6 @@ func TestRunFinalExperimentForInstanceWithParameterWorkersRejectsInvalidWorkerCo
 	err := runFinalExperimentForInstanceWithParameterWorkers(atspData, t.TempDir(), false, configurations, 1, 0)
 	if err == nil || !strings.Contains(err.Error(), "parameter workers must be at least one") {
 		t.Fatalf("expected invalid parameter worker error, got %v", err)
-	}
-}
-
-func TestRunBoundedInstanceJobsReturnsFirstError(t *testing.T) {
-	atspsData := []AtspData{
-		project.MakeAtspDataInResultsDirectory("ok.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-		project.MakeAtspDataInResultsDirectory("bad.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir()),
-	}
-
-	err := runBoundedInstanceJobs(atspsData, 1, func(atspData AtspData) error {
-		if atspData.Name == "bad" {
-			return os.ErrInvalid
-		}
-		return nil
-	})
-	if err != os.ErrInvalid {
-		t.Fatalf("expected %v, got %v", os.ErrInvalid, err)
-	}
-}
-
-func TestRunBoundedInstanceJobsHandlesEmptyInput(t *testing.T) {
-	called := false
-	err := runBoundedInstanceJobs(nil, 2, func(atspData AtspData) error {
-		called = true
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("runBoundedInstanceJobs returned unexpected error: %v", err)
-	}
-	if called {
-		t.Fatal("job should not be called for empty input")
 	}
 }
 

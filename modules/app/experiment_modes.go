@@ -4,6 +4,7 @@ import (
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
 	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
 	"atsp_aco_msa/modules/analysis/tuningSummary"
+	workerpool "atsp_aco_msa/modules/experiments/workers"
 	"atsp_aco_msa/modules/project"
 	"fmt"
 	"os"
@@ -87,7 +88,7 @@ func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThr
 		return err
 	}
 
-	return runBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
+	return workerpool.RunBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
 		finalAtspData := project.WithExperimentOutputRoot(atspData, resultsRootPath)
 		return runFinalExperimentForInstance(finalAtspData, resultsRootPath, useThreeOpt, configurations, numberOfExperiments)
 	})
@@ -229,7 +230,7 @@ func runFinalExperimentParameters(instanceName, heuristic string, experimentPara
 	experimentData := make([]ExperimentsData, len(experimentParameters))
 	var logMutex sync.Mutex
 
-	err := runBoundedIndexJobs(len(experimentParameters), workers, func(index int) error {
+	err := workerpool.RunBoundedIndexJobs(len(experimentParameters), workers, func(index int) error {
 		parameters := experimentParameters[index]
 		setDimensionDependantParameters(dimension, &parameters)
 		parameterStart := time.Now()
@@ -323,7 +324,7 @@ func runExperimentSet(atspsData []AtspData, heuristic string, experimentParamete
 	workers = maxIntValue(1, workers)
 	workerGate := make(chan struct{}, workers)
 
-	return runBoundedInstanceJobs(atspsData, min(workers, maxIntValue(1, len(atspsData))), func(atspData AtspData) error {
+	return workerpool.RunBoundedInstanceJobs(atspsData, min(workers, maxIntValue(1, len(atspsData))), func(atspData AtspData) error {
 		return runExperimentSetForInstance(atspData, heuristic, experimentParameters, numberOfExperiments, workerGate)
 	})
 }
@@ -375,7 +376,7 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 	experimentData := make([]ExperimentsData, len(experimentParameters))
 	var logMutex sync.Mutex
 
-	err = runIndexJobsWithSharedWorkers(len(experimentParameters), workerGate, func(index int) error {
+	err = workerpool.RunIndexJobsWithSharedWorkers(len(experimentParameters), workerGate, func(index int) error {
 		parameters := experimentParameters[index]
 		setDimensionDependantParameters(dimension, &parameters)
 		parameterStart := time.Now()

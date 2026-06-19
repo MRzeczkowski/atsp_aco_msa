@@ -1,21 +1,22 @@
-package app
+package workers
 
 import (
+	"atsp_aco_msa/modules/project"
 	"fmt"
 	"sync"
 )
 
-func runBoundedInstanceJobs(atspsData []AtspData, workers int, job func(AtspData) error) error {
+func RunBoundedInstanceJobs(atspsData []project.AtspData, workers int, job func(project.AtspData) error) error {
 	if len(atspsData) == 0 {
 		return nil
 	}
 
-	return runBoundedIndexJobs(len(atspsData), workers, func(index int) error {
+	return RunBoundedIndexJobs(len(atspsData), workers, func(index int) error {
 		return job(atspsData[index])
 	})
 }
 
-func runBoundedIndexJobs(jobCount, workers int, job func(int) error) error {
+func RunBoundedIndexJobs(jobCount, workers int, job func(int) error) error {
 	if jobCount == 0 {
 		return nil
 	}
@@ -62,7 +63,7 @@ func runBoundedIndexJobs(jobCount, workers int, job func(int) error) error {
 	return firstErr
 }
 
-func runIndexJobsWithSharedWorkers(jobCount int, workerGate chan struct{}, job func(int) error) error {
+func RunIndexJobsWithSharedWorkers(jobCount int, workerGate chan struct{}, job func(int) error) error {
 	if jobCount == 0 {
 		return nil
 	}
