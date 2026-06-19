@@ -1397,8 +1397,8 @@ func TestFinalModesAndExperimentHeuristicsAreValid(t *testing.T) {
 	if !isValidRunMode(runModeFinal3Opt) {
 		t.Fatal("final+3opt run mode should be valid")
 	}
-	if !isValidRunMode(runModeRebuildMsa) {
-		t.Fatal("rebuild-msa run mode should be valid")
+	if !isValidRunMode(runModeRebuildCache) {
+		t.Fatal("rebuild-cache run mode should be valid")
 	}
 	if isValidHeuristic(heuristicBaseline) {
 		t.Fatal("baseline heuristic should not be valid in normal experiment mode")
@@ -1533,7 +1533,7 @@ func TestRunFinalExperimentParametersRejectsInvalidWorkerCount(t *testing.T) {
 	}
 }
 
-func TestRunRebuildMsaModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T) {
+func TestRunRebuildCacheModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T) {
 	root := t.TempDir()
 	matrix := [][]float64{
 		{0, 1, 5, 2},
@@ -1554,8 +1554,8 @@ func TestRunRebuildMsaModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T) {
 		t.Fatalf("failed to write stale file: %v", err)
 	}
 
-	if err := runRebuildMsaMode([]AtspData{atspData}, 1); err != nil {
-		t.Fatalf("runRebuildMsaMode returned unexpected error: %v", err)
+	if err := runRebuildCacheMode([]AtspData{atspData}, 1); err != nil {
+		t.Fatalf("runRebuildCacheMode returned unexpected error: %v", err)
 	}
 
 	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
@@ -1728,14 +1728,14 @@ func TestSelectedInstanceSetForMode(t *testing.T) {
 	if selected := selectedInstanceSetForMode(runModeFinal3Opt, instanceSetTuning, false); selected != instanceSetEvaluation {
 		t.Fatalf("final+3opt mode without explicit instances should default to %s, got %s", instanceSetEvaluation, selected)
 	}
-	if selected := selectedInstanceSetForMode(runModeRebuildMsa, instanceSetTuning, false); selected != instanceSetAllKnown {
-		t.Fatalf("rebuild-msa mode without explicit instances should default to %s, got %s", instanceSetAllKnown, selected)
+	if selected := selectedInstanceSetForMode(runModeRebuildCache, instanceSetTuning, false); selected != instanceSetAllKnown {
+		t.Fatalf("rebuild-cache mode without explicit instances should default to %s, got %s", instanceSetAllKnown, selected)
 	}
 	if selected := selectedInstanceSetForMode(runModeFinal, instanceSetTuning, true); selected != instanceSetTuning {
 		t.Fatalf("final mode should respect explicit instances, got %s", selected)
 	}
-	if selected := selectedInstanceSetForMode(runModeRebuildMsa, instanceSetTuning, true); selected != instanceSetTuning {
-		t.Fatalf("rebuild-msa mode should respect explicit instances, got %s", selected)
+	if selected := selectedInstanceSetForMode(runModeRebuildCache, instanceSetTuning, true); selected != instanceSetTuning {
+		t.Fatalf("rebuild-cache mode should respect explicit instances, got %s", selected)
 	}
 	if selected := selectedInstanceSetForMode(runModeExperiment, instanceSetTuning, false); selected != instanceSetTuning {
 		t.Fatalf("experiment mode should keep requested instances, got %s", selected)

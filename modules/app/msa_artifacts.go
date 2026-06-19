@@ -9,10 +9,10 @@ import (
 	"time"
 )
 
-func runRebuildMsaMode(atspsData []AtspData, workers int) error {
-	return workerpool.RunJobs(instanceJobsByDescendingDimension(atspsData, "rebuild-msa", func(atspData AtspData) error {
+func runRebuildCacheMode(atspsData []AtspData, workers int) error {
+	return workerpool.RunJobs(instanceJobsByDescendingDimension(atspsData, "rebuild-cache", func(atspData AtspData) error {
 		start := time.Now()
-		fmt.Printf("[%s][%s] Rebuilding MSA artifacts in %s\n", logTimestamp(start), atspData.Name, atspData.MsaHeuristicDirectoryPath)
+		fmt.Printf("[%s][%s] Rebuilding cached MSA artifacts in %s\n", logTimestamp(start), atspData.Name, atspData.MsaHeuristicDirectoryPath)
 
 		if err := os.RemoveAll(atspData.MsaHeuristicDirectoryPath); err != nil {
 			return fmt.Errorf("%s: remove MSA artifacts: %w", atspData.Name, err)
@@ -27,7 +27,7 @@ func runRebuildMsaMode(atspsData []AtspData, workers int) error {
 			return fmt.Errorf("%s: save MSA plots: %w", atspData.Name, err)
 		}
 
-		fmt.Printf("[%s][%s] Rebuilt MSA artifacts in %s\n", logTimestamp(time.Now()), atspData.Name, time.Since(start).Round(time.Millisecond))
+		fmt.Printf("[%s][%s] Rebuilt cached MSA artifacts in %s\n", logTimestamp(time.Now()), atspData.Name, time.Since(start).Round(time.Millisecond))
 		return nil
 	}), workers)
 }

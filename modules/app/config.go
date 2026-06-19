@@ -33,12 +33,12 @@ const (
 )
 
 const (
-	runModeExperiment = "experiment"
-	runModeAnalyze    = "analyze"
-	runModeAll        = "all"
-	runModeFinal      = "final"
-	runModeFinal3Opt  = "final+3opt"
-	runModeRebuildMsa = "rebuild-msa"
+	runModeExperiment   = "experiment"
+	runModeAnalyze      = "analyze"
+	runModeAll          = "all"
+	runModeFinal        = "final"
+	runModeFinal3Opt    = "final+3opt"
+	runModeRebuildCache = "rebuild-cache"
 )
 
 const (
