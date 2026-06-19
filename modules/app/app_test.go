@@ -1513,19 +1513,22 @@ func TestResolveWorkerCount(t *testing.T) {
 	}
 }
 
-func TestRunFinalExperimentForInstanceWithParameterWorkersRejectsInvalidWorkerCount(t *testing.T) {
-	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir())
-	configurations := []finalExperimentConfiguration{
-		{
-			Heuristic: heuristicBaseline,
-			Parameters: []ExperimentParameters{
-				newDefaultExperimentParameters(defaultBaselineHeuristicWeight),
-			},
-		},
-	}
-
-	err := runFinalExperimentForInstanceWithParameterWorkers(atspData, t.TempDir(), false, configurations, 1, 0)
-	if err == nil || !strings.Contains(err.Error(), "parameter workers must be at least one") {
+func TestRunFinalExperimentParametersRejectsInvalidWorkerCount(t *testing.T) {
+	matrix := [][]float64{{0, 1}, {1, 0}}
+	_, err := runFinalExperimentParameters(
+		"sample",
+		heuristicBaseline,
+		[]ExperimentParameters{newDefaultExperimentParameters(defaultBaselineHeuristicWeight)},
+		1,
+		2,
+		matrix,
+		nil,
+		nil,
+		nil,
+		false,
+		len(matrix),
+		0)
+	if err == nil || !strings.Contains(err.Error(), "workers must be at least one") {
 		t.Fatalf("expected invalid parameter worker error, got %v", err)
 	}
 }

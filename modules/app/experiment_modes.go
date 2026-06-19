@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 )
@@ -88,141 +89,234 @@ func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThr
 		return err
 	}
 
-	return workerpool.RunBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
+	instanceRuns := make([]*finalExperimentInstanceRun, 0, len(atspsData))
+	for _, atspData := range atspsData {
 		finalAtspData := project.WithExperimentOutputRoot(atspData, resultsRootPath)
-		return runFinalExperimentForInstance(finalAtspData, resultsRootPath, useThreeOpt, configurations, numberOfExperiments)
-	})
+		instanceRun, err := prepareFinalExperimentInstance(finalAtspData, useThreeOpt, configurations, numberOfExperiments)
+		if err != nil {
+			return err
+		}
+		instanceRuns = append(instanceRuns, instanceRun)
+	}
+
+	if err := workerpool.RunJobs(finalExperimentConfigurationJobs(instanceRuns), workers); err != nil {
+		return err
+	}
+
+	for _, instanceRun := range instanceRuns {
+		if err := finishFinalExperimentInstance(instanceRun); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func runFinalExperimentForInstance(atspData AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration, numberOfExperiments int) error {
-	return runFinalExperimentForInstanceWithParameterWorkers(atspData, resultsRootPath, useThreeOpt, configurations, numberOfExperiments, 1)
+type finalExperimentInstanceRun struct {
+	atspData                  AtspData
+	useThreeOpt               bool
+	configurations            []finalExperimentConfiguration
+	numberOfExperiments       int
+	matrix                    [][]float64
+	knownOptimal              float64
+	dimension                 int
+	instanceStart             time.Time
+	controlRun                bool
+	finalRunName              string
+	statisticsByConfiguration [][]ExperimentsDataStatistics
+	cycleCoverOnce            sync.Once
+	cycleCover                [][]float64
+	cycleCoverErr             error
 }
 
-func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration, numberOfExperiments, parameterWorkers int) error {
-	matrix := atspData.Matrix
-	knownOptimal := atspData.KnownOptimal
-	dimension := len(matrix)
-	instanceStart := time.Now()
+func prepareFinalExperimentInstance(atspData AtspData, useThreeOpt bool, configurations []finalExperimentConfiguration, numberOfExperiments int) (*finalExperimentInstanceRun, error) {
+	if len(configurations) == 0 {
+		return nil, fmt.Errorf("no final experiment configurations selected")
+	}
+
 	controlRun := finalConfigurationsAreSparseControls(configurations)
+	if controlRun {
+		if err := removeFileIfExists(atspData.ResultFilePath); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := removeLegacyFinalResultFiles(atspData); err != nil {
+			return nil, err
+		}
+	}
+
 	finalRunName := "final"
 	if useThreeOpt {
 		finalRunName = "final+3opt"
 	}
 
-	if len(configurations) == 0 {
-		return fmt.Errorf("no final experiment configurations selected")
-	}
-	if parameterWorkers < 1 {
-		return fmt.Errorf("parameter workers must be at least one")
-	}
-
-	if controlRun {
-		if err := removeFileIfExists(atspData.ResultFilePath); err != nil {
-			return err
-		}
-	} else {
-		if err := removeLegacyFinalResultFiles(atspData); err != nil {
-			return err
-		}
+	instanceStart := time.Now()
+	instanceRun := &finalExperimentInstanceRun{
+		atspData:                  atspData,
+		useThreeOpt:               useThreeOpt,
+		configurations:            configurations,
+		numberOfExperiments:       numberOfExperiments,
+		matrix:                    atspData.Matrix,
+		knownOptimal:              atspData.KnownOptimal,
+		dimension:                 len(atspData.Matrix),
+		instanceStart:             instanceStart,
+		controlRun:                controlRun,
+		finalRunName:              finalRunName,
+		statisticsByConfiguration: make([][]ExperimentsDataStatistics, len(configurations)),
 	}
 
 	fmt.Printf("[%s][%s] Starting %s (dimension=%d, heuristics=%d, parameter sets=%d, runs/parameter=%d)\n",
 		logTimestamp(instanceStart),
 		atspData.Name,
 		finalRunName,
-		dimension,
+		instanceRun.dimension,
 		len(configurations),
 		finalExperimentParameterSetCount(configurations),
 		numberOfExperiments)
 
-	var cycleCover [][]float64
-	var cycleCoverErr error
-	cycleCoverReady := false
-	finalStatistics := make([]HeuristicExperimentStatistics, 0, len(configurations))
+	return instanceRun, nil
+}
 
-	for _, config := range configurations {
-		var heuristicMatrix [][]float64
-		var rootedMsaHeuristic [][][]float64
-		if heuristicUsesRootedMsa(config.Heuristic) {
-			var err error
-			rootedMsaHeuristic, err = readRootedMsaHeuristics(atspData)
-			if err != nil {
-				return err
-			}
-		} else if heuristicUsesMsaHeuristic(config.Heuristic) {
-			var err error
-			heuristicMatrix, err = readMsaHeuristicMatrixForResultRoot(atspData, config.Heuristic, resultsRootPath)
-			if err != nil {
-				return err
-			}
+func finalExperimentConfigurationJobs(instanceRuns []*finalExperimentInstanceRun) []workerpool.Job {
+	orderedInstanceRuns := append([]*finalExperimentInstanceRun{}, instanceRuns...)
+	sort.SliceStable(orderedInstanceRuns, func(i, j int) bool {
+		if orderedInstanceRuns[i].dimension != orderedInstanceRuns[j].dimension {
+			return orderedInstanceRuns[i].dimension > orderedInstanceRuns[j].dimension
 		}
 
-		if heuristicUsesCycleCover(config.Heuristic) && !cycleCoverReady {
-			var cycleCoverCost float64
-			cycleCover, cycleCoverCost, cycleCoverErr = buildMinimumCycleCoverMatrix(matrix)
-			if cycleCoverErr != nil {
-				return cycleCoverErr
-			}
-			cycleCoverReady = true
-			fmt.Printf("\t[%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
-				atspData.Name,
-				cycleCoverCost,
-				100*(knownOptimal-cycleCoverCost)/knownOptimal)
-		}
+		return orderedInstanceRuns[i].atspData.Name < orderedInstanceRuns[j].atspData.Name
+	})
 
-		experimentData, err := runFinalExperimentParameters(
-			atspData.Name,
-			config.Heuristic,
-			config.Parameters,
-			numberOfExperiments,
-			knownOptimal,
-			matrix,
-			heuristicMatrix,
-			rootedMsaHeuristic,
-			cycleCover,
-			useThreeOpt,
-			dimension,
-			parameterWorkers)
+	jobCount := 0
+	for _, instanceRun := range orderedInstanceRuns {
+		jobCount += len(instanceRun.configurations)
+	}
+
+	jobs := make([]workerpool.Job, 0, jobCount)
+	for _, instanceRun := range orderedInstanceRuns {
+		instanceRun := instanceRun
+		for configurationIndex := range instanceRun.configurations {
+			configurationIndex := configurationIndex
+			config := instanceRun.configurations[configurationIndex]
+			jobs = append(jobs, workerpool.Job{
+				Label: fmt.Sprintf("%s/%s/%s", instanceRun.finalRunName, instanceRun.atspData.Name, config.Heuristic),
+				Run: func() error {
+					return runFinalExperimentConfiguration(instanceRun, configurationIndex)
+				},
+			})
+		}
+	}
+
+	return jobs
+}
+
+func runFinalExperimentConfiguration(instanceRun *finalExperimentInstanceRun, configurationIndex int) error {
+	config := instanceRun.configurations[configurationIndex]
+	var heuristicMatrix [][]float64
+	var rootedMsaHeuristic [][][]float64
+	if heuristicUsesRootedMsa(config.Heuristic) {
+		var err error
+		rootedMsaHeuristic, err = readRootedMsaHeuristics(instanceRun.atspData)
 		if err != nil {
 			return err
 		}
+	} else if heuristicUsesMsaHeuristic(config.Heuristic) {
+		var err error
+		heuristicMatrix, err = readMsaHeuristicMatrixForHeuristic(instanceRun.atspData, config.Heuristic)
+		if err != nil {
+			return err
+		}
+	}
 
-		statistics := calculateStatistics(experimentData)
-		if len(statistics) == 0 {
-			continue
+	var cycleCover [][]float64
+	if heuristicUsesCycleCover(config.Heuristic) {
+		var err error
+		cycleCover, err = instanceRun.getCycleCover()
+		if err != nil {
+			return err
+		}
+	}
+
+	experimentData, err := runFinalExperimentParameters(
+		instanceRun.atspData.Name,
+		config.Heuristic,
+		config.Parameters,
+		instanceRun.numberOfExperiments,
+		instanceRun.knownOptimal,
+		instanceRun.matrix,
+		heuristicMatrix,
+		rootedMsaHeuristic,
+		cycleCover,
+		instanceRun.useThreeOpt,
+		instanceRun.dimension,
+		1)
+	if err != nil {
+		return err
+	}
+
+	statistics := calculateStatistics(experimentData)
+	instanceRun.statisticsByConfiguration[configurationIndex] = statistics
+	if len(statistics) != 0 && !instanceRun.controlRun {
+		return removeExperimentPlotsForHeuristic(instanceRun.atspData, config.Heuristic)
+	}
+
+	return nil
+}
+
+func (instanceRun *finalExperimentInstanceRun) getCycleCover() ([][]float64, error) {
+	instanceRun.cycleCoverOnce.Do(func() {
+		var cycleCoverCost float64
+		instanceRun.cycleCover, cycleCoverCost, instanceRun.cycleCoverErr = buildMinimumCycleCoverMatrix(instanceRun.matrix)
+		if instanceRun.cycleCoverErr != nil {
+			return
 		}
 
-		if controlRun {
-			saveStatistics(resultFilePathForHeuristic(atspData, config.Heuristic), config.Heuristic, statistics)
-			continue
-		}
+		fmt.Printf("\t[%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
+			instanceRun.atspData.Name,
+			cycleCoverCost,
+			100*(instanceRun.knownOptimal-cycleCoverCost)/instanceRun.knownOptimal)
+	})
 
-		if config.SaveAllParameterRows {
-			for _, statistic := range statistics {
+	return instanceRun.cycleCover, instanceRun.cycleCoverErr
+}
+
+func finishFinalExperimentInstance(instanceRun *finalExperimentInstanceRun) error {
+	if instanceRun.controlRun {
+		for index, config := range instanceRun.configurations {
+			statistics := instanceRun.statisticsByConfiguration[index]
+			if len(statistics) != 0 {
+				saveStatistics(resultFilePathForHeuristic(instanceRun.atspData, config.Heuristic), config.Heuristic, statistics)
+			}
+		}
+	} else {
+		finalStatistics := make([]HeuristicExperimentStatistics, 0, len(instanceRun.configurations))
+		for index, config := range instanceRun.configurations {
+			statistics := instanceRun.statisticsByConfiguration[index]
+			if len(statistics) == 0 {
+				continue
+			}
+
+			if config.SaveAllParameterRows {
+				for _, statistic := range statistics {
+					finalStatistics = append(finalStatistics, HeuristicExperimentStatistics{
+						Heuristic:  config.Heuristic,
+						Statistics: statistic,
+					})
+				}
+			} else {
 				finalStatistics = append(finalStatistics, HeuristicExperimentStatistics{
 					Heuristic:  config.Heuristic,
-					Statistics: statistic,
+					Statistics: statistics[0],
 				})
 			}
-		} else {
-			finalStatistics = append(finalStatistics, HeuristicExperimentStatistics{
-				Heuristic:  config.Heuristic,
-				Statistics: statistics[0],
-			})
 		}
 
-		if err := removeExperimentPlotsForHeuristic(atspData, config.Heuristic); err != nil {
+		if err := saveFinalHeuristicStatistics(instanceRun.atspData.ResultFilePath, finalStatistics, instanceRun.configurations); err != nil {
 			return err
 		}
 	}
 
-	if !controlRun {
-		if err := saveFinalHeuristicStatistics(atspData.ResultFilePath, finalStatistics, configurations); err != nil {
-			return err
-		}
-	}
-
-	fmt.Printf("[%s][%s] Finished %s in %s\n", logTimestamp(time.Now()), atspData.Name, finalRunName, time.Since(instanceStart).Round(time.Millisecond))
+	fmt.Printf("[%s][%s] Finished %s in %s\n", logTimestamp(time.Now()), instanceRun.atspData.Name, instanceRun.finalRunName, time.Since(instanceRun.instanceStart).Round(time.Millisecond))
 	return nil
 }
 
@@ -230,40 +324,49 @@ func runFinalExperimentParameters(instanceName, heuristic string, experimentPara
 	experimentData := make([]ExperimentsData, len(experimentParameters))
 	var logMutex sync.Mutex
 
-	err := workerpool.RunBoundedIndexJobs(len(experimentParameters), workers, func(index int) error {
-		parameters := experimentParameters[index]
-		setDimensionDependantParameters(dimension, &parameters)
-		parameterStart := time.Now()
-		heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters)
-		rootedHeuristicModifiers := buildRootedHeuristicModifiers(heuristic, matrix, rootedMsaHeuristic, parameters)
-		results := runExperimentsWithRootedHeuristicModifiers(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, rootedHeuristicModifiers, useThreeOpt)
-		data := ExperimentsData{parameters, results}
-		experimentData[index] = data
+	jobs := make([]workerpool.Job, 0, len(experimentParameters))
+	for index := range experimentParameters {
+		index := index
+		jobs = append(jobs, workerpool.Job{
+			Label: fmt.Sprintf("%s/%s/parameter-%d", instanceName, heuristic, index),
+			Run: func() error {
+				parameters := experimentParameters[index]
+				setDimensionDependantParameters(dimension, &parameters)
+				parameterStart := time.Now()
+				heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters)
+				rootedHeuristicModifiers := buildRootedHeuristicModifiers(heuristic, matrix, rootedMsaHeuristic, parameters)
+				results := runExperimentsWithRootedHeuristicModifiers(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, rootedHeuristicModifiers, useThreeOpt)
+				data := ExperimentsData{ExperimentParameters: parameters, Results: results}
+				experimentData[index] = data
 
-		parameterStatistics := calculateStatistics([]ExperimentsData{data})
-		if len(parameterStatistics) != 0 {
-			statistic := parameterStatistics[0]
-			randomSeedLog := ""
-			if parameters.RandomSeed != 0 {
-				randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.RandomSeed)
-			}
-			logMutex.Lock()
-			fmt.Printf("\t[%s][%s] heuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
-				instanceName,
-				heuristic,
-				parameters.HeuristicWeight,
-				parameters.MsaPatchBias,
-				randomSeedLog,
-				parameters.Iterations,
-				numberOfExperiments,
-				time.Since(parameterStart).Round(time.Millisecond),
-				statistic.MinBestDeviation,
-				statistic.AverageBestDeviation)
-			logMutex.Unlock()
-		}
+				parameterStatistics := calculateStatistics([]ExperimentsData{data})
+				if len(parameterStatistics) != 0 {
+					statistic := parameterStatistics[0]
+					randomSeedLog := ""
+					if parameters.RandomSeed != 0 {
+						randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.RandomSeed)
+					}
+					logMutex.Lock()
+					fmt.Printf("\t[%s][%s] heuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+						instanceName,
+						heuristic,
+						parameters.HeuristicWeight,
+						parameters.MsaPatchBias,
+						randomSeedLog,
+						parameters.Iterations,
+						numberOfExperiments,
+						time.Since(parameterStart).Round(time.Millisecond),
+						statistic.MinBestDeviation,
+						statistic.AverageBestDeviation)
+					logMutex.Unlock()
+				}
 
-		return nil
-	})
+				return nil
+			},
+		})
+	}
+
+	err := workerpool.RunJobs(jobs, workers)
 	if err != nil {
 		return nil, err
 	}
@@ -322,97 +425,181 @@ func removeFileIfExists(path string) error {
 
 func runExperimentSet(atspsData []AtspData, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments, workers int) error {
 	workers = maxIntValue(1, workers)
-	workerGate := make(chan struct{}, workers)
 
-	return workerpool.RunBoundedInstanceJobs(atspsData, min(workers, maxIntValue(1, len(atspsData))), func(atspData AtspData) error {
-		return runExperimentSetForInstance(atspData, heuristic, experimentParameters, numberOfExperiments, workerGate)
-	})
+	instanceRuns := make([]*experimentSetInstanceRun, 0, len(atspsData))
+	for _, atspData := range atspsData {
+		instanceRun, err := prepareExperimentSetInstance(atspData, heuristic, experimentParameters, numberOfExperiments, workers)
+		if err != nil {
+			return err
+		}
+		instanceRuns = append(instanceRuns, instanceRun)
+	}
+
+	var logMutex sync.Mutex
+	jobs := experimentSetParameterJobs(instanceRuns, experimentParameters, numberOfExperiments, &logMutex)
+	if err := workerpool.RunJobs(jobs, workers); err != nil {
+		return err
+	}
+
+	for _, instanceRun := range instanceRuns {
+		if err := finishExperimentSetInstance(instanceRun); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func runExperimentSetForInstance(atspData AtspData, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments int, workerGate chan struct{}) error {
+type experimentSetInstanceRun struct {
+	atspData           AtspData
+	heuristic          string
+	matrix             [][]float64
+	knownOptimal       float64
+	dimension          int
+	instanceStart      time.Time
+	heuristicMatrix    [][]float64
+	rootedMsaHeuristic [][][]float64
+	cycleCover         [][]float64
+	cycleCoverOnce     sync.Once
+	cycleCoverErr      error
+	experimentData     []ExperimentsData
+}
+
+func prepareExperimentSetInstance(atspData AtspData, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments, workers int) (*experimentSetInstanceRun, error) {
 	matrix := atspData.Matrix
 	knownOptimal := atspData.KnownOptimal
 	dimension := len(matrix)
 	instanceStart := time.Now()
 
-	var heuristicMatrix [][]float64
-	var rootedMsaHeuristic [][][]float64
+	instanceRun := &experimentSetInstanceRun{
+		atspData:       atspData,
+		heuristic:      heuristic,
+		matrix:         matrix,
+		knownOptimal:   knownOptimal,
+		dimension:      dimension,
+		instanceStart:  instanceStart,
+		experimentData: make([]ExperimentsData, len(experimentParameters)),
+	}
+
 	var err error
 	if heuristicUsesRootedMsaForTuning(heuristic) {
-		rootedMsaHeuristic, err = readRootedMsaHeuristics(atspData)
+		instanceRun.rootedMsaHeuristic, err = readRootedMsaHeuristics(atspData)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	} else if heuristicUsesMsaHeuristic(heuristic) {
-		heuristicMatrix, err = readMsaHeuristicMatrixForHeuristic(atspData, heuristic)
+		instanceRun.heuristicMatrix, err = readMsaHeuristicMatrixForHeuristic(atspData, heuristic)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	fmt.Printf("[%s][%s][%s] Starting (dimension=%d, parameters=%d, runs/parameter=%d, parameter workers=%d)\n",
+	fmt.Printf("[%s][%s][%s] Starting (dimension=%d, parameters=%d, runs/parameter=%d, workers=%d)\n",
 		logTimestamp(instanceStart),
 		atspData.Name,
 		heuristic,
 		dimension,
 		len(experimentParameters),
 		numberOfExperiments,
-		min(cap(workerGate), len(experimentParameters)))
+		workers)
+
+	return instanceRun, nil
+}
+
+func (instanceRun *experimentSetInstanceRun) getCycleCover() ([][]float64, error) {
+	instanceRun.cycleCoverOnce.Do(func() {
+		var cycleCoverCost float64
+		instanceRun.cycleCover, cycleCoverCost, instanceRun.cycleCoverErr = buildMinimumCycleCoverMatrix(instanceRun.matrix)
+		if instanceRun.cycleCoverErr != nil {
+			return
+		}
+
+		fmt.Printf("\t[%s][%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
+			instanceRun.atspData.Name,
+			instanceRun.heuristic,
+			cycleCoverCost,
+			100*(instanceRun.knownOptimal-cycleCoverCost)/instanceRun.knownOptimal)
+	})
+
+	return instanceRun.cycleCover, instanceRun.cycleCoverErr
+}
+
+func experimentSetParameterJobs(instanceRuns []*experimentSetInstanceRun, experimentParameters []ExperimentParameters, numberOfExperiments int, logMutex *sync.Mutex) []workerpool.Job {
+	orderedInstanceRuns := append([]*experimentSetInstanceRun{}, instanceRuns...)
+	sort.SliceStable(orderedInstanceRuns, func(i, j int) bool {
+		if orderedInstanceRuns[i].dimension != orderedInstanceRuns[j].dimension {
+			return orderedInstanceRuns[i].dimension > orderedInstanceRuns[j].dimension
+		}
+
+		return orderedInstanceRuns[i].atspData.Name < orderedInstanceRuns[j].atspData.Name
+	})
+
+	jobs := make([]workerpool.Job, 0, len(orderedInstanceRuns)*len(experimentParameters))
+	for _, instanceRun := range orderedInstanceRuns {
+		instanceRun := instanceRun
+		for parameterIndex := range experimentParameters {
+			parameterIndex := parameterIndex
+			jobs = append(jobs, workerpool.Job{
+				Label: fmt.Sprintf("%s/%s/parameter-%d", instanceRun.heuristic, instanceRun.atspData.Name, parameterIndex),
+				Run: func() error {
+					return runExperimentSetParameter(instanceRun, experimentParameters[parameterIndex], parameterIndex, numberOfExperiments, logMutex)
+				},
+			})
+		}
+	}
+
+	return jobs
+}
+
+func runExperimentSetParameter(instanceRun *experimentSetInstanceRun, parameters ExperimentParameters, parameterIndex, numberOfExperiments int, logMutex *sync.Mutex) error {
+	setDimensionDependantParameters(instanceRun.dimension, &parameters)
+	parameterStart := time.Now()
 
 	var cycleCover [][]float64
-	if heuristicUsesCycleCover(heuristic) {
-		var cycleCoverCost float64
-		cycleCover, cycleCoverCost, err = buildMinimumCycleCoverMatrix(matrix)
+	if heuristicUsesCycleCover(instanceRun.heuristic) {
+		var err error
+		cycleCover, err = instanceRun.getCycleCover()
 		if err != nil {
 			return err
 		}
-		fmt.Printf("\t[%s][%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
-			atspData.Name,
-			heuristic,
-			cycleCoverCost,
-			100*(knownOptimal-cycleCoverCost)/knownOptimal)
 	}
 
-	experimentData := make([]ExperimentsData, len(experimentParameters))
-	var logMutex sync.Mutex
+	heuristicModifiers := buildHeuristicModifiers(instanceRun.heuristic, instanceRun.matrix, instanceRun.heuristicMatrix, cycleCover, parameters)
+	rootedHeuristicModifiers := buildRootedHeuristicModifiers(instanceRun.heuristic, instanceRun.matrix, instanceRun.rootedMsaHeuristic, parameters)
+	results := runExperimentsWithRootedHeuristicModifiers(numberOfExperiments, parameters, instanceRun.knownOptimal, instanceRun.matrix, heuristicModifiers, rootedHeuristicModifiers, false)
+	data := ExperimentsData{ExperimentParameters: parameters, Results: results}
+	instanceRun.experimentData[parameterIndex] = data
 
-	err = workerpool.RunIndexJobsWithSharedWorkers(len(experimentParameters), workerGate, func(index int) error {
-		parameters := experimentParameters[index]
-		setDimensionDependantParameters(dimension, &parameters)
-		parameterStart := time.Now()
-		heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters)
-		rootedHeuristicModifiers := buildRootedHeuristicModifiers(heuristic, matrix, rootedMsaHeuristic, parameters)
-		results := runExperimentsWithRootedHeuristicModifiers(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, rootedHeuristicModifiers, false)
-		data := ExperimentsData{parameters, results}
-		experimentData[index] = data
-
-		parameterStatistics := calculateStatistics([]ExperimentsData{data})
-		if len(parameterStatistics) != 0 {
-			statistic := parameterStatistics[0]
-			randomSeedLog := ""
-			if parameters.RandomSeed != 0 {
-				randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.RandomSeed)
-			}
-			logMutex.Lock()
-			fmt.Printf("\t[%s][%s] heuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
-				atspData.Name,
-				heuristic,
-				parameters.HeuristicWeight,
-				parameters.MsaPatchBias,
-				randomSeedLog,
-				parameters.Iterations,
-				numberOfExperiments,
-				time.Since(parameterStart).Round(time.Millisecond),
-				statistic.MinBestDeviation,
-				statistic.AverageBestDeviation)
-			logMutex.Unlock()
-		}
-
+	parameterStatistics := calculateStatistics([]ExperimentsData{data})
+	if len(parameterStatistics) == 0 {
 		return nil
-	})
-	if err != nil {
-		return err
 	}
+
+	statistic := parameterStatistics[0]
+	randomSeedLog := ""
+	if parameters.RandomSeed != 0 {
+		randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.RandomSeed)
+	}
+	logMutex.Lock()
+	fmt.Printf("\t[%s][%s] heuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
+		instanceRun.atspData.Name,
+		instanceRun.heuristic,
+		parameters.HeuristicWeight,
+		parameters.MsaPatchBias,
+		randomSeedLog,
+		parameters.Iterations,
+		numberOfExperiments,
+		time.Since(parameterStart).Round(time.Millisecond),
+		statistic.MinBestDeviation,
+		statistic.AverageBestDeviation)
+	logMutex.Unlock()
+	return nil
+}
+
+func finishExperimentSetInstance(instanceRun *experimentSetInstanceRun) error {
+	atspData := instanceRun.atspData
+	heuristic := instanceRun.heuristic
+	experimentData := instanceRun.experimentData
 
 	statistics := calculateStatistics(experimentData)
 	if len(statistics) != 0 {
@@ -444,7 +631,7 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 		}
 	}
 
-	fmt.Printf("[%s][%s][%s] Finished in %s\n", logTimestamp(time.Now()), atspData.Name, heuristic, time.Since(instanceStart).Round(time.Millisecond))
+	fmt.Printf("[%s][%s][%s] Finished in %s\n", logTimestamp(time.Now()), atspData.Name, heuristic, time.Since(instanceRun.instanceStart).Round(time.Millisecond))
 	return nil
 }
 

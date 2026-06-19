@@ -1,30 +1,24 @@
 package workers
 
 import (
-	"atsp_aco_msa/modules/project"
 	"fmt"
 	"sync"
 )
 
-func RunBoundedInstanceJobs(atspsData []project.AtspData, workers int, job func(project.AtspData) error) error {
-	if len(atspsData) == 0 {
-		return nil
-	}
-
-	return RunBoundedIndexJobs(len(atspsData), workers, func(index int) error {
-		return job(atspsData[index])
-	})
+type Job struct {
+	Label string
+	Run   func() error
 }
 
-func RunBoundedIndexJobs(jobCount, workers int, job func(int) error) error {
-	if jobCount == 0 {
+func RunJobs(jobs []Job, workers int) error {
+	if len(jobs) == 0 {
 		return nil
 	}
 	if workers < 1 {
 		return fmt.Errorf("workers must be at least one")
 	}
 
-	effectiveWorkers := min(workers, jobCount)
+	effectiveWorkers := min(workers, len(jobs))
 	nextIndex := 0
 	var firstErr error
 	var mutex sync.Mutex
@@ -35,7 +29,7 @@ func RunBoundedIndexJobs(jobCount, workers int, job func(int) error) error {
 
 		for {
 			mutex.Lock()
-			if firstErr != nil || nextIndex >= jobCount {
+			if firstErr != nil || nextIndex >= len(jobs) {
 				mutex.Unlock()
 				return
 			}
@@ -43,7 +37,7 @@ func RunBoundedIndexJobs(jobCount, workers int, job func(int) error) error {
 			nextIndex++
 			mutex.Unlock()
 
-			if err := job(index); err != nil {
+			if err := jobs[index].Run(); err != nil {
 				mutex.Lock()
 				if firstErr == nil {
 					firstErr = err
@@ -60,48 +54,5 @@ func RunBoundedIndexJobs(jobCount, workers int, job func(int) error) error {
 	}
 	waitGroup.Wait()
 
-	return firstErr
-}
-
-func RunIndexJobsWithSharedWorkers(jobCount int, workerGate chan struct{}, job func(int) error) error {
-	if jobCount == 0 {
-		return nil
-	}
-	if cap(workerGate) < 1 {
-		return fmt.Errorf("shared workers must be at least one")
-	}
-
-	var firstErr error
-	var mutex sync.Mutex
-	var waitGroup sync.WaitGroup
-
-	for index := 0; index < jobCount; index++ {
-		waitGroup.Add(1)
-		go func(index int) {
-			defer waitGroup.Done()
-
-			workerGate <- struct{}{}
-			defer func() {
-				<-workerGate
-			}()
-
-			mutex.Lock()
-			shouldStop := firstErr != nil
-			mutex.Unlock()
-			if shouldStop {
-				return
-			}
-
-			if err := job(index); err != nil {
-				mutex.Lock()
-				if firstErr == nil {
-					firstErr = err
-				}
-				mutex.Unlock()
-			}
-		}(index)
-	}
-
-	waitGroup.Wait()
 	return firstErr
 }

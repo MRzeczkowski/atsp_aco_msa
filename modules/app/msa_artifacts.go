@@ -10,7 +10,7 @@ import (
 )
 
 func runRebuildMsaMode(atspsData []AtspData, workers int) error {
-	return workerpool.RunBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
+	return workerpool.RunJobs(instanceJobsByDescendingDimension(atspsData, "rebuild-msa", func(atspData AtspData) error {
 		start := time.Now()
 		fmt.Printf("[%s][%s] Rebuilding MSA artifacts in %s\n", logTimestamp(start), atspData.Name, atspData.MsaHeuristicDirectoryPath)
 
@@ -29,11 +29,11 @@ func runRebuildMsaMode(atspsData []AtspData, workers int) error {
 
 		fmt.Printf("[%s][%s] Rebuilt MSA artifacts in %s\n", logTimestamp(time.Now()), atspData.Name, time.Since(start).Round(time.Millisecond))
 		return nil
-	})
+	}), workers)
 }
 
 func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int, requireRooted bool) error {
-	return workerpool.RunBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
+	return workerpool.RunJobs(instanceJobsByDescendingDimension(atspsData, "ensure-msa-artifacts", func(atspData AtspData) error {
 		name := atspData.Name
 		matrix := atspData.Matrix
 		msaHeuristicDirectoryPath := atspData.MsaHeuristicDirectoryPath
@@ -63,7 +63,7 @@ func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int, requireRoote
 		}
 
 		return saveMsaHeuristicPlots(atspData, msaHeuristicMatrix)
-	})
+	}), workers)
 }
 
 func saveMsaHeuristicPlots(atspData AtspData, msaHeuristicMatrix [][]float64) error {
@@ -83,7 +83,7 @@ func saveMsaHeuristicPlots(atspData AtspData, msaHeuristicMatrix [][]float64) er
 }
 
 func ensureMsaHeuristicCache(atspsData []AtspData, workers int, requireRooted bool) error {
-	return workerpool.RunBoundedInstanceJobs(atspsData, workers, func(atspData AtspData) error {
+	return workerpool.RunJobs(instanceJobsByDescendingDimension(atspsData, "ensure-msa-cache", func(atspData AtspData) error {
 		if _, err := msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath); err == nil {
 			if requireRooted {
 				_, err = readOrCreateIndividualMsas(atspData)
@@ -104,7 +104,7 @@ func ensureMsaHeuristicCache(atspsData []AtspData, workers int, requireRooted bo
 
 		fmt.Printf("\t[%s] Creating %s took: %d ms\n", atspData.Name, atspData.MsaHeuristicDirectoryPath, time.Since(start).Milliseconds())
 		return nil
-	})
+	}), workers)
 }
 
 func filterZeroes(data []float64) []float64 {
