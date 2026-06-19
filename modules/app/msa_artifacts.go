@@ -47,7 +47,7 @@ func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int, requireRoote
 			fmt.Printf("\t[%s] Creating %s took: %d ms\n", name, msaHeuristicDirectoryPath, elapsed.Milliseconds())
 
 			if err != nil {
-				return fmt.Errorf("error saving MSA heuristic: %w", err)
+				return fmt.Errorf("error saving MSA Heuristic: %w", err)
 			}
 		}
 
@@ -92,7 +92,7 @@ func ensureMsaHeuristicCache(atspsData []AtspData, workers int, requireRooted bo
 
 		start := time.Now()
 		if _, err := msaHeuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath); err != nil {
-			return fmt.Errorf("error saving MSA heuristic: %w", err)
+			return fmt.Errorf("error saving MSA Heuristic: %w", err)
 		}
 
 		if requireRooted {

@@ -239,25 +239,25 @@ func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plot
 	includeMsaPatchBias := shouldIncludeMsaPatchBiasInPlots(statistics)
 
 	for _, statistic := range statistics {
-		if statistic.alpha != bestStatistic.alpha ||
-			statistic.beta != bestStatistic.beta ||
-			statistic.rho != bestStatistic.rho {
+		if statistic.Alpha != bestStatistic.Alpha ||
+			statistic.Beta != bestStatistic.Beta ||
+			statistic.Rho != bestStatistic.Rho {
 			continue
 		}
 
-		minDeviationPlotData := utilities.LinePlotData{Name: "min deviation", Color: color.RGBA{G: 255, A: 255}, Values: statistic.minDeviationPerIteration}
-		avgDeviationPlotData := utilities.LinePlotData{Name: "avg deviation", Color: color.RGBA{B: 255, A: 255}, Values: statistic.averageDeviationPerIteration}
-		maxDeviationPlotData := utilities.LinePlotData{Name: "max deviation", Color: color.RGBA{R: 255, A: 255}, Values: statistic.maxDeviationPerIteration}
+		minDeviationPlotData := utilities.LinePlotData{Name: "min deviation", Color: color.RGBA{G: 255, A: 255}, Values: statistic.MinDeviationPerIteration}
+		avgDeviationPlotData := utilities.LinePlotData{Name: "avg deviation", Color: color.RGBA{B: 255, A: 255}, Values: statistic.AverageDeviationPerIteration}
+		maxDeviationPlotData := utilities.LinePlotData{Name: "max deviation", Color: color.RGBA{R: 255, A: 255}, Values: statistic.MaxDeviationPerIteration}
 		lines := []utilities.LinePlotData{minDeviationPlotData, avgDeviationPlotData, maxDeviationPlotData}
 
 		titleParameters := fmt.Sprintf("alpha=%.2f, beta=%.2f, rho=%.2f, heuristicWeight=%.2f",
-			statistic.alpha, statistic.beta, statistic.rho, statistic.heuristicWeight)
+			statistic.Alpha, statistic.Beta, statistic.Rho, statistic.HeuristicWeight)
 
-		heuristicWeightPlotSuffix := "_heuristicWeight=" + strconv.Itoa(int(100*statistic.heuristicWeight)) + "%"
+		heuristicWeightPlotSuffix := "_heuristicWeight=" + strconv.Itoa(int(100*statistic.HeuristicWeight)) + "%"
 		plotPath := plotPathPrefix + heuristicWeightPlotSuffix
 		if includeMsaPatchBias {
-			titleParameters += fmt.Sprintf(", msaPatchBias=%.2f", statistic.msaPatchBias)
-			plotPath += "_msaPatchBias=" + strconv.Itoa(int(100*statistic.msaPatchBias)) + "%"
+			titleParameters += fmt.Sprintf(", msaPatchBias=%.2f", statistic.MsaPatchBias)
+			plotPath += "_msaPatchBias=" + strconv.Itoa(int(100*statistic.MsaPatchBias)) + "%"
 		}
 		plotPath += ".png"
 
@@ -268,8 +268,8 @@ func saveExperimentPlots(statistics []ExperimentsDataStatistics, plotTitle, plot
 func shouldIncludeMsaPatchBiasInPlots(statistics []ExperimentsDataStatistics) bool {
 	seen := make(map[float64]struct{})
 	for _, statistic := range statistics {
-		seen[statistic.msaPatchBias] = struct{}{}
-		if statistic.msaPatchBias != 0 {
+		seen[statistic.MsaPatchBias] = struct{}{}
+		if statistic.MsaPatchBias != 0 {
 			return true
 		}
 	}

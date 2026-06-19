@@ -78,9 +78,9 @@ func buildRandomSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 			}
 			return nil, nil, err
 		}
-		randomStatisticsForWeight := statisticsForHeuristicWeightAll(randomStatistics, msaMetric.heuristicWeight)
+		randomStatisticsForWeight := statisticsForHeuristicWeightAll(randomStatistics, msaMetric.HeuristicWeight)
 		if len(randomStatisticsForWeight) == 0 {
-			missingData = append(missingData, randomSparseControlMissingData{instance: atspData.Name, reason: fmt.Sprintf("missing random-sparse rows for heuristic weight %.2f", msaMetric.heuristicWeight)})
+			missingData = append(missingData, randomSparseControlMissingData{instance: atspData.Name, reason: fmt.Sprintf("missing random-sparse rows for heuristic weight %.2f", msaMetric.HeuristicWeight)})
 			continue
 		}
 
@@ -89,11 +89,11 @@ func buildRandomSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 		randomBestAverageBestDeviation := math.Inf(1)
 		randomBestAverageBestDeviationSeed := int64(0)
 		for _, statistic := range randomStatisticsForWeight {
-			randomAverageBestDeviation += statistic.averageBestDeviation
-			randomSuccessRate += statistic.successRate
-			if statistic.averageBestDeviation < randomBestAverageBestDeviation {
-				randomBestAverageBestDeviation = statistic.averageBestDeviation
-				randomBestAverageBestDeviationSeed = statistic.randomSeed
+			randomAverageBestDeviation += statistic.AverageBestDeviation
+			randomSuccessRate += statistic.SuccessRate
+			if statistic.AverageBestDeviation < randomBestAverageBestDeviation {
+				randomBestAverageBestDeviation = statistic.AverageBestDeviation
+				randomBestAverageBestDeviationSeed = statistic.RandomSeed
 			}
 		}
 		randomAverageBestDeviation /= float64(len(randomStatisticsForWeight))
@@ -101,13 +101,13 @@ func buildRandomSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 
 		rows = append(rows, randomSparseControlRow{
 			instance:                           atspData.Name,
-			msaAverageBestDeviation:            msaMetric.averageMinDeviation,
+			msaAverageBestDeviation:            msaMetric.AverageMinDeviation,
 			randomAverageBestDeviation:         randomAverageBestDeviation,
 			randomBestAverageBestDeviation:     randomBestAverageBestDeviation,
-			averageBestDeviationDelta:          msaMetric.averageMinDeviation - randomAverageBestDeviation,
-			msaSuccessRate:                     msaMetric.successRate,
+			averageBestDeviationDelta:          msaMetric.AverageMinDeviation - randomAverageBestDeviation,
+			msaSuccessRate:                     msaMetric.SuccessRate,
 			randomSuccessRate:                  randomSuccessRate,
-			successRateDelta:                   msaMetric.successRate - randomSuccessRate,
+			successRateDelta:                   msaMetric.SuccessRate - randomSuccessRate,
 			randomSeedCount:                    len(randomStatisticsForWeight),
 			randomBestAverageBestDeviationSeed: randomBestAverageBestDeviationSeed,
 		})
@@ -125,7 +125,7 @@ func buildRandomSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 
 func statisticsForHeuristicWeight(statistics []ExperimentsDataStatistics, heuristicWeight float64) (ExperimentsDataStatistics, bool) {
 	for _, statistic := range statistics {
-		if math.Abs(statistic.heuristicWeight-heuristicWeight) < 1e-9 {
+		if math.Abs(statistic.HeuristicWeight-heuristicWeight) < 1e-9 {
 			return statistic, true
 		}
 	}
@@ -136,7 +136,7 @@ func statisticsForHeuristicWeight(statistics []ExperimentsDataStatistics, heuris
 func statisticsForHeuristicWeightAll(statistics []ExperimentsDataStatistics, heuristicWeight float64) []ExperimentsDataStatistics {
 	rows := make([]ExperimentsDataStatistics, 0)
 	for _, statistic := range statistics {
-		if math.Abs(statistic.heuristicWeight-heuristicWeight) < 1e-9 {
+		if math.Abs(statistic.HeuristicWeight-heuristicWeight) < 1e-9 {
 			rows = append(rows, statistic)
 		}
 	}
@@ -163,16 +163,16 @@ func readMsaControlMetric(atspData AtspData, finalResultsRootPath, referenceHeur
 
 func msaHeuristicControlMetricForWeight(statistics []HeuristicExperimentStatistics, referenceHeuristic string, heuristicWeight float64) (finalResultsSummaryMetric, bool, error) {
 	for _, statistic := range statistics {
-		if statistic.heuristic != referenceHeuristic || math.Abs(statistic.statistics.heuristicWeight-heuristicWeight) >= 1e-9 {
+		if statistic.Heuristic != referenceHeuristic || math.Abs(statistic.Statistics.HeuristicWeight-heuristicWeight) >= 1e-9 {
 			continue
 		}
 
 		return finalResultsSummaryMetric{
-			averageMinDeviation:  statistic.statistics.averageBestDeviation,
-			successRate:          statistic.statistics.successRate,
-			averageBestIteration: statistic.statistics.averageBestAtIteration,
-			heuristicWeight:      statistic.statistics.heuristicWeight,
-			iterations:           statistic.statistics.iterations,
+			AverageMinDeviation:  statistic.Statistics.AverageBestDeviation,
+			SuccessRate:          statistic.Statistics.SuccessRate,
+			AverageBestIteration: statistic.Statistics.AverageBestAtIteration,
+			HeuristicWeight:      statistic.Statistics.HeuristicWeight,
+			Iterations:           statistic.Statistics.Iterations,
 		}, true, nil
 	}
 
@@ -392,20 +392,20 @@ func buildDistanceRankedSparseControlRows(atspsData []AtspData, finalResultsRoot
 			return nil, nil, err
 		}
 
-		controlStatistic, ok := statisticsForHeuristicWeight(controlStatistics, msaMetric.heuristicWeight)
+		controlStatistic, ok := statisticsForHeuristicWeight(controlStatistics, msaMetric.HeuristicWeight)
 		if !ok {
-			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.Name, reason: fmt.Sprintf("missing %s row for heuristic weight %.2f", controlHeuristic, msaMetric.heuristicWeight)})
+			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.Name, reason: fmt.Sprintf("missing %s row for heuristic weight %.2f", controlHeuristic, msaMetric.HeuristicWeight)})
 			continue
 		}
 
 		rows = append(rows, distanceRankedSparseControlRow{
 			instance:                    atspData.Name,
-			msaAverageBestDeviation:     msaMetric.averageMinDeviation,
-			controlAverageBestDeviation: controlStatistic.averageBestDeviation,
-			averageBestDeviationDelta:   msaMetric.averageMinDeviation - controlStatistic.averageBestDeviation,
-			msaSuccessRate:              msaMetric.successRate,
-			controlSuccessRate:          controlStatistic.successRate,
-			successRateDelta:            msaMetric.successRate - controlStatistic.successRate,
+			msaAverageBestDeviation:     msaMetric.AverageMinDeviation,
+			controlAverageBestDeviation: controlStatistic.AverageBestDeviation,
+			averageBestDeviationDelta:   msaMetric.AverageMinDeviation - controlStatistic.AverageBestDeviation,
+			msaSuccessRate:              msaMetric.SuccessRate,
+			controlSuccessRate:          controlStatistic.SuccessRate,
+			successRateDelta:            msaMetric.SuccessRate - controlStatistic.SuccessRate,
 		})
 	}
 
@@ -605,9 +605,9 @@ func buildSeededSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 			}
 			return nil, nil, err
 		}
-		controlStatisticsForWeight := statisticsForHeuristicWeightAll(controlStatistics, msaMetric.heuristicWeight)
+		controlStatisticsForWeight := statisticsForHeuristicWeightAll(controlStatistics, msaMetric.HeuristicWeight)
 		if len(controlStatisticsForWeight) == 0 {
-			missingData = append(missingData, seededSparseControlMissingData{instance: atspData.Name, reason: fmt.Sprintf("missing %s rows for heuristic weight %.2f", config.missingResultLabel, msaMetric.heuristicWeight)})
+			missingData = append(missingData, seededSparseControlMissingData{instance: atspData.Name, reason: fmt.Sprintf("missing %s rows for heuristic weight %.2f", config.missingResultLabel, msaMetric.HeuristicWeight)})
 			continue
 		}
 
@@ -616,11 +616,11 @@ func buildSeededSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 		controlBestAverageBestDeviation := math.Inf(1)
 		controlBestAverageBestDeviationSeed := int64(0)
 		for _, statistic := range controlStatisticsForWeight {
-			controlAverageBestDeviation += statistic.averageBestDeviation
-			controlSuccessRate += statistic.successRate
-			if statistic.averageBestDeviation < controlBestAverageBestDeviation {
-				controlBestAverageBestDeviation = statistic.averageBestDeviation
-				controlBestAverageBestDeviationSeed = statistic.randomSeed
+			controlAverageBestDeviation += statistic.AverageBestDeviation
+			controlSuccessRate += statistic.SuccessRate
+			if statistic.AverageBestDeviation < controlBestAverageBestDeviation {
+				controlBestAverageBestDeviation = statistic.AverageBestDeviation
+				controlBestAverageBestDeviationSeed = statistic.RandomSeed
 			}
 		}
 		controlAverageBestDeviation /= float64(len(controlStatisticsForWeight))
@@ -628,13 +628,13 @@ func buildSeededSparseControlRows(atspsData []AtspData, finalResultsRootPath, co
 
 		rows = append(rows, seededSparseControlRow{
 			instance:                            atspData.Name,
-			msaAverageBestDeviation:             msaMetric.averageMinDeviation,
+			msaAverageBestDeviation:             msaMetric.AverageMinDeviation,
 			controlAverageBestDeviation:         controlAverageBestDeviation,
 			controlBestAverageBestDeviation:     controlBestAverageBestDeviation,
-			averageBestDeviationDelta:           msaMetric.averageMinDeviation - controlAverageBestDeviation,
-			msaSuccessRate:                      msaMetric.successRate,
+			averageBestDeviationDelta:           msaMetric.AverageMinDeviation - controlAverageBestDeviation,
+			msaSuccessRate:                      msaMetric.SuccessRate,
 			controlSuccessRate:                  controlSuccessRate,
-			successRateDelta:                    msaMetric.successRate - controlSuccessRate,
+			successRateDelta:                    msaMetric.SuccessRate - controlSuccessRate,
 			seedCount:                           len(controlStatisticsForWeight),
 			controlBestAverageBestDeviationSeed: controlBestAverageBestDeviationSeed,
 		})

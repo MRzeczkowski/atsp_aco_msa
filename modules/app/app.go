@@ -79,7 +79,7 @@ func heuristicIsRootedSparseControl(heuristic string) bool {
 
 func finalConfigurationsUseMsaHeuristic(configurations []finalExperimentConfiguration) bool {
 	for _, configuration := range configurations {
-		if heuristicUsesMsaHeuristic(configuration.heuristic) {
+		if heuristicUsesMsaHeuristic(configuration.Heuristic) {
 			return true
 		}
 	}
@@ -89,7 +89,7 @@ func finalConfigurationsUseMsaHeuristic(configurations []finalExperimentConfigur
 
 func finalConfigurationsUseRootedMsa(configurations []finalExperimentConfiguration) bool {
 	for _, configuration := range configurations {
-		if heuristicUsesRootedMsa(configuration.heuristic) {
+		if heuristicUsesRootedMsa(configuration.Heuristic) {
 			return true
 		}
 	}
@@ -186,7 +186,7 @@ func finalConfigurationsAreSparseControls(configurations []finalExperimentConfig
 	}
 
 	for _, configuration := range configurations {
-		if !heuristicIsSparseControl(configuration.heuristic) {
+		if !heuristicIsSparseControl(configuration.Heuristic) {
 			return false
 		}
 	}

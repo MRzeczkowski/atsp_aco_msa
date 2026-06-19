@@ -40,15 +40,15 @@ func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover 
 	case heuristicStrictMsa:
 		return heuristics.BuildMsaHeuristicModifiers(msaHeuristic)
 	case heuristicRandomSparse:
-		return heuristics.BuildRandomSparseModifiers(msaHeuristic, parameters.randomSeed)
+		return heuristics.BuildRandomSparseModifiers(msaHeuristic, parameters.RandomSeed)
 	case heuristicDistanceRankedSparse, heuristicStrictDistanceRanked:
 		return heuristics.BuildDistanceRankedSparseModifiers(matrix, msaHeuristic)
 	case heuristicShuffledMsa, heuristicStrictShuffledMsa:
-		return heuristics.BuildShuffledMsaModifiers(msaHeuristic, parameters.randomSeed)
+		return heuristics.BuildShuffledMsaModifiers(msaHeuristic, parameters.RandomSeed)
 	case heuristicCycleCover:
 		return heuristics.BuildCycleCoverModifiers(cycleCover)
 	case heuristicCycleCoverMsaPatching:
-		return heuristics.BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover, parameters.msaPatchBias)
+		return heuristics.BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover, parameters.MsaPatchBias)
 	default:
 		return heuristics.BuildNeutralModifiers(heuristicMatrixDimension(matrix, msaHeuristic, cycleCover))
 	}
@@ -59,11 +59,11 @@ func buildRootedHeuristicModifiers(heuristic string, matrix [][]float64, rootedM
 	case heuristicRootedMsa:
 		return heuristics.BuildRootedMsaHeuristicModifiers(rootedMsaHeuristic)
 	case heuristicRandomSparse:
-		return heuristics.BuildRootedRandomSparseModifiers(rootedMsaHeuristic, parameters.randomSeed)
+		return heuristics.BuildRootedRandomSparseModifiers(rootedMsaHeuristic, parameters.RandomSeed)
 	case heuristicDistanceRankedSparse, heuristicRootedDistanceRanked:
 		return heuristics.BuildRootedDistanceRankedSparseModifiers(matrix, rootedMsaHeuristic)
 	case heuristicShuffledMsa, heuristicRootedShuffledMsa:
-		return heuristics.BuildRootedShuffledMsaModifiers(rootedMsaHeuristic, parameters.randomSeed)
+		return heuristics.BuildRootedShuffledMsaModifiers(rootedMsaHeuristic, parameters.RandomSeed)
 	default:
 		return nil
 	}

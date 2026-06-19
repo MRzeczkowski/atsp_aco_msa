@@ -50,8 +50,8 @@ func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
 		t.Fatalf("expected one statistic, got %d", len(statistics))
 	}
 
-	if statistics[0].heuristicWeight != 0.50 || statistics[0].msaPatchBias != 0.0 || statistics[0].successRate != 40.00 {
-		t.Fatalf("unexpected statistic values: heuristicWeight=%f msaPatchBias=%f successRate=%f", statistics[0].heuristicWeight, statistics[0].msaPatchBias, statistics[0].successRate)
+	if statistics[0].HeuristicWeight != 0.50 || statistics[0].MsaPatchBias != 0.0 || statistics[0].SuccessRate != 40.00 {
+		t.Fatalf("unexpected statistic values: heuristicWeight=%f msaPatchBias=%f successRate=%f", statistics[0].HeuristicWeight, statistics[0].MsaPatchBias, statistics[0].SuccessRate)
 	}
 
 	legacyPath := filepath.Join(dir, "legacy.csv")
@@ -99,8 +99,8 @@ func TestReadStatisticsAcceptsPatchingMsaPatchBiasColumn(t *testing.T) {
 	if len(statistics) != 1 {
 		t.Fatalf("expected one statistic, got %d", len(statistics))
 	}
-	if statistics[0].heuristicWeight != 0.50 || statistics[0].msaPatchBias != 0.25 || statistics[0].successRate != 40.00 {
-		t.Fatalf("unexpected statistic values: heuristicWeight=%f msaPatchBias=%f successRate=%f", statistics[0].heuristicWeight, statistics[0].msaPatchBias, statistics[0].successRate)
+	if statistics[0].HeuristicWeight != 0.50 || statistics[0].MsaPatchBias != 0.25 || statistics[0].SuccessRate != 40.00 {
+		t.Fatalf("unexpected statistic values: heuristicWeight=%f msaPatchBias=%f successRate=%f", statistics[0].HeuristicWeight, statistics[0].MsaPatchBias, statistics[0].SuccessRate)
 	}
 }
 
@@ -136,8 +136,8 @@ func TestReadStatisticsAcceptsRandomSparseSeedColumn(t *testing.T) {
 	if len(statistics) != 1 {
 		t.Fatalf("expected one statistic, got %d", len(statistics))
 	}
-	if statistics[0].heuristicWeight != 0.90 || statistics[0].randomSeed != 2 || statistics[0].successRate != 40.00 {
-		t.Fatalf("unexpected statistic values: heuristicWeight=%f randomSeed=%d successRate=%f", statistics[0].heuristicWeight, statistics[0].randomSeed, statistics[0].successRate)
+	if statistics[0].HeuristicWeight != 0.90 || statistics[0].RandomSeed != 2 || statistics[0].SuccessRate != 40.00 {
+		t.Fatalf("unexpected statistic values: heuristicWeight=%f randomSeed=%d successRate=%f", statistics[0].HeuristicWeight, statistics[0].RandomSeed, statistics[0].SuccessRate)
 	}
 }
 
@@ -154,8 +154,8 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 	controlSecond := project.WithExperimentOutputRoot(second, controlsRoot)
 
 	if err := saveHeuristicStatistics(finalFirst.ResultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
+		{Heuristic: heuristicStrictMsa, Statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
+		{Heuristic: heuristicStrictMsa, Statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first final MSA result: %v", err)
 	}
@@ -166,8 +166,8 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 	})
 
 	if err := saveHeuristicStatistics(finalSecond.ResultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
+		{Heuristic: heuristicStrictMsa, Statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
+		{Heuristic: heuristicStrictMsa, Statistics: makeTestExperimentStatistics(0.8, 0.5, 100.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second final MSA result: %v", err)
 	}
@@ -210,7 +210,7 @@ func TestSaveDistanceRankedSparseControlReportComparesMsaAgainstDistanceRankedSp
 	controlSecond := project.WithExperimentOutputRoot(second, controlsRoot)
 
 	if err := saveHeuristicStatistics(finalFirst.ResultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
+		{Heuristic: heuristicStrictMsa, Statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first final MSA result: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestSaveDistanceRankedSparseControlReportComparesMsaAgainstDistanceRankedSp
 	})
 
 	if err := saveHeuristicStatistics(finalSecond.ResultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
+		{Heuristic: heuristicStrictMsa, Statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second final MSA result: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 	controlSecond := project.WithExperimentOutputRoot(second, controlsRoot)
 
 	if err := saveHeuristicStatistics(finalFirst.ResultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
+		{Heuristic: heuristicStrictMsa, Statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 2.0, 10.0)},
 	}); err != nil {
 		t.Fatalf("failed to write first final MSA result: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 	})
 
 	if err := saveHeuristicStatistics(finalSecond.ResultFilePath, []HeuristicExperimentStatistics{
-		{heuristic: heuristicStrictMsa, statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
+		{Heuristic: heuristicStrictMsa, Statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 4.0, 0.0)},
 	}); err != nil {
 		t.Fatalf("failed to write second final MSA result: %v", err)
 	}
@@ -384,29 +384,29 @@ func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "result.csv")
 	rows := []HeuristicExperimentStatistics{
 		{
-			heuristic: heuristicBaseline,
-			statistics: ExperimentsDataStatistics{
+			Heuristic: heuristicBaseline,
+			Statistics: ExperimentsDataStatistics{
 				ExperimentParameters: ExperimentParameters{
-					alpha:           1.0,
-					beta:            2.0,
-					rho:             0.8,
-					heuristicWeight: 0.0,
-					iterations:      500,
+					Alpha:           1.0,
+					Beta:            2.0,
+					Rho:             0.8,
+					HeuristicWeight: 0.0,
+					Iterations:      500,
 				},
-				averageBestDeviation: 3.0,
+				AverageBestDeviation: 3.0,
 			},
 		},
 		{
-			heuristic: heuristicCycleCover,
-			statistics: ExperimentsDataStatistics{
+			Heuristic: heuristicCycleCover,
+			Statistics: ExperimentsDataStatistics{
 				ExperimentParameters: ExperimentParameters{
-					alpha:           1.0,
-					beta:            2.0,
-					rho:             0.8,
-					heuristicWeight: 0.8,
-					iterations:      500,
+					Alpha:           1.0,
+					Beta:            2.0,
+					Rho:             0.8,
+					HeuristicWeight: 0.8,
+					Iterations:      500,
 				},
-				averageBestDeviation: 1.0,
+				AverageBestDeviation: 1.0,
 			},
 		},
 	}
@@ -441,75 +441,75 @@ func TestSaveFinalResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *te
 	secondAtspData := project.MakeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
 	rows := []HeuristicExperimentStatistics{
 		{
-			heuristic: heuristicBaseline,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 4.25,
-				successRate:          10.0,
+			Heuristic: heuristicBaseline,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 4.25,
+				SuccessRate:          10.0,
 			},
 		},
 		{
-			heuristic: heuristicStrictMsa,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 2.50,
-				successRate:          20.0,
+			Heuristic: heuristicStrictMsa,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 2.50,
+				SuccessRate:          20.0,
 			},
 		},
 		{
-			heuristic: heuristicRootedMsa,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 3.00,
-				successRate:          15.0,
+			Heuristic: heuristicRootedMsa,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 3.00,
+				SuccessRate:          15.0,
 			},
 		},
 		{
-			heuristic: heuristicCycleCover,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 1.75,
-				successRate:          30.0,
+			Heuristic: heuristicCycleCover,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 1.75,
+				SuccessRate:          30.0,
 			},
 		},
 		{
-			heuristic: heuristicCycleCoverMsaPatching,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 2.00,
-				successRate:          25.0,
+			Heuristic: heuristicCycleCoverMsaPatching,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 2.00,
+				SuccessRate:          25.0,
 			},
 		},
 	}
 	secondRows := []HeuristicExperimentStatistics{
 		{
-			heuristic: heuristicBaseline,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 6.75,
-				successRate:          20.0,
+			Heuristic: heuristicBaseline,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 6.75,
+				SuccessRate:          20.0,
 			},
 		},
 		{
-			heuristic: heuristicStrictMsa,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 3.50,
-				successRate:          40.0,
+			Heuristic: heuristicStrictMsa,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 3.50,
+				SuccessRate:          40.0,
 			},
 		},
 		{
-			heuristic: heuristicRootedMsa,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 4.00,
-				successRate:          35.0,
+			Heuristic: heuristicRootedMsa,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 4.00,
+				SuccessRate:          35.0,
 			},
 		},
 		{
-			heuristic: heuristicCycleCover,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 2.25,
-				successRate:          60.0,
+			Heuristic: heuristicCycleCover,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 2.25,
+				SuccessRate:          60.0,
 			},
 		},
 		{
-			heuristic: heuristicCycleCoverMsaPatching,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 2.50,
-				successRate:          55.0,
+			Heuristic: heuristicCycleCoverMsaPatching,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 2.50,
+				SuccessRate:          55.0,
 			},
 		},
 	}
@@ -570,24 +570,24 @@ func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 	finalAtspData := project.WithExperimentOutputRoot(atspData, project.FinalResultsDirectoryName)
 	rows := []HeuristicExperimentStatistics{
 		{
-			heuristic: heuristicBaseline,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 4.25,
-				successRate:          10.0,
+			Heuristic: heuristicBaseline,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 4.25,
+				SuccessRate:          10.0,
 			},
 		},
 		{
-			heuristic: heuristicStrictMsa,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 2.50,
-				successRate:          20.0,
+			Heuristic: heuristicStrictMsa,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 2.50,
+				SuccessRate:          20.0,
 			},
 		},
 		{
-			heuristic: heuristicCycleCover,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 1.75,
-				successRate:          30.0,
+			Heuristic: heuristicCycleCover,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 1.75,
+				SuccessRate:          30.0,
 			},
 		},
 	}
@@ -617,24 +617,24 @@ func TestRunFinalResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
 	finalThreeOptAtspData := project.WithExperimentOutputRoot(atspData, finalThreeOptRoot)
 	rows := []HeuristicExperimentStatistics{
 		{
-			heuristic: heuristicBaseline,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 3.00,
-				successRate:          10.0,
+			Heuristic: heuristicBaseline,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 3.00,
+				SuccessRate:          10.0,
 			},
 		},
 		{
-			heuristic: heuristicStrictMsa,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 2.00,
-				successRate:          20.0,
+			Heuristic: heuristicStrictMsa,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 2.00,
+				SuccessRate:          20.0,
 			},
 		},
 		{
-			heuristic: heuristicCycleCover,
-			statistics: ExperimentsDataStatistics{
-				averageBestDeviation: 1.00,
-				successRate:          30.0,
+			Heuristic: heuristicCycleCover,
+			Statistics: ExperimentsDataStatistics{
+				AverageBestDeviation: 1.00,
+				SuccessRate:          30.0,
 			},
 		},
 	}
@@ -668,28 +668,28 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 			instance: "sample",
 			metrics: map[string]finalResultsSummaryMetric{
 				heuristicBaseline: {
-					averageMinDeviation:  10.0,
-					successRate:          10.0,
-					averageBestIteration: 50.0,
-					iterations:           100,
+					AverageMinDeviation:  10.0,
+					SuccessRate:          10.0,
+					AverageBestIteration: 50.0,
+					Iterations:           100,
 				},
 				heuristicStrictMsa: {
-					averageMinDeviation:  8.0,
-					successRate:          12.0,
-					averageBestIteration: 60.0,
-					iterations:           100,
+					AverageMinDeviation:  8.0,
+					SuccessRate:          12.0,
+					AverageBestIteration: 60.0,
+					Iterations:           100,
 				},
 				heuristicCycleCover: {
-					averageMinDeviation:  7.0,
-					successRate:          11.0,
-					averageBestIteration: 30.0,
-					iterations:           100,
+					AverageMinDeviation:  7.0,
+					SuccessRate:          11.0,
+					AverageBestIteration: 30.0,
+					Iterations:           100,
 				},
 				heuristicCycleCoverMsaPatching: {
-					averageMinDeviation:  7.5,
-					successRate:          13.0,
-					averageBestIteration: 35.0,
-					iterations:           100,
+					AverageMinDeviation:  7.5,
+					SuccessRate:          13.0,
+					AverageBestIteration: 35.0,
+					Iterations:           100,
 				},
 			},
 		},
@@ -699,28 +699,28 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 			instance: "sample",
 			metrics: map[string]finalResultsSummaryMetric{
 				heuristicBaseline: {
-					averageMinDeviation:  1.0,
-					successRate:          50.0,
-					averageBestIteration: 20.0,
-					iterations:           100,
+					AverageMinDeviation:  1.0,
+					SuccessRate:          50.0,
+					AverageBestIteration: 20.0,
+					Iterations:           100,
 				},
 				heuristicStrictMsa: {
-					averageMinDeviation:  0.9,
-					successRate:          51.0,
-					averageBestIteration: 19.0,
-					iterations:           100,
+					AverageMinDeviation:  0.9,
+					SuccessRate:          51.0,
+					AverageBestIteration: 19.0,
+					Iterations:           100,
 				},
 				heuristicCycleCover: {
-					averageMinDeviation:  0.8,
-					successRate:          52.0,
-					averageBestIteration: 19.0,
-					iterations:           100,
+					AverageMinDeviation:  0.8,
+					SuccessRate:          52.0,
+					AverageBestIteration: 19.0,
+					Iterations:           100,
 				},
 				heuristicCycleCoverMsaPatching: {
-					averageMinDeviation:  0.85,
-					successRate:          53.0,
-					averageBestIteration: 18.0,
-					iterations:           100,
+					AverageMinDeviation:  0.85,
+					SuccessRate:          53.0,
+					AverageBestIteration: 18.0,
+					Iterations:           100,
 				},
 			},
 		},
@@ -1067,20 +1067,20 @@ func TestFinalExperimentConfigurationsUseFixedBalancedComparison(t *testing.T) {
 	}
 
 	for i, config := range configs {
-		if config.heuristic != expected[i].heuristic {
-			t.Fatalf("unexpected final heuristic at %d: want %s got %s", i, expected[i].heuristic, config.heuristic)
+		if config.Heuristic != expected[i].heuristic {
+			t.Fatalf("unexpected final heuristic at %d: want %s got %s", i, expected[i].heuristic, config.Heuristic)
 		}
-		if len(config.parameters) != 1 {
-			t.Fatalf("expected one final parameter set for %s, got %d", config.heuristic, len(config.parameters))
+		if len(config.Parameters) != 1 {
+			t.Fatalf("expected one final parameter set for %s, got %d", config.Heuristic, len(config.Parameters))
 		}
 
-		parameters := config.parameters[0]
-		if parameters.alpha != defaultExperimentAlpha ||
-			parameters.beta != defaultExperimentBeta ||
-			parameters.rho != defaultExperimentRho ||
-			parameters.heuristicWeight != expected[i].weight ||
-			parameters.msaPatchBias != expected[i].bias {
-			t.Fatalf("unexpected final parameters for %s: %+v", config.heuristic, parameters)
+		parameters := config.Parameters[0]
+		if parameters.Alpha != defaultExperimentAlpha ||
+			parameters.Beta != defaultExperimentBeta ||
+			parameters.Rho != defaultExperimentRho ||
+			parameters.HeuristicWeight != expected[i].weight ||
+			parameters.MsaPatchBias != expected[i].bias {
+			t.Fatalf("unexpected final parameters for %s: %+v", config.Heuristic, parameters)
 		}
 	}
 }
@@ -1090,7 +1090,7 @@ func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
 	if len(baselineParameters) != 1 {
 		t.Fatalf("expected one baseline parameter set, got %d", len(baselineParameters))
 	}
-	if baselineParameters[0].heuristicWeight != defaultBaselineHeuristicWeight {
+	if baselineParameters[0].HeuristicWeight != defaultBaselineHeuristicWeight {
 		t.Fatalf("unexpected baseline heuristic weight: %+v", baselineParameters[0])
 	}
 
@@ -1099,10 +1099,10 @@ func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
 		t.Fatalf("expected 10 MSA heuristic parameter sets, got %d", len(msaParameters))
 	}
 	for _, parameters := range msaParameters {
-		if parameters.heuristicWeight == 0 {
+		if parameters.HeuristicWeight == 0 {
 			t.Fatalf("expected MSA heuristic tuning to skip baseline-equivalent zero weight, got %+v", parameters)
 		}
-		if parameters.msaPatchBias != 0 {
+		if parameters.MsaPatchBias != 0 {
 			t.Fatalf("expected MSA patch bias to be zero for non-patching heuristic, got %+v", parameters)
 		}
 	}
@@ -1115,10 +1115,10 @@ func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
 	zeroWeightCount := 0
 	zeroBiasCount := 0
 	for _, parameters := range patchingParameters {
-		if parameters.heuristicWeight == 0 {
+		if parameters.HeuristicWeight == 0 {
 			zeroWeightCount++
 		}
-		if parameters.msaPatchBias == 0 {
+		if parameters.MsaPatchBias == 0 {
 			zeroBiasCount++
 		}
 	}
@@ -1148,11 +1148,11 @@ func TestSetDimensionDependantParametersScalesIterationsLinearly(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(strconv.Itoa(test.dimension), func(t *testing.T) {
-			parameters := ExperimentParameters{iterations: 1}
+			parameters := ExperimentParameters{Iterations: 1}
 			setDimensionDependantParameters(test.dimension, &parameters)
 
-			if parameters.iterations != test.expectedIterations {
-				t.Fatalf("expected %d iterations, got %d", test.expectedIterations, parameters.iterations)
+			if parameters.Iterations != test.expectedIterations {
+				t.Fatalf("expected %d iterations, got %d", test.expectedIterations, parameters.Iterations)
 			}
 		})
 	}
@@ -1232,7 +1232,7 @@ func TestSelectFinalExperimentConfigurations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover) returned error: %v", err)
 	}
-	if len(cycleCoverConfigurations) != 1 || cycleCoverConfigurations[0].heuristic != heuristicCycleCover {
+	if len(cycleCoverConfigurations) != 1 || cycleCoverConfigurations[0].Heuristic != heuristicCycleCover {
 		t.Fatalf("expected only cycle-cover configuration, got %+v", cycleCoverConfigurations)
 	}
 
@@ -1240,7 +1240,7 @@ func TestSelectFinalExperimentConfigurations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover-msa-patching) returned error: %v", err)
 	}
-	if len(patchingConfigurations) != 1 || patchingConfigurations[0].heuristic != heuristicCycleCoverMsaPatching {
+	if len(patchingConfigurations) != 1 || patchingConfigurations[0].Heuristic != heuristicCycleCoverMsaPatching {
 		t.Fatalf("expected only cycle-cover MSA-patching configuration, got %+v", patchingConfigurations)
 	}
 
@@ -1248,7 +1248,7 @@ func TestSelectFinalExperimentConfigurations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("selectFinalExperimentConfigurations(random-sparse) returned error: %v", err)
 	}
-	if len(randomSparseConfigurations) != 1 || randomSparseConfigurations[0].heuristic != heuristicRandomSparse || len(randomSparseConfigurations[0].parameters) != len(randomSparseSeeds) {
+	if len(randomSparseConfigurations) != 1 || randomSparseConfigurations[0].Heuristic != heuristicRandomSparse || len(randomSparseConfigurations[0].Parameters) != len(randomSparseSeeds) {
 		t.Fatalf("expected only random-sparse control configuration, got %+v", randomSparseConfigurations)
 	}
 
@@ -1256,7 +1256,7 @@ func TestSelectFinalExperimentConfigurations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("selectFinalExperimentConfigurations(shuffled-msa) returned error: %v", err)
 	}
-	if len(shuffledMsaConfigurations) != 1 || shuffledMsaConfigurations[0].heuristic != heuristicShuffledMsa || len(shuffledMsaConfigurations[0].parameters) != len(shuffledMsaSeeds) {
+	if len(shuffledMsaConfigurations) != 1 || shuffledMsaConfigurations[0].Heuristic != heuristicShuffledMsa || len(shuffledMsaConfigurations[0].Parameters) != len(shuffledMsaSeeds) {
 		t.Fatalf("expected only shuffled-MSA control configuration, got %+v", shuffledMsaConfigurations)
 	}
 
@@ -1330,20 +1330,20 @@ func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCs
 	path := filepath.Join(t.TempDir(), "result.csv")
 	existing := []HeuristicExperimentStatistics{
 		{
-			heuristic:  heuristicBaseline,
-			statistics: makeTestExperimentStatistics(0.0, 5.0, 10.0),
+			Heuristic:  heuristicBaseline,
+			Statistics: makeTestExperimentStatistics(0.0, 5.0, 10.0),
 		},
 		{
-			heuristic:  heuristicStrictMsa,
-			statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 3.0, 20.0),
+			Heuristic:  heuristicStrictMsa,
+			Statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 3.0, 20.0),
 		},
 		{
-			heuristic:  heuristicCycleCover,
-			statistics: makeTestExperimentStatistics(finalCycleCoverWeight, 7.0, 0.0),
+			Heuristic:  heuristicCycleCover,
+			Statistics: makeTestExperimentStatistics(finalCycleCoverWeight, 7.0, 0.0),
 		},
 		{
-			heuristic:  "obsolete",
-			statistics: makeTestExperimentStatistics(1.0, 0.5, 100.0),
+			Heuristic:  "obsolete",
+			Statistics: makeTestExperimentStatistics(1.0, 0.5, 100.0),
 		},
 	}
 	if err := saveHeuristicStatistics(path, existing); err != nil {
@@ -1352,8 +1352,8 @@ func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCs
 
 	replacement := []HeuristicExperimentStatistics{
 		{
-			heuristic:  heuristicCycleCover,
-			statistics: makeTestExperimentStatistics(finalCycleCoverWeight, 1.5, 40.0),
+			Heuristic:  heuristicCycleCover,
+			Statistics: makeTestExperimentStatistics(finalCycleCoverWeight, 1.5, 40.0),
 		},
 	}
 	cycleCoverConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCover)
@@ -1374,17 +1374,17 @@ func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCs
 
 	byHeuristic := make(map[string]HeuristicExperimentStatistics, len(statistics))
 	for _, statistic := range statistics {
-		byHeuristic[statistic.heuristic] = statistic
+		byHeuristic[statistic.Heuristic] = statistic
 	}
 
-	if byHeuristic[heuristicBaseline].statistics.averageBestDeviation != 5.0 {
+	if byHeuristic[heuristicBaseline].Statistics.AverageBestDeviation != 5.0 {
 		t.Fatalf("baseline row was not preserved: %+v", byHeuristic[heuristicBaseline])
 	}
-	if byHeuristic[heuristicStrictMsa].statistics.averageBestDeviation != 3.0 {
+	if byHeuristic[heuristicStrictMsa].Statistics.AverageBestDeviation != 3.0 {
 		t.Fatalf("strict MSA row was not preserved: %+v", byHeuristic[heuristicStrictMsa])
 	}
-	if byHeuristic[heuristicCycleCover].statistics.averageBestDeviation != 1.5 ||
-		byHeuristic[heuristicCycleCover].statistics.successRate != 40.0 {
+	if byHeuristic[heuristicCycleCover].Statistics.AverageBestDeviation != 1.5 ||
+		byHeuristic[heuristicCycleCover].Statistics.SuccessRate != 40.0 {
 		t.Fatalf("cycle-cover row was not replaced: %+v", byHeuristic[heuristicCycleCover])
 	}
 	if _, ok := byHeuristic["obsolete"]; ok {
@@ -1641,8 +1641,8 @@ func TestRunFinalExperimentForInstanceWithParameterWorkersRejectsInvalidWorkerCo
 	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, t.TempDir())
 	configurations := []finalExperimentConfiguration{
 		{
-			heuristic: heuristicBaseline,
-			parameters: []ExperimentParameters{
+			Heuristic: heuristicBaseline,
+			Parameters: []ExperimentParameters{
 				newDefaultExperimentParameters(defaultBaselineHeuristicWeight),
 			},
 		},
@@ -1967,28 +1967,28 @@ func sampleFinalSummaryRows() []finalResultsSummaryRow {
 			instance: "a",
 			metrics: map[string]finalResultsSummaryMetric{
 				heuristicBaseline: {
-					averageMinDeviation:  4.0,
-					successRate:          10.0,
-					averageBestIteration: 80.0,
-					iterations:           100,
+					AverageMinDeviation:  4.0,
+					SuccessRate:          10.0,
+					AverageBestIteration: 80.0,
+					Iterations:           100,
 				},
 				heuristicStrictMsa: {
-					averageMinDeviation:  2.5,
-					successRate:          20.0,
-					averageBestIteration: 60.0,
-					iterations:           100,
+					AverageMinDeviation:  2.5,
+					SuccessRate:          20.0,
+					AverageBestIteration: 60.0,
+					Iterations:           100,
 				},
 				heuristicCycleCover: {
-					averageMinDeviation:  2.0,
-					successRate:          30.0,
-					averageBestIteration: 40.0,
-					iterations:           100,
+					AverageMinDeviation:  2.0,
+					SuccessRate:          30.0,
+					AverageBestIteration: 40.0,
+					Iterations:           100,
 				},
 				heuristicCycleCoverMsaPatching: {
-					averageMinDeviation:  1.8,
-					successRate:          25.0,
-					averageBestIteration: 35.0,
-					iterations:           100,
+					AverageMinDeviation:  1.8,
+					SuccessRate:          25.0,
+					AverageBestIteration: 35.0,
+					Iterations:           100,
 				},
 			},
 		},
@@ -1996,28 +1996,28 @@ func sampleFinalSummaryRows() []finalResultsSummaryRow {
 			instance: "b",
 			metrics: map[string]finalResultsSummaryMetric{
 				heuristicBaseline: {
-					averageMinDeviation:  5.0,
-					successRate:          0.0,
-					averageBestIteration: 70.0,
-					iterations:           100,
+					AverageMinDeviation:  5.0,
+					SuccessRate:          0.0,
+					AverageBestIteration: 70.0,
+					Iterations:           100,
 				},
 				heuristicStrictMsa: {
-					averageMinDeviation:  3.5,
-					successRate:          20.0,
-					averageBestIteration: 40.0,
-					iterations:           100,
+					AverageMinDeviation:  3.5,
+					SuccessRate:          20.0,
+					AverageBestIteration: 40.0,
+					Iterations:           100,
 				},
 				heuristicCycleCover: {
-					averageMinDeviation:  3.5,
-					successRate:          20.0,
-					averageBestIteration: 30.0,
-					iterations:           100,
+					AverageMinDeviation:  3.5,
+					SuccessRate:          20.0,
+					AverageBestIteration: 30.0,
+					Iterations:           100,
 				},
 				heuristicCycleCoverMsaPatching: {
-					averageMinDeviation:  3.0,
-					successRate:          25.0,
-					averageBestIteration: 20.0,
-					iterations:           100,
+					AverageMinDeviation:  3.0,
+					SuccessRate:          25.0,
+					AverageBestIteration: 20.0,
+					Iterations:           100,
 				},
 			},
 		},
@@ -2027,28 +2027,28 @@ func sampleFinalSummaryRows() []finalResultsSummaryRow {
 func makeTestExperimentStatistics(heuristicWeight, averageBestDeviation, successRate float64) ExperimentsDataStatistics {
 	return ExperimentsDataStatistics{
 		ExperimentParameters: ExperimentParameters{
-			alpha:           defaultExperimentAlpha,
-			beta:            defaultExperimentBeta,
-			rho:             defaultExperimentRho,
-			heuristicWeight: heuristicWeight,
-			iterations:      500,
+			Alpha:           defaultExperimentAlpha,
+			Beta:            defaultExperimentBeta,
+			Rho:             defaultExperimentRho,
+			HeuristicWeight: heuristicWeight,
+			Iterations:      500,
 		},
-		minBestAtIteration:               1,
-		averageBestAtIteration:           2.0,
-		maxBestAtIteration:               3,
-		minThreeOptImprovementsCount:     0,
-		averageThreeOptImprovementsCount: 0.0,
-		maxThreeOptImprovementsCount:     0,
-		minBestDeviation:                 averageBestDeviation,
-		averageBestDeviation:             averageBestDeviation,
-		maxBestDeviation:                 averageBestDeviation,
-		successRate:                      successRate,
+		MinBestAtIteration:               1,
+		AverageBestAtIteration:           2.0,
+		MaxBestAtIteration:               3,
+		MinThreeOptImprovementsCount:     0,
+		AverageThreeOptImprovementsCount: 0.0,
+		MaxThreeOptImprovementsCount:     0,
+		MinBestDeviation:                 averageBestDeviation,
+		AverageBestDeviation:             averageBestDeviation,
+		MaxBestDeviation:                 averageBestDeviation,
+		SuccessRate:                      successRate,
 	}
 }
 
 func makeTestRandomSparseExperimentStatistics(randomSeed int64, averageBestDeviation, successRate float64) ExperimentsDataStatistics {
 	statistics := makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, averageBestDeviation, successRate)
-	statistics.randomSeed = randomSeed
+	statistics.RandomSeed = randomSeed
 	return statistics
 }
 
@@ -2076,7 +2076,7 @@ func writeTestControlStatisticsForWeightSummary(t *testing.T, atspData AtspData,
 
 func makeTestSeededExperimentStatistics(heuristicWeight float64, randomSeed int64, averageBestDeviation, successRate float64) ExperimentsDataStatistics {
 	statistics := makeTestExperimentStatistics(heuristicWeight, averageBestDeviation, successRate)
-	statistics.randomSeed = randomSeed
+	statistics.RandomSeed = randomSeed
 	return statistics
 }
 

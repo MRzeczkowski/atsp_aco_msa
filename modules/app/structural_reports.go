@@ -246,7 +246,7 @@ func buildGksDeviationRows(atspsData []AtspData, msaPatchBiases []float64) ([]gk
 	for _, atspData := range atspsData {
 		msaHeuristicMatrix, err := msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath)
 		if err != nil {
-			return nil, fmt.Errorf("%s: failed to read MSA heuristic: %w", atspData.Name, err)
+			return nil, fmt.Errorf("%s: failed to read MSA Heuristic: %w", atspData.Name, err)
 		}
 
 		cycleCoverMatrix, _, err := buildMinimumCycleCoverMatrix(atspData.Matrix)
@@ -601,9 +601,9 @@ func readOrCreateIndividualMsas(atspData AtspData) ([][][]float64, error) {
 
 	if _, createErr := msaHeuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath); createErr != nil {
 		if err != nil {
-			return nil, fmt.Errorf("%s: read individual MSAs: %w; create MSA heuristic: %w", atspData.Name, err, createErr)
+			return nil, fmt.Errorf("%s: read individual MSAs: %w; create MSA Heuristic: %w", atspData.Name, err, createErr)
 		}
-		return nil, fmt.Errorf("%s: create MSA heuristic: %w", atspData.Name, createErr)
+		return nil, fmt.Errorf("%s: create MSA Heuristic: %w", atspData.Name, createErr)
 	}
 
 	msas, err = msaHeuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)

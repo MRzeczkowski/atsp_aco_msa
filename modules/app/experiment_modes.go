@@ -66,10 +66,10 @@ func readTuningSummaryStatistics(path string) ([]tuningSummary.Statistic, error)
 	statistics := make([]tuningSummary.Statistic, 0, len(experimentStatistics))
 	for _, statistic := range experimentStatistics {
 		statistics = append(statistics, tuningSummary.Statistic{
-			HeuristicWeight:      statistic.heuristicWeight,
-			MsaPatchBias:         statistic.msaPatchBias,
-			AverageBestDeviation: statistic.averageBestDeviation,
-			SuccessRate:          statistic.successRate,
+			HeuristicWeight:      statistic.HeuristicWeight,
+			MsaPatchBias:         statistic.MsaPatchBias,
+			AverageBestDeviation: statistic.AverageBestDeviation,
+			SuccessRate:          statistic.SuccessRate,
 		})
 	}
 	return statistics, nil
@@ -142,21 +142,21 @@ func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, result
 	for _, config := range configurations {
 		var heuristicMatrix [][]float64
 		var rootedMsaHeuristic [][][]float64
-		if heuristicUsesRootedMsa(config.heuristic) {
+		if heuristicUsesRootedMsa(config.Heuristic) {
 			var err error
 			rootedMsaHeuristic, err = readRootedMsaHeuristics(atspData)
 			if err != nil {
 				return err
 			}
-		} else if heuristicUsesMsaHeuristic(config.heuristic) {
+		} else if heuristicUsesMsaHeuristic(config.Heuristic) {
 			var err error
-			heuristicMatrix, err = readMsaHeuristicMatrixForResultRoot(atspData, config.heuristic, resultsRootPath)
+			heuristicMatrix, err = readMsaHeuristicMatrixForResultRoot(atspData, config.Heuristic, resultsRootPath)
 			if err != nil {
 				return err
 			}
 		}
 
-		if heuristicUsesCycleCover(config.heuristic) && !cycleCoverReady {
+		if heuristicUsesCycleCover(config.Heuristic) && !cycleCoverReady {
 			var cycleCoverCost float64
 			cycleCover, cycleCoverCost, cycleCoverErr = buildMinimumCycleCoverMatrix(matrix)
 			if cycleCoverErr != nil {
@@ -171,8 +171,8 @@ func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, result
 
 		experimentData, err := runFinalExperimentParameters(
 			atspData.Name,
-			config.heuristic,
-			config.parameters,
+			config.Heuristic,
+			config.Parameters,
 			numberOfExperiments,
 			knownOptimal,
 			matrix,
@@ -192,25 +192,25 @@ func runFinalExperimentForInstanceWithParameterWorkers(atspData AtspData, result
 		}
 
 		if controlRun {
-			saveStatistics(resultFilePathForHeuristic(atspData, config.heuristic), config.heuristic, statistics)
+			saveStatistics(resultFilePathForHeuristic(atspData, config.Heuristic), config.Heuristic, statistics)
 			continue
 		}
 
-		if config.saveAllParameterRows {
+		if config.SaveAllParameterRows {
 			for _, statistic := range statistics {
 				finalStatistics = append(finalStatistics, HeuristicExperimentStatistics{
-					heuristic:  config.heuristic,
-					statistics: statistic,
+					Heuristic:  config.Heuristic,
+					Statistics: statistic,
 				})
 			}
 		} else {
 			finalStatistics = append(finalStatistics, HeuristicExperimentStatistics{
-				heuristic:  config.heuristic,
-				statistics: statistics[0],
+				Heuristic:  config.Heuristic,
+				Statistics: statistics[0],
 			})
 		}
 
-		if err := removeExperimentPlotsForHeuristic(atspData, config.heuristic); err != nil {
+		if err := removeExperimentPlotsForHeuristic(atspData, config.Heuristic); err != nil {
 			return err
 		}
 	}
@@ -243,21 +243,21 @@ func runFinalExperimentParameters(instanceName, heuristic string, experimentPara
 		if len(parameterStatistics) != 0 {
 			statistic := parameterStatistics[0]
 			randomSeedLog := ""
-			if parameters.randomSeed != 0 {
-				randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.randomSeed)
+			if parameters.RandomSeed != 0 {
+				randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.RandomSeed)
 			}
 			logMutex.Lock()
 			fmt.Printf("\t[%s][%s] heuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
 				instanceName,
 				heuristic,
-				parameters.heuristicWeight,
-				parameters.msaPatchBias,
+				parameters.HeuristicWeight,
+				parameters.MsaPatchBias,
 				randomSeedLog,
-				parameters.iterations,
+				parameters.Iterations,
 				numberOfExperiments,
 				time.Since(parameterStart).Round(time.Millisecond),
-				statistic.minBestDeviation,
-				statistic.averageBestDeviation)
+				statistic.MinBestDeviation,
+				statistic.AverageBestDeviation)
 			logMutex.Unlock()
 		}
 
@@ -273,7 +273,7 @@ func runFinalExperimentParameters(instanceName, heuristic string, experimentPara
 func finalExperimentParameterSetCount(configurations []finalExperimentConfiguration) int {
 	count := 0
 	for _, configuration := range configurations {
-		count += len(configuration.parameters)
+		count += len(configuration.Parameters)
 	}
 
 	return count
@@ -389,21 +389,21 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 		if len(parameterStatistics) != 0 {
 			statistic := parameterStatistics[0]
 			randomSeedLog := ""
-			if parameters.randomSeed != 0 {
-				randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.randomSeed)
+			if parameters.RandomSeed != 0 {
+				randomSeedLog = fmt.Sprintf(" randomSeed=%d", parameters.RandomSeed)
 			}
 			logMutex.Lock()
 			fmt.Printf("\t[%s][%s] heuristicWeight=%.2f msaPatchBias=%.2f%s iterations=%d runs=%d elapsed=%s min deviation=%.2f avg deviation=%.2f\n",
 				atspData.Name,
 				heuristic,
-				parameters.heuristicWeight,
-				parameters.msaPatchBias,
+				parameters.HeuristicWeight,
+				parameters.MsaPatchBias,
 				randomSeedLog,
-				parameters.iterations,
+				parameters.Iterations,
 				numberOfExperiments,
 				time.Since(parameterStart).Round(time.Millisecond),
-				statistic.minBestDeviation,
-				statistic.averageBestDeviation)
+				statistic.MinBestDeviation,
+				statistic.AverageBestDeviation)
 			logMutex.Unlock()
 		}
 
@@ -431,9 +431,9 @@ func runExperimentSetForInstance(atspData AtspData, heuristic string, experiment
 		}
 
 		for _, data := range experimentData {
-			for _, result := range data.results {
-				if result.deviationPerIteration[result.bestAtIteration] == 0.0 {
-					msaHeuristicTours.AddUniqueTour(uniqueOptimalTours, result.bestTour)
+			for _, result := range data.Results {
+				if result.DeviationPerIteration[result.BestAtIteration] == 0.0 {
+					msaHeuristicTours.AddUniqueTour(uniqueOptimalTours, result.BestTour)
 				}
 			}
 		}

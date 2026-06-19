@@ -63,10 +63,10 @@ func averageFinalResultsSummaryMetrics(rows []finalResultsSummaryRow) map[string
 			}
 
 			total := totals[heuristic]
-			total.averageMinDeviation += metric.averageMinDeviation
-			total.successRate += metric.successRate
-			total.averageBestIteration += metric.averageBestIteration
-			total.iterations += metric.iterations
+			total.AverageMinDeviation += metric.AverageMinDeviation
+			total.SuccessRate += metric.SuccessRate
+			total.AverageBestIteration += metric.AverageBestIteration
+			total.Iterations += metric.Iterations
 			totals[heuristic] = total
 			counts[heuristic]++
 		}
@@ -81,10 +81,10 @@ func averageFinalResultsSummaryMetrics(rows []finalResultsSummaryRow) map[string
 
 		total := totals[heuristic]
 		averageMetrics[heuristic] = finalResultsSummaryMetric{
-			averageMinDeviation:  total.averageMinDeviation / float64(count),
-			successRate:          total.successRate / float64(count),
-			averageBestIteration: total.averageBestIteration / float64(count),
-			iterations:           int(math.Round(float64(total.iterations) / float64(count))),
+			AverageMinDeviation:  total.AverageMinDeviation / float64(count),
+			SuccessRate:          total.SuccessRate / float64(count),
+			AverageBestIteration: total.AverageBestIteration / float64(count),
+			Iterations:           int(math.Round(float64(total.Iterations) / float64(count))),
 		}
 	}
 
@@ -108,13 +108,13 @@ func writeFinalResultsSummaryFindings(builder *strings.Builder, rows []finalResu
 
 	builder.WriteString("## Findings\n\n")
 	if len(bestDeviationHeuristics) != 0 {
-		bestDeviation := averageMetrics[bestDeviationHeuristics[0].heuristic].averageMinDeviation
+		bestDeviation := averageMetrics[bestDeviationHeuristics[0].heuristic].AverageMinDeviation
 		fmt.Fprintf(builder, "- **%s has the lowest average best deviation overall: %.2f%%.**\n",
 			joinHeuristicDisplayNames(bestDeviationHeuristics),
 			bestDeviation)
 	}
 	if len(bestSuccessHeuristics) != 0 {
-		bestSuccess := averageMetrics[bestSuccessHeuristics[0].heuristic].successRate
+		bestSuccess := averageMetrics[bestSuccessHeuristics[0].heuristic].SuccessRate
 		fmt.Fprintf(builder, "- **%s has the highest average success rate overall: %.2f%%.**\n",
 			joinHeuristicDisplayNames(bestSuccessHeuristics),
 			bestSuccess)
@@ -164,8 +164,8 @@ func writeFinalResultsSummaryTableRow(builder *strings.Builder, instance string,
 		}
 
 		fmt.Fprintf(builder, "<td align=\"right\">%s</td><td align=\"right\">%s</td>",
-			finalResultsSummaryMetricCell(metric.averageMinDeviation, deviationHighlights[heuristic]),
-			finalResultsSummaryMetricCell(metric.successRate, successHighlights[heuristic]))
+			finalResultsSummaryMetricCell(metric.AverageMinDeviation, deviationHighlights[heuristic]),
+			finalResultsSummaryMetricCell(metric.SuccessRate, successHighlights[heuristic]))
 	}
 	builder.WriteString("</tr>\n")
 }
@@ -182,11 +182,11 @@ func finalResultsSummaryHighlights(metrics map[string]finalResultsSummaryMetric)
 			continue
 		}
 
-		if metric.averageMinDeviation < minDeviation {
-			minDeviation = metric.averageMinDeviation
+		if metric.AverageMinDeviation < minDeviation {
+			minDeviation = metric.AverageMinDeviation
 		}
-		if metric.successRate > maxSuccess {
-			maxSuccess = metric.successRate
+		if metric.SuccessRate > maxSuccess {
+			maxSuccess = metric.SuccessRate
 		}
 	}
 
@@ -196,10 +196,10 @@ func finalResultsSummaryHighlights(metrics map[string]finalResultsSummaryMetric)
 			continue
 		}
 
-		if math.Abs(metric.averageMinDeviation-minDeviation) < 1e-9 {
+		if math.Abs(metric.AverageMinDeviation-minDeviation) < 1e-9 {
 			deviationHighlights[heuristic] = true
 		}
-		if maxSuccess > 0 && math.Abs(metric.successRate-maxSuccess) < 1e-9 {
+		if maxSuccess > 0 && math.Abs(metric.SuccessRate-maxSuccess) < 1e-9 {
 			successHighlights[heuristic] = true
 		}
 	}
@@ -343,9 +343,9 @@ func calculateFinalPairwisePerformanceComparison(rows []finalResultsSummaryRow, 
 		}
 
 		comparison.count++
-		deviationDelta := leftMetric.averageMinDeviation - rightMetric.averageMinDeviation
+		deviationDelta := leftMetric.AverageMinDeviation - rightMetric.AverageMinDeviation
 		comparison.averageBestDeviationDelta += deviationDelta
-		comparison.successRateDelta += leftMetric.successRate - rightMetric.successRate
+		comparison.successRateDelta += leftMetric.SuccessRate - rightMetric.SuccessRate
 
 		if math.Abs(deviationDelta) < epsilon {
 			comparison.ties++
@@ -457,7 +457,7 @@ func averageConvergenceByHeuristic(rows []finalResultsSummaryRow, allowedInstanc
 			if !ok {
 				continue
 			}
-			if metric.iterations <= 0 {
+			if metric.Iterations <= 0 {
 				continue
 			}
 
@@ -481,7 +481,7 @@ func lowestConvergenceHighlights(metrics map[string]finalResultsSummaryMetric) m
 	values := make(map[string]float64, len(finalResultsSummaryHeuristics))
 	for _, heuristic := range finalResultsSummaryHeuristics {
 		metric, ok := metrics[heuristic]
-		if !ok || metric.iterations <= 0 {
+		if !ok || metric.Iterations <= 0 {
 			continue
 		}
 		values[heuristic] = convergencePercent(metric)
@@ -491,11 +491,11 @@ func lowestConvergenceHighlights(metrics map[string]finalResultsSummaryMetric) m
 }
 
 func convergencePercent(metric finalResultsSummaryMetric) float64 {
-	if metric.iterations <= 0 {
+	if metric.Iterations <= 0 {
 		return 0
 	}
 
-	return 100.0 * metric.averageBestIteration / float64(metric.iterations)
+	return 100.0 * metric.AverageBestIteration / float64(metric.Iterations)
 }
 
 func saveFinalThreeOptComparisonReport(path string, finalRows, finalThreeOptRows []finalResultsSummaryRow) error {
@@ -551,10 +551,10 @@ func writeFinalThreeOptImpactTable(builder *strings.Builder, finalAverages, fina
 		fmt.Fprintf(builder,
 			"<tr><td>%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
 			html.EscapeString(heuristicDisplayName(heuristic)),
-			without.averageMinDeviation,
-			with.averageMinDeviation,
-			without.successRate,
-			with.successRate)
+			without.AverageMinDeviation,
+			with.AverageMinDeviation,
+			without.SuccessRate,
+			with.SuccessRate)
 	}
 	builder.WriteString("</tbody>\n")
 	builder.WriteString("</table>\n")
@@ -592,7 +592,7 @@ func finalThreeOptDeviationDeltaList(finalAverages, finalThreeOptAverages map[st
 		if !hasPairedMetrics(finalAverages, finalThreeOptAverages, heuristic) {
 			continue
 		}
-		delta := finalAverages[heuristic].averageMinDeviation - finalThreeOptAverages[heuristic].averageMinDeviation
+		delta := finalAverages[heuristic].AverageMinDeviation - finalThreeOptAverages[heuristic].AverageMinDeviation
 		parts = append(parts, fmt.Sprintf("%s %s pp", heuristicDisplayName(heuristic), formatSignedFloat(delta)))
 	}
 	return strings.Join(parts, ", ")
@@ -604,7 +604,7 @@ func finalThreeOptSuccessDeltaList(finalAverages, finalThreeOptAverages map[stri
 		if !hasPairedMetrics(finalAverages, finalThreeOptAverages, heuristic) {
 			continue
 		}
-		delta := finalThreeOptAverages[heuristic].successRate - finalAverages[heuristic].successRate
+		delta := finalThreeOptAverages[heuristic].SuccessRate - finalAverages[heuristic].SuccessRate
 		parts = append(parts, fmt.Sprintf("%s %s pp", heuristicDisplayName(heuristic), formatSignedFloat(delta)))
 	}
 	return strings.Join(parts, ", ")
@@ -648,7 +648,7 @@ func hasPairedMetrics(left, right map[string]finalResultsSummaryMetric, heuristi
 }
 
 func deviationGainVsBaseline(averages map[string]finalResultsSummaryMetric, heuristic string) float64 {
-	return averages[heuristicBaseline].averageMinDeviation - averages[heuristic].averageMinDeviation
+	return averages[heuristicBaseline].AverageMinDeviation - averages[heuristic].AverageMinDeviation
 }
 
 func signalRemainingPercent(without, with float64) float64 {
@@ -708,8 +708,8 @@ func saveStructuralPerformanceLinkReport(path string, rows []finalResultsSummary
 		includedHeuristics = append(includedHeuristics, heuristic)
 		precisionValues[heuristic] = precision
 		recallValues[heuristic] = structuralRecall[heuristic]
-		deviationValues[heuristic] = metric.averageMinDeviation
-		successValues[heuristic] = metric.successRate
+		deviationValues[heuristic] = metric.AverageMinDeviation
+		successValues[heuristic] = metric.SuccessRate
 	}
 
 	precisionHighlights := highestFloatHighlights(precisionValues)
@@ -740,8 +740,8 @@ func writeStructuralPerformanceLinkRow(builder *strings.Builder, heuristic strin
 		html.EscapeString(heuristicDisplayName(heuristic)),
 		finalResultsSummaryMetricCell(100*precision, precisionHighlights[heuristic]),
 		finalResultsSummaryMetricCell(100*recall, recallHighlights[heuristic]),
-		finalResultsSummaryMetricCell(performance.averageMinDeviation, deviationHighlights[heuristic]),
-		finalResultsSummaryMetricCell(performance.successRate, successHighlights[heuristic]))
+		finalResultsSummaryMetricCell(performance.AverageMinDeviation, deviationHighlights[heuristic]),
+		finalResultsSummaryMetricCell(performance.SuccessRate, successHighlights[heuristic]))
 }
 
 func averagePerformanceByHeuristic(rows []finalResultsSummaryRow, allowedInstances map[string]struct{}) map[string]finalResultsSummaryMetric {
@@ -761,8 +761,8 @@ func averagePerformanceByHeuristic(rows []finalResultsSummaryRow, allowedInstanc
 			}
 
 			total := totals[heuristic]
-			total.averageMinDeviation += metric.averageMinDeviation
-			total.successRate += metric.successRate
+			total.AverageMinDeviation += metric.AverageMinDeviation
+			total.SuccessRate += metric.SuccessRate
 			totals[heuristic] = total
 			counts[heuristic]++
 		}
@@ -777,8 +777,8 @@ func averagePerformanceByHeuristic(rows []finalResultsSummaryRow, allowedInstanc
 
 		total := totals[heuristic]
 		averages[heuristic] = finalResultsSummaryMetric{
-			averageMinDeviation: total.averageMinDeviation / float64(count),
-			successRate:         total.successRate / float64(count),
+			AverageMinDeviation: total.AverageMinDeviation / float64(count),
+			SuccessRate:         total.SuccessRate / float64(count),
 		}
 	}
 

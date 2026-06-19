@@ -1,49 +1,23 @@
 package app
 
-import "atsp_aco_msa/modules/project"
+import (
+	"atsp_aco_msa/modules/experiments"
+	"atsp_aco_msa/modules/project"
+)
 
 type AtspData = project.AtspData
-
-type ExperimentsData struct {
-	ExperimentParameters
-	results []ExperimentResult
-}
-
-type ExperimentParameters struct {
-	alpha, beta, rho, heuristicWeight, msaPatchBias float64
-	randomSeed                                      int64
-	iterations                                      int
-}
-
-type ExperimentResult struct {
-	bestAtIteration, threeOptImprovementsCount int
-	bestTour                                   []int
-	deviationPerIteration                      []float64
-}
-
-type ExperimentsDataStatistics struct {
-	ExperimentParameters
-	minBestAtIteration                                                               int
-	averageBestAtIteration                                                           float64
-	maxBestAtIteration                                                               int
-	minThreeOptImprovementsCount                                                     int
-	averageThreeOptImprovementsCount                                                 float64
-	maxThreeOptImprovementsCount                                                     int
-	minBestDeviation, averageBestDeviation, maxBestDeviation, successRate            float64
-	minDeviationPerIteration, averageDeviationPerIteration, maxDeviationPerIteration []float64
-}
-
-type HeuristicExperimentStatistics struct {
-	heuristic  string
-	statistics ExperimentsDataStatistics
-}
+type ExperimentsData = experiments.ExperimentsData
+type ExperimentParameters = experiments.ExperimentParameters
+type ExperimentResult = experiments.ExperimentResult
+type ExperimentsDataStatistics = experiments.ExperimentsDataStatistics
+type HeuristicExperimentStatistics = experiments.HeuristicExperimentStatistics
 
 type finalResultsSummaryMetric struct {
-	averageMinDeviation  float64
-	successRate          float64
-	averageBestIteration float64
-	heuristicWeight      float64
-	iterations           int
+	AverageMinDeviation  float64
+	SuccessRate          float64
+	AverageBestIteration float64
+	HeuristicWeight      float64
+	Iterations           int
 }
 
 type finalResultsSummaryRow struct {
