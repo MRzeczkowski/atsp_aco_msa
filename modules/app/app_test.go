@@ -1420,6 +1420,50 @@ func TestFinalConfigurationsUseMsaHeuristicOnlyWhenNeeded(t *testing.T) {
 	}
 }
 
+func TestCycleCoverCacheIsNeededOnlyForCycleCoverHeuristics(t *testing.T) {
+	if heuristicsUseCycleCover([]string{heuristicStrictMsa, heuristicRootedMsa}) {
+		t.Fatal("MSA-only tuning heuristics should not require cycle-cover cache")
+	}
+	if !heuristicsUseCycleCover([]string{heuristicStrictMsa, heuristicCycleCover}) {
+		t.Fatal("cycle-cover tuning heuristic should require cycle-cover cache")
+	}
+	if !heuristicsUseCycleCover([]string{heuristicCycleCoverMsaPatching}) {
+		t.Fatal("cycle-cover MSA-patching tuning heuristic should require cycle-cover cache")
+	}
+
+	baselineConfigurations, err := selectFinalExperimentConfigurations(heuristicBaseline)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(baseline) returned error: %v", err)
+	}
+	if finalConfigurationsUseCycleCover(baselineConfigurations) {
+		t.Fatal("baseline final run should not require cycle-cover cache")
+	}
+
+	strictMsaConfigurations, err := selectFinalExperimentConfigurations(heuristicStrictMsa)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(strict-msa) returned error: %v", err)
+	}
+	if finalConfigurationsUseCycleCover(strictMsaConfigurations) {
+		t.Fatal("strict MSA final run should not require cycle-cover cache")
+	}
+
+	cycleCoverConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCover)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover) returned error: %v", err)
+	}
+	if !finalConfigurationsUseCycleCover(cycleCoverConfigurations) {
+		t.Fatal("cycle-cover final run should require cycle-cover cache")
+	}
+
+	patchingConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCoverMsaPatching)
+	if err != nil {
+		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover-msa-patching) returned error: %v", err)
+	}
+	if !finalConfigurationsUseCycleCover(patchingConfigurations) {
+		t.Fatal("cycle-cover MSA-patching final run should require cycle-cover cache")
+	}
+}
+
 func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCsv(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "result.csv")
 	existing := []HeuristicExperimentStatistics{

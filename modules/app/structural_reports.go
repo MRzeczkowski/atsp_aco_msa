@@ -250,9 +250,9 @@ func buildGksDeviationRows(atspsData []AtspData, msaPatchBiases []float64) ([]gk
 			return nil, fmt.Errorf("%s: failed to read MSA Heuristic: %w", atspData.Name, err)
 		}
 
-		cycleCoverMatrix, _, err := cycleCover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
+		cycleCoverMatrix, err := cycleCover.Read(atspData.CycleCoverDirectoryPath, len(atspData.Matrix))
 		if err != nil {
-			return nil, fmt.Errorf("%s: failed to read or create cycle-cover cache: %w", atspData.Name, err)
+			return nil, fmt.Errorf("%s: failed to read cycle-cover cache: %w", atspData.Name, err)
 		}
 
 		for _, msaPatchBias := range msaPatchBiases {

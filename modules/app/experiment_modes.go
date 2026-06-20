@@ -19,6 +19,11 @@ func runExperimentMode(atspsData []AtspData, heuristics []string, workers int) e
 	if err := ensureMsaHeuristicArtifacts(atspsData, workers, heuristicsUseRootedMsa(heuristics)); err != nil {
 		return err
 	}
+	if heuristicsUseCycleCover(heuristics) {
+		if err := ensureCycleCoverCache(atspsData, workers); err != nil {
+			return err
+		}
+	}
 
 	for _, heuristic := range heuristics {
 		fmt.Printf("Running tuning heuristic %s\n", heuristic)
@@ -85,6 +90,11 @@ func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThr
 			return err
 		}
 	}
+	if finalConfigurationsUseCycleCover(configurations) {
+		if err := ensureCycleCoverCache(atspsData, workers); err != nil {
+			return err
+		}
+	}
 
 	if err := removeLegacyFinalReports(resultsRootPath); err != nil {
 		return err
@@ -125,9 +135,7 @@ type finalExperimentInstanceRun struct {
 	controlRun                bool
 	finalRunName              string
 	statisticsByConfiguration [][]ExperimentsDataStatistics
-	cycleCoverOnce            sync.Once
 	cycleCover                [][]float64
-	cycleCoverErr             error
 }
 
 func prepareFinalExperimentInstance(atspData AtspData, useThreeOpt bool, configurations []finalExperimentConfiguration, numberOfExperiments int) (*finalExperimentInstanceRun, error) {
@@ -164,6 +172,19 @@ func prepareFinalExperimentInstance(atspData AtspData, useThreeOpt bool, configu
 		controlRun:                controlRun,
 		finalRunName:              finalRunName,
 		statisticsByConfiguration: make([][]ExperimentsDataStatistics, len(configurations)),
+	}
+
+	if finalConfigurationsUseCycleCover(configurations) {
+		cycleCoverMatrix, err := cycleCover.Read(atspData.CycleCoverDirectoryPath, instanceRun.dimension)
+		if err != nil {
+			return nil, err
+		}
+		instanceRun.cycleCover = cycleCoverMatrix
+		cycleCoverCost := cycleCover.MatrixCost(instanceRun.matrix, cycleCoverMatrix)
+		fmt.Printf("\t[%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
+			atspData.Name,
+			cycleCoverCost,
+			100*(instanceRun.knownOptimal-cycleCoverCost)/instanceRun.knownOptimal)
 	}
 
 	fmt.Printf("[%s][%s] Starting %s (dimension=%d, heuristics=%d, parameter sets=%d, runs/parameter=%d)\n",
@@ -231,11 +252,7 @@ func runFinalExperimentConfiguration(instanceRun *finalExperimentInstanceRun, co
 
 	var cycleCover [][]float64
 	if heuristicUsesCycleCover(config.Heuristic) {
-		var err error
-		cycleCover, err = instanceRun.getCycleCover()
-		if err != nil {
-			return err
-		}
+		cycleCover = instanceRun.cycleCover
 	}
 
 	experimentData, err := runFinalExperimentParameters(
@@ -262,23 +279,6 @@ func runFinalExperimentConfiguration(instanceRun *finalExperimentInstanceRun, co
 	}
 
 	return nil
-}
-
-func (instanceRun *finalExperimentInstanceRun) getCycleCover() ([][]float64, error) {
-	instanceRun.cycleCoverOnce.Do(func() {
-		var cycleCoverCost float64
-		instanceRun.cycleCover, cycleCoverCost, instanceRun.cycleCoverErr = cycleCover.ReadOrCreate(instanceRun.matrix, instanceRun.atspData.CycleCoverDirectoryPath)
-		if instanceRun.cycleCoverErr != nil {
-			return
-		}
-
-		fmt.Printf("\t[%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
-			instanceRun.atspData.Name,
-			cycleCoverCost,
-			100*(instanceRun.knownOptimal-cycleCoverCost)/instanceRun.knownOptimal)
-	})
-
-	return instanceRun.cycleCover, instanceRun.cycleCoverErr
 }
 
 func finishFinalExperimentInstance(instanceRun *finalExperimentInstanceRun) error {
@@ -461,8 +461,6 @@ type experimentSetInstanceRun struct {
 	heuristicMatrix    [][]float64
 	rootedMsaHeuristic [][][]float64
 	cycleCover         [][]float64
-	cycleCoverOnce     sync.Once
-	cycleCoverErr      error
 	experimentData     []ExperimentsData
 }
 
@@ -495,6 +493,19 @@ func prepareExperimentSetInstance(atspData AtspData, heuristic string, experimen
 		}
 	}
 
+	if heuristicUsesCycleCover(heuristic) {
+		instanceRun.cycleCover, err = cycleCover.Read(atspData.CycleCoverDirectoryPath, dimension)
+		if err != nil {
+			return nil, err
+		}
+		cycleCoverCost := cycleCover.MatrixCost(matrix, instanceRun.cycleCover)
+		fmt.Printf("\t[%s][%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
+			atspData.Name,
+			heuristic,
+			cycleCoverCost,
+			100*(knownOptimal-cycleCoverCost)/knownOptimal)
+	}
+
 	fmt.Printf("[%s][%s][%s] Starting (dimension=%d, parameters=%d, runs/parameter=%d, workers=%d)\n",
 		logTimestamp(instanceStart),
 		atspData.Name,
@@ -505,24 +516,6 @@ func prepareExperimentSetInstance(atspData AtspData, heuristic string, experimen
 		workers)
 
 	return instanceRun, nil
-}
-
-func (instanceRun *experimentSetInstanceRun) getCycleCover() ([][]float64, error) {
-	instanceRun.cycleCoverOnce.Do(func() {
-		var cycleCoverCost float64
-		instanceRun.cycleCover, cycleCoverCost, instanceRun.cycleCoverErr = cycleCover.ReadOrCreate(instanceRun.matrix, instanceRun.atspData.CycleCoverDirectoryPath)
-		if instanceRun.cycleCoverErr != nil {
-			return
-		}
-
-		fmt.Printf("\t[%s][%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
-			instanceRun.atspData.Name,
-			instanceRun.heuristic,
-			cycleCoverCost,
-			100*(instanceRun.knownOptimal-cycleCoverCost)/instanceRun.knownOptimal)
-	})
-
-	return instanceRun.cycleCover, instanceRun.cycleCoverErr
 }
 
 func experimentSetParameterJobs(instanceRuns []*experimentSetInstanceRun, experimentParameters []ExperimentParameters, numberOfExperiments int, logMutex *sync.Mutex) []workerpool.Job {
@@ -556,16 +549,7 @@ func runExperimentSetParameter(instanceRun *experimentSetInstanceRun, parameters
 	setDimensionDependantParameters(instanceRun.dimension, &parameters)
 	parameterStart := time.Now()
 
-	var cycleCover [][]float64
-	if heuristicUsesCycleCover(instanceRun.heuristic) {
-		var err error
-		cycleCover, err = instanceRun.getCycleCover()
-		if err != nil {
-			return err
-		}
-	}
-
-	heuristicModifiers := buildHeuristicModifiers(instanceRun.heuristic, instanceRun.matrix, instanceRun.heuristicMatrix, cycleCover, parameters)
+	heuristicModifiers := buildHeuristicModifiers(instanceRun.heuristic, instanceRun.matrix, instanceRun.heuristicMatrix, instanceRun.cycleCover, parameters)
 	rootedHeuristicModifiers := buildRootedHeuristicModifiers(instanceRun.heuristic, instanceRun.matrix, instanceRun.rootedMsaHeuristic, parameters)
 	results := runExperimentsWithRootedHeuristicModifiers(numberOfExperiments, parameters, instanceRun.knownOptimal, instanceRun.matrix, heuristicModifiers, rootedHeuristicModifiers, false)
 	data := ExperimentsData{ExperimentParameters: parameters, Results: results}

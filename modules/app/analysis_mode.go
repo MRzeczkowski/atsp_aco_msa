@@ -40,6 +40,9 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		if err := ensureMsaHeuristicCache(gksDeviationAtspData, workers, false); err != nil {
 			return err
 		}
+		if err := ensureCycleCoverCache(gksDeviationAtspData, workers); err != nil {
+			return err
+		}
 		if err := saveGksDeviationReport(gksDeviationReportPath, gksDeviationAtspData, gksDeviationMsaPatchBiases); err != nil {
 			return err
 		}
@@ -132,6 +135,9 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	}
 
 	if err := ensureMsaHeuristicCache(gksDeviationAtspData, workers, false); err != nil {
+		return err
+	}
+	if err := ensureCycleCoverCache(gksDeviationAtspData, workers); err != nil {
 		return err
 	}
 

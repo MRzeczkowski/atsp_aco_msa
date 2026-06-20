@@ -87,9 +87,29 @@ func finalConfigurationsUseMsaHeuristic(configurations []finalExperimentConfigur
 	return false
 }
 
+func finalConfigurationsUseCycleCover(configurations []finalExperimentConfiguration) bool {
+	for _, configuration := range configurations {
+		if heuristicUsesCycleCover(configuration.Heuristic) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func finalConfigurationsUseRootedMsa(configurations []finalExperimentConfiguration) bool {
 	for _, configuration := range configurations {
 		if heuristicUsesRootedMsa(configuration.Heuristic) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func heuristicsUseCycleCover(heuristics []string) bool {
+	for _, heuristic := range heuristics {
+		if heuristicUsesCycleCover(heuristic) {
 			return true
 		}
 	}
