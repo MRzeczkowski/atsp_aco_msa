@@ -1,11 +1,11 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/algorithms/cycleCover"
+	"atsp_aco_msa/modules/algorithms/cyclecover"
 	"atsp_aco_msa/modules/algorithms/heuristics"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
-	"atsp_aco_msa/modules/analysis/solutionTours"
 	"atsp_aco_msa/modules/analysis/structuralComparison"
+	"atsp_aco_msa/modules/analysis/tours"
 	"atsp_aco_msa/modules/models"
 	"fmt"
 	"html"
@@ -250,7 +250,7 @@ func buildGksDeviationRows(atspsData []AtspData, msaPatchBiases []float64) ([]gk
 			return nil, fmt.Errorf("%s: failed to read MSA Heuristic: %w", atspData.Name, err)
 		}
 
-		cycleCoverMatrix, err := cycleCover.Read(atspData.CycleCoverDirectoryPath, len(atspData.Matrix))
+		cycleCoverMatrix, err := cyclecover.Read(atspData.CycleCoverDirectoryPath, len(atspData.Matrix))
 		if err != nil {
 			return nil, fmt.Errorf("%s: failed to read cycle-cover cache: %w", atspData.Name, err)
 		}
@@ -572,11 +572,11 @@ func buildMsaCountScalingRows(atspsData []AtspData, requestedCounts []int) ([]ms
 			row.boostedEdges += len(boostedEdges)
 			row.boostedTargetEdges += maxIntValue(len(msas)-1, 0)
 
-			tours, err := solutionTours.ReadOptimalTours(atspData.OptimalUniqueToursCsvPath)
+			optimalTours, err := tours.ReadOptimal(atspData.OptimalUniqueToursCsvPath)
 			if err != nil {
 				return nil, fmt.Errorf("%s: read found optimal tours: %w", atspData.Name, err)
 			}
-			optimalEdges := buildAnalysisTourEdgeSet(tours)
+			optimalEdges := buildAnalysisTourEdgeSet(optimalTours)
 			if len(optimalEdges) == 0 {
 				continue
 			}

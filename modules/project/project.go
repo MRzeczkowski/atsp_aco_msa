@@ -1,7 +1,7 @@
 package project
 
 import (
-	"atsp_aco_msa/modules/parsing"
+	"atsp_aco_msa/modules/tsplib"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -153,7 +153,7 @@ func SelectAtspFiles(atspFilePaths []string, instanceSet string) ([]string, erro
 	case InstanceSetAllKnown:
 		selected := make([]string, 0, len(atspFilePaths))
 		for _, atspFilePath := range atspFilePaths {
-			if parsing.HasKnownOptimalSolution(filepath.Base(atspFilePath)) {
+			if tsplib.HasKnownOptimal(filepath.Base(atspFilePath)) {
 				selected = append(selected, atspFilePath)
 			}
 		}
@@ -202,7 +202,7 @@ func LoadSelectedAtspData(instances string) ([]AtspData, error) {
 
 	atspsData := make([]AtspData, len(atspFilesPaths))
 	for i, atspFilePath := range atspFilesPaths {
-		name, matrix, knownOptimal, err := parsing.ParseTSPLIBFile(atspFilePath)
+		name, matrix, knownOptimal, err := tsplib.ParseFile(atspFilePath)
 		if err != nil {
 			return nil, err
 		}

@@ -1,10 +1,10 @@
 package structuralComparison
 
 import (
-	"atsp_aco_msa/modules/algorithms/cycleCover"
+	"atsp_aco_msa/modules/algorithms/cyclecover"
 	"atsp_aco_msa/modules/algorithms/heuristics"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
-	"atsp_aco_msa/modules/analysis/solutionTours"
+	"atsp_aco_msa/modules/analysis/tours"
 	"atsp_aco_msa/modules/models"
 	"fmt"
 	"sort"
@@ -106,7 +106,7 @@ func analyzeInstance(config InstanceConfig, highThreshold, msaPatchBias float64)
 		return InstanceAnalysis{}, fmt.Errorf("%s: MSA heuristic dimension %d does not match matrix dimension %d", config.Name, len(msaHeuristicMatrix), len(config.Matrix))
 	}
 
-	uniqueOptimalTours, err := solutionTours.ReadOptimalTours(config.OptimalToursCsvPath)
+	uniqueOptimalTours, err := tours.ReadOptimal(config.OptimalToursCsvPath)
 	if err != nil {
 		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read found optimal tours: %w", config.Name, err)
 	}
@@ -114,7 +114,7 @@ func analyzeInstance(config InstanceConfig, highThreshold, msaPatchBias float64)
 		return InstanceAnalysis{}, fmt.Errorf("%s: invalid found optimal tours: %w", config.Name, err)
 	}
 
-	cycleCoverMatrix, err := cycleCover.Read(config.CycleCoverDirectoryPath, len(config.Matrix))
+	cycleCoverMatrix, err := cyclecover.Read(config.CycleCoverDirectoryPath, len(config.Matrix))
 	if err != nil {
 		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read cycle cover: %w", config.Name, err)
 	}

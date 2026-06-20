@@ -1,18 +1,18 @@
-package solutionTours
+package tours
 
 import (
-	"atsp_aco_msa/modules/algorithms/cycleCover"
+	"atsp_aco_msa/modules/algorithms/cyclecover"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func TestAddUniqueTourNormalizesRotation(t *testing.T) {
+func TestAddUniqueNormalizesRotation(t *testing.T) {
 	tours := make(map[string][]int)
 
-	AddUniqueTour(tours, []int{2, 3, 0, 1})
-	AddUniqueTour(tours, []int{0, 1, 2, 3})
-	AddUniqueTour(tours, []int{0, 2, 3, 1})
+	AddUnique(tours, []int{2, 3, 0, 1})
+	AddUnique(tours, []int{0, 1, 2, 3})
+	AddUnique(tours, []int{0, 2, 3, 1})
 
 	if len(tours) != 2 {
 		t.Fatalf("expected 2 unique tours, got %d", len(tours))
@@ -25,17 +25,17 @@ func TestAddUniqueTourNormalizesRotation(t *testing.T) {
 	}
 }
 
-func TestReadOptimalToursMissingFile(t *testing.T) {
-	tours, err := ReadOptimalTours(filepath.Join(t.TempDir(), "missing.csv"))
+func TestReadOptimalMissingFile(t *testing.T) {
+	tours, err := ReadOptimal(filepath.Join(t.TempDir(), "missing.csv"))
 	if err != nil {
-		t.Fatalf("ReadOptimalTours returned unexpected error: %v", err)
+		t.Fatalf("ReadOptimal returned unexpected error: %v", err)
 	}
 	if len(tours) != 0 {
 		t.Fatalf("expected no tours, got %d", len(tours))
 	}
 }
 
-func TestReadOptimalTours(t *testing.T) {
+func TestReadOptimal(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "solutions.csv")
 	data := "Tour,Commonality with MSA heuristic,Min commonality with MSA,Avg commonality with MSA,Max commonality with MSA\n" +
 		"\"[0,1,2]\",100.00,100.00,100.00,100.00\n"
@@ -43,9 +43,9 @@ func TestReadOptimalTours(t *testing.T) {
 		t.Fatalf("failed to write test CSV: %v", err)
 	}
 
-	tours, err := ReadOptimalTours(path)
+	tours, err := ReadOptimal(path)
 	if err != nil {
-		t.Fatalf("ReadOptimalTours returned unexpected error: %v", err)
+		t.Fatalf("ReadOptimal returned unexpected error: %v", err)
 	}
 
 	tour := tours["[0,1,2]"]
@@ -66,7 +66,7 @@ func TestAnalyzeInstancesWritesTourPlots(t *testing.T) {
 	}
 
 	cycleCoverDir := filepath.Join(dir, "cycle_cover")
-	if err := cycleCover.Save(cycleCoverDir, [][]float64{
+	if err := cyclecover.Save(cycleCoverDir, [][]float64{
 		{0, 1, 0},
 		{0, 0, 1},
 		{1, 0, 0},
@@ -112,7 +112,7 @@ func TestAnalyzeInstancesWritesTourPlots(t *testing.T) {
 	}
 }
 
-func TestBuildCycleCoverToursOverlapMatrix(t *testing.T) {
+func TestBuildCycleCoverOverlap(t *testing.T) {
 	cycleCoverMatrix := [][]float64{
 		{0, 1, 0},
 		{0, 0, 1},
@@ -124,7 +124,7 @@ func TestBuildCycleCoverToursOverlapMatrix(t *testing.T) {
 		{2, 0, 0},
 	}
 
-	overlapMatrix := BuildCycleCoverToursOverlapMatrix(cycleCoverMatrix, toursMatrix, 2)
+	overlapMatrix := BuildCycleCoverOverlap(cycleCoverMatrix, toursMatrix, 2)
 	expected := [][]float64{
 		{0, 1, 0},
 		{0, 0, 0.5},

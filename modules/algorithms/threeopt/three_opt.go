@@ -1,10 +1,10 @@
-package threeOpt
+package threeopt
 
 import "atsp_aco_msa/modules/utilities"
 
 var spacing int = 3 // Minimal spacing between indices
 
-type ReducedThreeOpt struct {
+type Reduced struct {
 	distances          [][]float64
 	neighborsLists     [][]int
 	dontLookBits       []bool
@@ -12,10 +12,10 @@ type ReducedThreeOpt struct {
 	Improvements       int
 }
 
-func NewReducedThreeOpt(distances [][]float64, neighborsLists [][]int) *ReducedThreeOpt {
+func NewReduced(distances [][]float64, neighborsLists [][]int) *Reduced {
 	n := len(distances)
 
-	return &ReducedThreeOpt{
+	return &Reduced{
 		distances:      distances,
 		neighborsLists: neighborsLists,
 		dontLookBits:   make([]bool, n),
@@ -29,21 +29,21 @@ func NewReducedThreeOpt(distances [][]float64, neighborsLists [][]int) *ReducedT
 // Only one 3-opt move is valid because it can be done without reversal. It's usually referred to as case 7 or a'b'c' and is equivalent to three subsequent 2-opt moves.
 // Move is performed by changing segment order from abc to acb.
 // Input `tour` is changed in-place.
-func (threeOpt *ReducedThreeOpt) Run(tour []int) {
+func (opt *Reduced) Run(tour []int) {
 	n := len(tour)
 
 	// Initialize total costs and thresholds
 	improvementThreshold := 0.001 // 0.1% of initial tour cost
 	maxConsecutiveMinorGain := 20 // Allowed minor improvements
 
-	currentLength := utilities.TourLength(tour, threeOpt.distances)
+	currentLength := utilities.TourLength(tour, opt.distances)
 	minorGainThreshold := -currentLength * improvementThreshold
 	consecutiveMinorGain := 0
 
-	setPositions(threeOpt.positions, tour)
+	setPositions(opt.positions, tour)
 
 	for i := 0; i < n; i++ {
-		threeOpt.dontLookBits[i] = false
+		opt.dontLookBits[i] = false
 	}
 
 	improves := true
@@ -59,20 +59,20 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 			bIdx := (i + 1) % n
 			b := tour[bIdx]
 
-			if threeOpt.dontLookBits[a] {
+			if opt.dontLookBits[a] {
 				continue
 			}
 
-			distAB := threeOpt.distances[a][b]
+			distAB := opt.distances[a][b]
 
-			for _, d := range threeOpt.neighborsLists[a] {
-				distAD := threeOpt.distances[a][d]
+			for _, d := range opt.neighborsLists[a] {
+				distAD := opt.distances[a][d]
 
 				if distAD >= distAB {
 					break
 				}
 
-				dIdx := threeOpt.positions[d]
+				dIdx := opt.positions[d]
 
 				j := (dIdx - 1 + n) % n
 				c := tour[j]
@@ -81,18 +81,18 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 					continue
 				}
 
-				distCD := threeOpt.distances[c][d]
+				distCD := opt.distances[c][d]
 
 				radius := distAB + distCD - distAD
 
-				for _, f := range threeOpt.neighborsLists[c] {
-					distCF := threeOpt.distances[c][f]
+				for _, f := range opt.neighborsLists[c] {
+					distCF := opt.distances[c][f]
 
 					if distCF >= radius {
 						break
 					}
 
-					fIdx := threeOpt.positions[f]
+					fIdx := opt.positions[f]
 
 					k := (fIdx - 1 + n) % n
 					e := tour[k]
@@ -101,11 +101,11 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 						continue
 					}
 
-					distEF := threeOpt.distances[e][f]
+					distEF := opt.distances[e][f]
 
 					costRemoved := distAB + distCD + distEF
 
-					distEB := threeOpt.distances[e][b]
+					distEB := opt.distances[e][b]
 
 					costAdded := distAD + distEB + distCF
 
@@ -129,48 +129,48 @@ func (threeOpt *ReducedThreeOpt) Run(tour []int) {
 
 					// First Segment
 					if aIdx < fIdx || bIdx < fIdx {
-						pos += copy(threeOpt.newTour[pos:], tour[fIdx:])
-						pos += copy(threeOpt.newTour[pos:], tour[:bIdx])
+						pos += copy(opt.newTour[pos:], tour[fIdx:])
+						pos += copy(opt.newTour[pos:], tour[:bIdx])
 					} else {
-						pos += copy(threeOpt.newTour[pos:], tour[fIdx:bIdx])
+						pos += copy(opt.newTour[pos:], tour[fIdx:bIdx])
 					}
 
 					// Third Segment
 					if dIdx > fIdx {
-						pos += copy(threeOpt.newTour[pos:], tour[dIdx:])
-						pos += copy(threeOpt.newTour[pos:], tour[:fIdx])
+						pos += copy(opt.newTour[pos:], tour[dIdx:])
+						pos += copy(opt.newTour[pos:], tour[:fIdx])
 					} else {
-						pos += copy(threeOpt.newTour[pos:], tour[dIdx:fIdx])
+						pos += copy(opt.newTour[pos:], tour[dIdx:fIdx])
 					}
 
 					// Second Segment
 					if bIdx > dIdx {
-						pos += copy(threeOpt.newTour[pos:], tour[bIdx:])
-						pos += copy(threeOpt.newTour[pos:], tour[:dIdx])
+						pos += copy(opt.newTour[pos:], tour[bIdx:])
+						pos += copy(opt.newTour[pos:], tour[:dIdx])
 					} else {
-						pos += copy(threeOpt.newTour[pos:], tour[bIdx:dIdx])
+						pos += copy(opt.newTour[pos:], tour[bIdx:dIdx])
 					}
 
-					copy(tour, threeOpt.newTour)
+					copy(tour, opt.newTour)
 					currentLength += gain
 					minorGainThreshold = -currentLength * improvementThreshold
 
-					setPositions(threeOpt.positions, tour)
+					setPositions(opt.positions, tour)
 
-					threeOpt.dontLookBits[a] = false
-					threeOpt.dontLookBits[b] = false
-					threeOpt.dontLookBits[c] = false
-					threeOpt.dontLookBits[d] = false
-					threeOpt.dontLookBits[e] = false
-					threeOpt.dontLookBits[f] = false
+					opt.dontLookBits[a] = false
+					opt.dontLookBits[b] = false
+					opt.dontLookBits[c] = false
+					opt.dontLookBits[d] = false
+					opt.dontLookBits[e] = false
+					opt.dontLookBits[f] = false
 
 					improves = true
-					threeOpt.Improvements++
+					opt.Improvements++
 					break loops // Exit after applying a move
 				}
 			}
 
-			threeOpt.dontLookBits[a] = true
+			opt.dontLookBits[a] = true
 		}
 	}
 }

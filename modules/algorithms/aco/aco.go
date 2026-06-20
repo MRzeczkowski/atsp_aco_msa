@@ -1,8 +1,8 @@
 package aco
 
 import (
-	"atsp_aco_msa/modules/algorithms/nearestNeighbors"
-	"atsp_aco_msa/modules/algorithms/threeOpt"
+	"atsp_aco_msa/modules/algorithms/neighbors"
+	"atsp_aco_msa/modules/algorithms/threeopt"
 	"atsp_aco_msa/modules/utilities"
 	"math"
 
@@ -14,7 +14,7 @@ type ACO struct {
 	iterations, currentIteration, dimension int
 	distances                               [][]float64
 	tauMin, tauMax, BestLength              float64
-	reducedThreeOpt                         *threeOpt.ReducedThreeOpt
+	reducedThreeOpt                         *threeopt.Reduced
 	targetTourLength                        float64
 	neighborsLists                          [][]int
 	heuristicNeighborsLists                 [][]int
@@ -45,14 +45,14 @@ func NewACO(alpha, beta, rho float64, iterations int, targetTourLength float64, 
 
 	maxLocalSearchNeighborsListSize := 20
 	localSearchNeighborsListSize := min(maxLocalSearchNeighborsListSize, dimension-1)
-	localSearchNeighborsLists := nearestNeighbors.BuildNearestNeighborsLists(distances, localSearchNeighborsListSize)
+	localSearchNeighborsLists := neighbors.BuildLists(distances, localSearchNeighborsListSize)
 
 	// We use smaller lists for tour construction than for local search. Just like: https://sci-hub.se/https://doi.org/10.1016/S0167-739X(00)00043-1
 	tourConstructionNeighborsListSize := min(maxLocalSearchNeighborsListSize/2, dimension-1)
-	tourConstructionNeighborsLists := nearestNeighbors.BuildNearestNeighborsLists(distances, tourConstructionNeighborsListSize)
+	tourConstructionNeighborsLists := neighbors.BuildLists(distances, tourConstructionNeighborsListSize)
 	heuristicNeighborsLists := buildConstructionHeuristicNeighborsLists(heuristicModifiers)
 
-	reducedThreeOpt := threeOpt.NewReducedThreeOpt(distances, localSearchNeighborsLists)
+	reducedThreeOpt := threeopt.NewReduced(distances, localSearchNeighborsLists)
 
 	src := rand.NewPCG(4, 2)
 	rng := rand.New(src)

@@ -1,10 +1,10 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/algorithms/cycleCover"
+	"atsp_aco_msa/modules/algorithms/cyclecover"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
-	"atsp_aco_msa/modules/analysis/solutionTours"
-	"atsp_aco_msa/modules/analysis/tuningSummary"
+	"atsp_aco_msa/modules/analysis/tours"
+	"atsp_aco_msa/modules/analysis/tuning"
 	workerpool "atsp_aco_msa/modules/experiments/workers"
 	"atsp_aco_msa/modules/project"
 	"fmt"
@@ -36,21 +36,21 @@ func runExperimentMode(atspsData []AtspData, heuristics []string, workers int) e
 }
 
 func saveTuningSummary(resultsRootPath string, atspsData []AtspData, heuristics []string) error {
-	heuristicConfigs := make([]tuningSummary.HeuristicConfig, 0, len(heuristics))
+	heuristicConfigs := make([]tuning.HeuristicConfig, 0, len(heuristics))
 	for _, heuristic := range heuristics {
 		if heuristicIsSparseControl(heuristic) {
 			continue
 		}
 
-		resultFiles := make([]tuningSummary.ResultFile, 0, len(atspsData))
+		resultFiles := make([]tuning.ResultFile, 0, len(atspsData))
 		for _, atspData := range atspsData {
-			resultFiles = append(resultFiles, tuningSummary.ResultFile{
+			resultFiles = append(resultFiles, tuning.ResultFile{
 				Instance: atspData.Name,
 				Path:     resultFilePathForHeuristic(atspData, heuristic),
 			})
 		}
 
-		heuristicConfigs = append(heuristicConfigs, tuningSummary.HeuristicConfig{
+		heuristicConfigs = append(heuristicConfigs, tuning.HeuristicConfig{
 			Name:                heuristic,
 			DisplayName:         heuristicDisplayName(heuristic),
 			IncludeMsaPatchBias: heuristic == heuristicCycleCoverMsaPatching,
@@ -58,22 +58,22 @@ func saveTuningSummary(resultsRootPath string, atspsData []AtspData, heuristics 
 		})
 	}
 
-	return tuningSummary.Save(tuningSummary.Config{
+	return tuning.Save(tuning.Config{
 		ResultsRootPath: resultsRootPath,
 		Heuristics:      heuristicConfigs,
 		ReadStatistics:  readTuningSummaryStatistics,
 	})
 }
 
-func readTuningSummaryStatistics(path string) ([]tuningSummary.Statistic, error) {
+func readTuningSummaryStatistics(path string) ([]tuning.Statistic, error) {
 	experimentStatistics, err := readStatistics(path)
 	if err != nil {
 		return nil, err
 	}
 
-	statistics := make([]tuningSummary.Statistic, 0, len(experimentStatistics))
+	statistics := make([]tuning.Statistic, 0, len(experimentStatistics))
 	for _, statistic := range experimentStatistics {
-		statistics = append(statistics, tuningSummary.Statistic{
+		statistics = append(statistics, tuning.Statistic{
 			HeuristicWeight:      statistic.HeuristicWeight,
 			MsaPatchBias:         statistic.MsaPatchBias,
 			AverageBestDeviation: statistic.AverageBestDeviation,
@@ -175,12 +175,12 @@ func prepareFinalExperimentInstance(atspData AtspData, useThreeOpt bool, configu
 	}
 
 	if finalConfigurationsUseCycleCover(configurations) {
-		cycleCoverMatrix, err := cycleCover.Read(atspData.CycleCoverDirectoryPath, instanceRun.dimension)
+		cycleCoverMatrix, err := cyclecover.Read(atspData.CycleCoverDirectoryPath, instanceRun.dimension)
 		if err != nil {
 			return nil, err
 		}
 		instanceRun.cycleCover = cycleCoverMatrix
-		cycleCoverCost := cycleCover.MatrixCost(instanceRun.matrix, cycleCoverMatrix)
+		cycleCoverCost := cyclecover.Cost(instanceRun.matrix, cycleCoverMatrix)
 		fmt.Printf("\t[%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
 			atspData.Name,
 			cycleCoverCost,
@@ -494,11 +494,11 @@ func prepareExperimentSetInstance(atspData AtspData, heuristic string, experimen
 	}
 
 	if heuristicUsesCycleCover(heuristic) {
-		instanceRun.cycleCover, err = cycleCover.Read(atspData.CycleCoverDirectoryPath, dimension)
+		instanceRun.cycleCover, err = cyclecover.Read(atspData.CycleCoverDirectoryPath, dimension)
 		if err != nil {
 			return nil, err
 		}
-		cycleCoverCost := cycleCover.MatrixCost(matrix, instanceRun.cycleCover)
+		cycleCoverCost := cyclecover.Cost(matrix, instanceRun.cycleCover)
 		fmt.Printf("\t[%s][%s] Minimum cycle cover cost=%.2f gap=%.2f%%\n",
 			atspData.Name,
 			heuristic,
@@ -598,7 +598,7 @@ func finishExperimentSetInstance(instanceRun *experimentSetInstanceRun) error {
 	}
 
 	if !heuristicIsSparseControl(heuristic) {
-		uniqueOptimalTours, err := solutionTours.ReadOptimalTours(atspData.OptimalUniqueToursCsvPath)
+		uniqueOptimalTours, err := tours.ReadOptimal(atspData.OptimalUniqueToursCsvPath)
 		if err != nil {
 			return err
 		}
@@ -606,12 +606,12 @@ func finishExperimentSetInstance(instanceRun *experimentSetInstanceRun) error {
 		for _, data := range experimentData {
 			for _, result := range data.Results {
 				if result.DeviationPerIteration[result.BestAtIteration] == 0.0 {
-					solutionTours.AddUniqueTour(uniqueOptimalTours, result.BestTour)
+					tours.AddUnique(uniqueOptimalTours, result.BestTour)
 				}
 			}
 		}
 
-		if err := solutionTours.SaveOptimalToursStatistics(atspData.OptimalUniqueToursCsvPath, atspData.MsaHeuristicDirectoryPath, uniqueOptimalTours); err != nil {
+		if err := tours.SaveStatistics(atspData.OptimalUniqueToursCsvPath, atspData.MsaHeuristicDirectoryPath, uniqueOptimalTours); err != nil {
 			return err
 		}
 	}

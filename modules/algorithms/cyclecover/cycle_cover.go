@@ -1,4 +1,4 @@
-package cycleCover
+package cyclecover
 
 import (
 	"atsp_aco_msa/modules/algorithms/hungarian"
@@ -11,12 +11,12 @@ import (
 
 const FileName = "cycle_cover.csv"
 
-func CsvPath(rootPath string) string {
+func Path(rootPath string) string {
 	return filepath.Join(rootPath, FileName)
 }
 
 func Read(rootPath string, dimension int) ([][]float64, error) {
-	file, err := os.Open(CsvPath(rootPath))
+	file, err := os.Open(Path(rootPath))
 	if err != nil {
 		return nil, err
 	}
@@ -47,9 +47,9 @@ func Read(rootPath string, dimension int) ([][]float64, error) {
 }
 
 func ReadOrCreate(matrix [][]float64, rootPath string) ([][]float64, float64, error) {
-	cycleCover, err := Read(rootPath, len(matrix))
+	cyclecover, err := Read(rootPath, len(matrix))
 	if err == nil {
-		return cycleCover, MatrixCost(matrix, cycleCover), nil
+		return cyclecover, Cost(matrix, cyclecover), nil
 	}
 
 	return Create(matrix, rootPath)
@@ -64,33 +64,33 @@ func Rebuild(matrix [][]float64, rootPath string) ([][]float64, float64, error) 
 }
 
 func Create(matrix [][]float64, rootPath string) ([][]float64, float64, error) {
-	cycleCover, cost, err := BuildMatrix(matrix)
+	cyclecover, cost, err := Build(matrix)
 	if err != nil {
 		return nil, 0, err
 	}
-	if err := Save(rootPath, cycleCover); err != nil {
+	if err := Save(rootPath, cyclecover); err != nil {
 		return nil, 0, err
 	}
 
-	return cycleCover, cost, nil
+	return cyclecover, cost, nil
 }
 
-func BuildMatrix(matrix [][]float64) ([][]float64, float64, error) {
+func Build(matrix [][]float64) ([][]float64, float64, error) {
 	edges, cost, err := hungarian.MinimumCycleCover(matrix)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	cycleCover := make([][]float64, len(matrix))
-	for i := range cycleCover {
-		cycleCover[i] = make([]float64, len(matrix))
+	cyclecover := make([][]float64, len(matrix))
+	for i := range cyclecover {
+		cyclecover[i] = make([]float64, len(matrix))
 	}
 
 	for _, edge := range edges {
-		cycleCover[edge.From][edge.To] = 1.0
+		cyclecover[edge.From][edge.To] = 1.0
 	}
 
-	return cycleCover, cost, nil
+	return cyclecover, cost, nil
 }
 
 func Save(rootPath string, matrix [][]float64) error {
@@ -98,7 +98,7 @@ func Save(rootPath string, matrix [][]float64) error {
 		return err
 	}
 
-	file, err := os.Create(CsvPath(rootPath))
+	file, err := os.Create(Path(rootPath))
 	if err != nil {
 		return err
 	}
@@ -157,10 +157,10 @@ func Validate(matrix [][]float64, dimension int) error {
 	return nil
 }
 
-func MatrixCost(matrix, cycleCover [][]float64) float64 {
+func Cost(matrix, cyclecover [][]float64) float64 {
 	cost := 0.0
-	for i := 0; i < len(cycleCover); i++ {
-		for j, value := range cycleCover[i] {
+	for i := 0; i < len(cyclecover); i++ {
+		for j, value := range cyclecover[i] {
 			if value != 0 {
 				cost += matrix[i][j]
 			}

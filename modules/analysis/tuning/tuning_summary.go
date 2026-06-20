@@ -1,4 +1,4 @@
-package tuningSummary
+package tuning
 
 import (
 	"errors"

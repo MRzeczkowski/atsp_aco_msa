@@ -1,11 +1,11 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/algorithms/cycleCover"
+	"atsp_aco_msa/modules/algorithms/cyclecover"
 	"atsp_aco_msa/modules/analysis/structuralComparison"
 	"atsp_aco_msa/modules/models"
-	"atsp_aco_msa/modules/parsing"
 	"atsp_aco_msa/modules/project"
+	"atsp_aco_msa/modules/tsplib"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -980,16 +980,16 @@ func TestBuildHeuristicModifiersBaselineCanUseDistanceMatrixDimension(t *testing
 	}
 }
 
-func TestCycleCoverBuildMatrix(t *testing.T) {
+func TestCycleCoverBuild(t *testing.T) {
 	matrix := [][]float64{
 		{0, 5, 1},
 		{1, 0, 5},
 		{5, 1, 0},
 	}
 
-	cycleCoverMatrix, cost, err := cycleCover.BuildMatrix(matrix)
+	cycleCoverMatrix, cost, err := cyclecover.Build(matrix)
 	if err != nil {
-		t.Fatalf("cycleCover.BuildMatrix returned unexpected error: %v", err)
+		t.Fatalf("cyclecover.Build returned unexpected error: %v", err)
 	}
 
 	expected := [][]float64{
@@ -1014,9 +1014,9 @@ func TestCycleCoverReadOrCreateCreatesCache(t *testing.T) {
 	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", matrix, 3, t.TempDir())
 	atspData.CycleCoverDirectoryPath = filepath.Join(t.TempDir(), "cycle_cover", "sample")
 
-	cycleCoverMatrix, cost, err := cycleCover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
+	cycleCoverMatrix, cost, err := cyclecover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
 	if err != nil {
-		t.Fatalf("cycleCover.ReadOrCreate returned unexpected error: %v", err)
+		t.Fatalf("cyclecover.ReadOrCreate returned unexpected error: %v", err)
 	}
 
 	expected := [][]float64{
@@ -1030,7 +1030,7 @@ func TestCycleCoverReadOrCreateCreatesCache(t *testing.T) {
 	if cost != 3 {
 		t.Fatalf("expected cycle-cover cost 3, got %f", cost)
 	}
-	assertPathExists(t, cycleCover.CsvPath(atspData.CycleCoverDirectoryPath))
+	assertPathExists(t, cyclecover.Path(atspData.CycleCoverDirectoryPath))
 }
 
 func TestCycleCoverReadOrCreateReusesValidCache(t *testing.T) {
@@ -1046,13 +1046,13 @@ func TestCycleCoverReadOrCreateReusesValidCache(t *testing.T) {
 		{0, 0, 1},
 		{1, 0, 0},
 	}
-	if err := cycleCover.Save(atspData.CycleCoverDirectoryPath, cached); err != nil {
-		t.Fatalf("cycleCover.Save returned unexpected error: %v", err)
+	if err := cyclecover.Save(atspData.CycleCoverDirectoryPath, cached); err != nil {
+		t.Fatalf("cyclecover.Save returned unexpected error: %v", err)
 	}
 
-	cycleCoverMatrix, cost, err := cycleCover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
+	cycleCoverMatrix, cost, err := cyclecover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
 	if err != nil {
-		t.Fatalf("cycleCover.ReadOrCreate returned unexpected error: %v", err)
+		t.Fatalf("cyclecover.ReadOrCreate returned unexpected error: %v", err)
 	}
 
 	if !reflect.DeepEqual(cycleCoverMatrix, cached) {
@@ -1071,17 +1071,17 @@ func TestCycleCoverReadOrCreateRegeneratesInvalidCache(t *testing.T) {
 	}
 	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", matrix, 3, t.TempDir())
 	atspData.CycleCoverDirectoryPath = filepath.Join(t.TempDir(), "cycle_cover", "sample")
-	if err := cycleCover.Save(atspData.CycleCoverDirectoryPath, [][]float64{
+	if err := cyclecover.Save(atspData.CycleCoverDirectoryPath, [][]float64{
 		{0, 0, 0},
 		{0, 0, 0},
 		{0, 0, 0},
 	}); err != nil {
-		t.Fatalf("cycleCover.Save returned unexpected error: %v", err)
+		t.Fatalf("cyclecover.Save returned unexpected error: %v", err)
 	}
 
-	cycleCoverMatrix, cost, err := cycleCover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
+	cycleCoverMatrix, cost, err := cyclecover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
 	if err != nil {
-		t.Fatalf("cycleCover.ReadOrCreate returned unexpected error: %v", err)
+		t.Fatalf("cyclecover.ReadOrCreate returned unexpected error: %v", err)
 	}
 
 	expected := [][]float64{
@@ -1727,7 +1727,7 @@ func TestRunRebuildCacheModeRebuildsCacheAndPreservesAnalysisPlots(t *testing.T)
 	assertPathExists(t, atspData.MsaHeuristicHeatmapPlotPath)
 	assertPathExists(t, atspData.MsaHeuristicHistogramPlotPath)
 	assertPathExists(t, atspData.MsaHeuristicToursOverlapHeatmapPlotPath)
-	assertPathExists(t, cycleCover.CsvPath(atspData.CycleCoverDirectoryPath))
+	assertPathExists(t, cyclecover.Path(atspData.CycleCoverDirectoryPath))
 	assertPathExists(t, atspData.CycleCoverHeatmapPlotPath)
 
 	rootMsaFiles, err := filepath.Glob(filepath.Join(atspData.MsaHeuristicDirectoryPath, "msas", "*.csv"))
@@ -1815,7 +1815,7 @@ func TestSelectedAtspFilesHaveKnownOptima(t *testing.T) {
 		}
 
 		for _, selectedPath := range selected {
-			name, _, knownOptimal, err := parsing.ParseTSPLIBFile(selectedPath)
+			name, _, knownOptimal, err := tsplib.ParseFile(selectedPath)
 			if err != nil {
 				t.Fatalf("failed to parse %s: %v", selectedPath, err)
 			}

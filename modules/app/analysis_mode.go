@@ -1,9 +1,9 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/analysis/solutionTours"
 	"atsp_aco_msa/modules/analysis/structuralComparison"
-	"atsp_aco_msa/modules/analysis/tuningSummary"
+	"atsp_aco_msa/modules/analysis/tours"
+	"atsp_aco_msa/modules/analysis/tuning"
 	"atsp_aco_msa/modules/project"
 	"atsp_aco_msa/modules/utilities"
 	"fmt"
@@ -19,7 +19,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		if err := saveTuningSummary(project.ResultsDirectoryName, atspsData, tuningHeuristics); err != nil {
 			return err
 		}
-		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(project.ResultsDirectoryName, tuningSummary.ReportFileName))
+		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(project.ResultsDirectoryName, tuning.ReportFileName))
 		return nil
 	}
 
@@ -27,7 +27,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		if err := saveTuningSummary(project.ResultsDirectoryName, atspsData, tuningHeuristics); err != nil {
 			return err
 		}
-		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(project.ResultsDirectoryName, tuningSummary.ReportFileName))
+		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(project.ResultsDirectoryName, tuning.ReportFileName))
 	}
 
 	gksDeviationReportPath := filepath.Join(project.FinalResultsDirectoryName, "gks_deviation.md")
@@ -57,10 +57,10 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		return err
 	}
 
-	solutionTourConfigs := make([]solutionTours.InstanceConfig, 0, len(atspsData))
+	solutionTourConfigs := make([]tours.InstanceConfig, 0, len(atspsData))
 	structuralConfigs := make([]structuralComparison.InstanceConfig, 0, len(atspsData))
 	for _, atspData := range atspsData {
-		solutionTourConfigs = append(solutionTourConfigs, solutionTours.InstanceConfig{
+		solutionTourConfigs = append(solutionTourConfigs, tours.InstanceConfig{
 			Name:                                atspData.Name,
 			Dimension:                           len(atspData.Matrix),
 			MsaHeuristicDirectoryPath:           atspData.MsaHeuristicDirectoryPath,
@@ -82,7 +82,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		})
 	}
 
-	if err := solutionTours.AnalyzeInstances(solutionTours.Config{Instances: solutionTourConfigs}); err != nil {
+	if err := tours.AnalyzeInstances(tours.Config{Instances: solutionTourConfigs}); err != nil {
 		return err
 	}
 

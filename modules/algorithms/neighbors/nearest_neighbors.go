@@ -1,9 +1,9 @@
-package nearestNeighbors
+package neighbors
 
 import "sort"
 
 // Build the nearest k neighbors list for each node
-func BuildNearestNeighborsLists(distances [][]float64, k int) [][]int {
+func BuildLists(distances [][]float64, k int) [][]int {
 	n := len(distances)
 	neighborsLists := make([][]int, n)
 

@@ -1,7 +1,7 @@
 package structuralComparison
 
 import (
-	"atsp_aco_msa/modules/algorithms/cycleCover"
+	"atsp_aco_msa/modules/algorithms/cyclecover"
 	"os"
 	"path/filepath"
 	"strings"
@@ -120,7 +120,7 @@ func TestAnalyzeInstanceCalculatesExpectedMetrics(t *testing.T) {
 		"Tour,Commonality with MSA heuristic",
 		`"[0,1,2]",100`,
 	}, "\n"))
-	if err := cycleCover.Save(cycleCoverDir, [][]float64{{0, 1, 0}, {0, 0, 1}, {1, 0, 0}}); err != nil {
+	if err := cyclecover.Save(cycleCoverDir, [][]float64{{0, 1, 0}, {0, 0, 1}, {1, 0, 0}}); err != nil {
 		t.Fatalf("failed to write cycle-cover cache: %v", err)
 	}
 
