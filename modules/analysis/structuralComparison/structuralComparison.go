@@ -4,7 +4,7 @@ import (
 	"atsp_aco_msa/modules/algorithms/cycleCover"
 	"atsp_aco_msa/modules/algorithms/heuristics"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
-	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
+	"atsp_aco_msa/modules/analysis/solutionTours"
 	"atsp_aco_msa/modules/models"
 	"fmt"
 	"sort"
@@ -106,7 +106,7 @@ func analyzeInstance(config InstanceConfig, highThreshold, msaPatchBias float64)
 		return InstanceAnalysis{}, fmt.Errorf("%s: MSA heuristic dimension %d does not match matrix dimension %d", config.Name, len(msaHeuristicMatrix), len(config.Matrix))
 	}
 
-	uniqueOptimalTours, err := msaHeuristicTours.ReadOptimalTours(config.OptimalToursCsvPath)
+	uniqueOptimalTours, err := solutionTours.ReadOptimalTours(config.OptimalToursCsvPath)
 	if err != nil {
 		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read found optimal tours: %w", config.Name, err)
 	}

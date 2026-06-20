@@ -4,7 +4,7 @@ import (
 	"atsp_aco_msa/modules/algorithms/cycleCover"
 	"atsp_aco_msa/modules/algorithms/heuristics"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
-	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
+	"atsp_aco_msa/modules/analysis/solutionTours"
 	"atsp_aco_msa/modules/analysis/structuralComparison"
 	"atsp_aco_msa/modules/models"
 	"fmt"
@@ -572,7 +572,7 @@ func buildMsaCountScalingRows(atspsData []AtspData, requestedCounts []int) ([]ms
 			row.boostedEdges += len(boostedEdges)
 			row.boostedTargetEdges += maxIntValue(len(msas)-1, 0)
 
-			tours, err := msaHeuristicTours.ReadOptimalTours(atspData.OptimalUniqueToursCsvPath)
+			tours, err := solutionTours.ReadOptimalTours(atspData.OptimalUniqueToursCsvPath)
 			if err != nil {
 				return nil, fmt.Errorf("%s: read found optimal tours: %w", atspData.Name, err)
 			}

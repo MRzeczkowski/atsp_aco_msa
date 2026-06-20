@@ -1,4 +1,4 @@
-package msaHeuristicTours
+package solutionTours
 
 import (
 	"atsp_aco_msa/modules/algorithms/cycleCover"

@@ -1,7 +1,7 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
+	"atsp_aco_msa/modules/analysis/solutionTours"
 	"atsp_aco_msa/modules/analysis/structuralComparison"
 	"atsp_aco_msa/modules/analysis/tuningSummary"
 	"atsp_aco_msa/modules/project"
@@ -57,10 +57,10 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		return err
 	}
 
-	msaHeuristicTourConfigs := make([]msaHeuristicTours.InstanceConfig, 0, len(atspsData))
+	solutionTourConfigs := make([]solutionTours.InstanceConfig, 0, len(atspsData))
 	structuralConfigs := make([]structuralComparison.InstanceConfig, 0, len(atspsData))
 	for _, atspData := range atspsData {
-		msaHeuristicTourConfigs = append(msaHeuristicTourConfigs, msaHeuristicTours.InstanceConfig{
+		solutionTourConfigs = append(solutionTourConfigs, solutionTours.InstanceConfig{
 			Name:                                atspData.Name,
 			Dimension:                           len(atspData.Matrix),
 			MsaHeuristicDirectoryPath:           atspData.MsaHeuristicDirectoryPath,
@@ -82,7 +82,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		})
 	}
 
-	if err := msaHeuristicTours.AnalyzeInstances(msaHeuristicTours.Config{Instances: msaHeuristicTourConfigs}); err != nil {
+	if err := solutionTours.AnalyzeInstances(solutionTours.Config{Instances: solutionTourConfigs}); err != nil {
 		return err
 	}
 

@@ -3,7 +3,7 @@ package app
 import (
 	"atsp_aco_msa/modules/algorithms/cycleCover"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
-	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
+	"atsp_aco_msa/modules/analysis/solutionTours"
 	"atsp_aco_msa/modules/analysis/tuningSummary"
 	workerpool "atsp_aco_msa/modules/experiments/workers"
 	"atsp_aco_msa/modules/project"
@@ -598,7 +598,7 @@ func finishExperimentSetInstance(instanceRun *experimentSetInstanceRun) error {
 	}
 
 	if !heuristicIsSparseControl(heuristic) {
-		uniqueOptimalTours, err := msaHeuristicTours.ReadOptimalTours(atspData.OptimalUniqueToursCsvPath)
+		uniqueOptimalTours, err := solutionTours.ReadOptimalTours(atspData.OptimalUniqueToursCsvPath)
 		if err != nil {
 			return err
 		}
@@ -606,12 +606,12 @@ func finishExperimentSetInstance(instanceRun *experimentSetInstanceRun) error {
 		for _, data := range experimentData {
 			for _, result := range data.Results {
 				if result.DeviationPerIteration[result.BestAtIteration] == 0.0 {
-					msaHeuristicTours.AddUniqueTour(uniqueOptimalTours, result.BestTour)
+					solutionTours.AddUniqueTour(uniqueOptimalTours, result.BestTour)
 				}
 			}
 		}
 
-		if err := msaHeuristicTours.SaveOptimalToursStatistics(atspData.OptimalUniqueToursCsvPath, atspData.MsaHeuristicDirectoryPath, uniqueOptimalTours); err != nil {
+		if err := solutionTours.SaveOptimalToursStatistics(atspData.OptimalUniqueToursCsvPath, atspData.MsaHeuristicDirectoryPath, uniqueOptimalTours); err != nil {
 			return err
 		}
 	}
