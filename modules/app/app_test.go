@@ -1228,7 +1228,7 @@ func TestGenerateParametersUsesMsaPatchBiasOnlyForPatching(t *testing.T) {
 
 }
 
-func TestSetDimensionDependantParametersScalesIterationsLinearly(t *testing.T) {
+func TestSetDimensionDependentParametersScalesIterationsLinearly(t *testing.T) {
 	tests := []struct {
 		dimension          int
 		expectedIterations int
@@ -1246,7 +1246,7 @@ func TestSetDimensionDependantParametersScalesIterationsLinearly(t *testing.T) {
 	for _, test := range tests {
 		t.Run(strconv.Itoa(test.dimension), func(t *testing.T) {
 			parameters := ExperimentParameters{Iterations: 1}
-			setDimensionDependantParameters(test.dimension, &parameters)
+			setDimensionDependentParameters(test.dimension, &parameters)
 
 			if parameters.Iterations != test.expectedIterations {
 				t.Fatalf("expected %d iterations, got %d", test.expectedIterations, parameters.Iterations)

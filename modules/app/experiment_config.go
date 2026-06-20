@@ -6,7 +6,7 @@ import (
 	"math"
 )
 
-func setDimensionDependantParameters(dimension int, parameters *ExperimentParameters) {
+func setDimensionDependentParameters(dimension int, parameters *ExperimentParameters) {
 	iterations := 100
 	if dimension >= 50 {
 		iterations = int(math.Round(30.0 * float64(dimension)))

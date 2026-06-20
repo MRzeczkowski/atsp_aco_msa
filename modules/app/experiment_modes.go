@@ -332,7 +332,7 @@ func runFinalExperimentParameters(instanceName, heuristic string, experimentPara
 			Label: fmt.Sprintf("%s/%s/parameter-%d", instanceName, heuristic, index),
 			Run: func() error {
 				parameters := experimentParameters[index]
-				setDimensionDependantParameters(dimension, &parameters)
+				setDimensionDependentParameters(dimension, &parameters)
 				parameterStart := time.Now()
 				heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters)
 				rootedHeuristicModifiers := buildRootedHeuristicModifiers(heuristic, matrix, rootedMsaHeuristic, parameters)
@@ -546,7 +546,7 @@ func experimentSetParameterJobs(instanceRuns []*experimentSetInstanceRun, experi
 }
 
 func runExperimentSetParameter(instanceRun *experimentSetInstanceRun, parameters ExperimentParameters, parameterIndex, numberOfExperiments int, logMutex *sync.Mutex) error {
-	setDimensionDependantParameters(instanceRun.dimension, &parameters)
+	setDimensionDependentParameters(instanceRun.dimension, &parameters)
 	parameterStart := time.Now()
 
 	heuristicModifiers := buildHeuristicModifiers(instanceRun.heuristic, instanceRun.matrix, instanceRun.heuristicMatrix, instanceRun.cycleCover, parameters)
