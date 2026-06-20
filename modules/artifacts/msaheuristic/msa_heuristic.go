@@ -35,17 +35,36 @@ func ReadMsas(rootMsaHeuristicPath string) ([][][]float64, error) {
 	return msas, nil
 }
 
-func ReadOrCreateMsas(matrix [][]float64, rootMsaHeuristicPath string) ([][][]float64, error) {
-	msas, err := ReadMsas(rootMsaHeuristicPath)
-	if err == nil && len(msas) == len(matrix) {
-		return msas, nil
+func ReadOrCreate(matrix [][]float64, rootMsaHeuristicPath string) ([][]float64, error) {
+	msaHeuristic, err := Read(rootMsaHeuristicPath)
+	if err == nil {
+		if hasDimension(msaHeuristic, len(matrix)) {
+			return msaHeuristic, nil
+		}
+
+		return Rebuild(matrix, rootMsaHeuristicPath)
 	}
 
-	if _, createErr := Create(matrix, rootMsaHeuristicPath); createErr != nil {
-		if err != nil {
-			return nil, fmt.Errorf("read individual MSAs: %w; create MSA Heuristic: %w", err, createErr)
+	msaHeuristic, createErr := create(matrix, rootMsaHeuristicPath)
+	if createErr != nil {
+		return nil, fmt.Errorf("read MSA Heuristic: %w; create MSA Heuristic: %w", err, createErr)
+	}
+
+	return msaHeuristic, nil
+}
+
+func ReadOrCreateMsas(matrix [][]float64, rootMsaHeuristicPath string) ([][][]float64, error) {
+	msas, err := ReadMsas(rootMsaHeuristicPath)
+	if err == nil {
+		if hasRootedMsaDimension(msas, len(matrix)) {
+			return msas, nil
 		}
-		return nil, fmt.Errorf("create MSA Heuristic: %w", createErr)
+
+		if _, rebuildErr := Rebuild(matrix, rootMsaHeuristicPath); rebuildErr != nil {
+			return nil, fmt.Errorf("rebuild MSA Heuristic: %w", rebuildErr)
+		}
+	} else if _, createErr := create(matrix, rootMsaHeuristicPath); createErr != nil {
+		return nil, fmt.Errorf("read individual MSAs: %w; create MSA Heuristic: %w", err, createErr)
 	}
 
 	msas, err = ReadMsas(rootMsaHeuristicPath)
@@ -54,6 +73,42 @@ func ReadOrCreateMsas(matrix [][]float64, rootMsaHeuristicPath string) ([][][]fl
 	}
 
 	return msas, nil
+}
+
+func Rebuild(matrix [][]float64, rootMsaHeuristicPath string) ([][]float64, error) {
+	if err := removeCache(rootMsaHeuristicPath); err != nil {
+		return nil, err
+	}
+
+	return create(matrix, rootMsaHeuristicPath)
+}
+
+func hasRootedMsaDimension(msas [][][]float64, dimension int) bool {
+	if len(msas) != dimension {
+		return false
+	}
+
+	for _, msa := range msas {
+		if !hasDimension(msa, dimension) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func hasDimension(matrix [][]float64, dimension int) bool {
+	if len(matrix) != dimension {
+		return false
+	}
+
+	for _, row := range matrix {
+		if len(row) != dimension {
+			return false
+		}
+	}
+
+	return true
 }
 
 type rootedMsa struct {
@@ -108,8 +163,16 @@ func readRootedMsaPaths(rootMsaHeuristicPath string) ([]rootedMsaPath, error) {
 	return rootedPaths, nil
 }
 
-func Create(matrix [][]float64, rootMsaHeuristicPath string) ([][]float64, error) {
+func create(matrix [][]float64, rootMsaHeuristicPath string) ([][]float64, error) {
 	return createComposite(matrix, rootMsaHeuristicPath, "msa_heuristic.csv", "msas", edmonds.FindMSA)
+}
+
+func removeCache(rootMsaHeuristicPath string) error {
+	if err := os.Remove(path.Join(rootMsaHeuristicPath, "msa_heuristic.csv")); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	return os.RemoveAll(path.Join(rootMsaHeuristicPath, "msas"))
 }
 
 func createComposite(matrix [][]float64, rootPath, compositeFileName, arborescencesDirectoryName string, find finder) ([][]float64, error) {

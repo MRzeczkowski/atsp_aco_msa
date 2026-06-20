@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestCreateKeepsOriginalWeightsWhenOnlySomeMsasCached(t *testing.T) {
+func TestReadOrCreateKeepsOriginalWeightsWhenOnlySomeMsasCached(t *testing.T) {
 	matrix := [][]float64{
 		{0, 1, 1},
 		{1, 0, 100},
@@ -14,9 +14,9 @@ func TestCreateKeepsOriginalWeightsWhenOnlySomeMsasCached(t *testing.T) {
 	}
 
 	cleanDir := filepath.Join(t.TempDir(), "clean")
-	expected, err := Create(matrix, cleanDir)
+	expected, err := ReadOrCreate(matrix, cleanDir)
 	if err != nil {
-		t.Fatalf("create clean MSA heuristic: %v", err)
+		t.Fatalf("read or create clean MSA heuristic: %v", err)
 	}
 
 	cachedRootDir := filepath.Join(t.TempDir(), "cached")
@@ -32,9 +32,9 @@ func TestCreateKeepsOriginalWeightsWhenOnlySomeMsasCached(t *testing.T) {
 		t.Fatalf("seed partial MSA cache: %v", err)
 	}
 
-	actual, err := Create(matrix, cachedRootDir)
+	actual, err := ReadOrCreate(matrix, cachedRootDir)
 	if err != nil {
-		t.Fatalf("create partially cached MSA heuristic: %v", err)
+		t.Fatalf("read or create partially cached MSA heuristic: %v", err)
 	}
 
 	if !compareMatrices(actual, expected) {
