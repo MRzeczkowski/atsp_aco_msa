@@ -425,7 +425,7 @@ func removeFileIfExists(path string) error {
 }
 
 func runExperimentSet(atspsData []AtspData, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments, workers int) error {
-	workers = maxIntValue(1, workers)
+	workers = max(1, workers)
 
 	instanceRuns := make([]*experimentSetInstanceRun, 0, len(atspsData))
 	for _, atspData := range atspsData {

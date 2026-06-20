@@ -60,7 +60,7 @@ func buildMsaCountScalingRows(atspsData []project.AtspData, requestedCounts []in
 
 			row.instanceCount++
 			row.boostedEdges += len(boostedEdges)
-			row.boostedTargetEdges += maxIntValue(len(msas)-1, 0)
+			row.boostedTargetEdges += max(len(msas)-1, 0)
 
 			optimalTours, err := tours.ReadOptimal(atspData.OptimalUniqueToursCsvPath)
 			if err != nil {

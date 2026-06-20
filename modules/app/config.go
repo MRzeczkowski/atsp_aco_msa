@@ -13,11 +13,7 @@ type ExperimentResult = experiments.ExperimentResult
 type ExperimentsDataStatistics = experiments.ExperimentsDataStatistics
 type HeuristicExperimentStatistics = experiments.HeuristicExperimentStatistics
 type finalResultsSummaryMetric = reports.FinalResultSummaryMetric
-
-type finalResultsSummaryRow struct {
-	instance string
-	metrics  map[string]finalResultsSummaryMetric
-}
+type finalResultsSummaryRow = reports.FinalResultsSummaryRow
 
 const (
 	instanceSetSmoke      = project.InstanceSetSmoke

@@ -663,8 +663,8 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 	path := filepath.Join(t.TempDir(), "comparison_to_final.md")
 	finalRows := []finalResultsSummaryRow{
 		{
-			instance: "sample",
-			metrics: map[string]finalResultsSummaryMetric{
+			Instance: "sample",
+			Metrics: map[string]finalResultsSummaryMetric{
 				heuristicBaseline: {
 					AverageMinDeviation:  10.0,
 					SuccessRate:          10.0,
@@ -694,8 +694,8 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 	}
 	finalThreeOptRows := []finalResultsSummaryRow{
 		{
-			instance: "sample",
-			metrics: map[string]finalResultsSummaryMetric{
+			Instance: "sample",
+			Metrics: map[string]finalResultsSummaryMetric{
 				heuristicBaseline: {
 					AverageMinDeviation:  1.0,
 					SuccessRate:          50.0,
@@ -1826,8 +1826,8 @@ func sampleStructuralAnalyses() []structure.InstanceAnalysis {
 func sampleFinalSummaryRows() []finalResultsSummaryRow {
 	return []finalResultsSummaryRow{
 		{
-			instance: "a",
-			metrics: map[string]finalResultsSummaryMetric{
+			Instance: "a",
+			Metrics: map[string]finalResultsSummaryMetric{
 				heuristicBaseline: {
 					AverageMinDeviation:  4.0,
 					SuccessRate:          10.0,
@@ -1855,8 +1855,8 @@ func sampleFinalSummaryRows() []finalResultsSummaryRow {
 			},
 		},
 		{
-			instance: "b",
-			metrics: map[string]finalResultsSummaryMetric{
+			Instance: "b",
+			Metrics: map[string]finalResultsSummaryMetric{
 				heuristicBaseline: {
 					AverageMinDeviation:  5.0,
 					SuccessRate:          0.0,

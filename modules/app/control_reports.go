@@ -250,7 +250,7 @@ func twoSidedSignTestPValue(wins, losses int) float64 {
 		return 1.0
 	}
 
-	observed := maxIntValue(wins, losses)
+	observed := max(wins, losses)
 	probability := 0.0
 	for k := observed; k <= n; k++ {
 		probability += binomialCoefficient(n, k) / math.Pow(2, float64(n))
