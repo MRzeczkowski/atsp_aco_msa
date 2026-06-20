@@ -1,7 +1,6 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/analysis/reports"
 	"atsp_aco_msa/modules/experiments"
 	"atsp_aco_msa/modules/project"
 )
@@ -12,8 +11,6 @@ type ExperimentParameters = experiments.ExperimentParameters
 type ExperimentResult = experiments.ExperimentResult
 type ExperimentsDataStatistics = experiments.ExperimentsDataStatistics
 type HeuristicExperimentStatistics = experiments.HeuristicExperimentStatistics
-type finalResultsSummaryMetric = reports.FinalResultSummaryMetric
-type finalResultsSummaryRow = reports.FinalResultsSummaryRow
 
 const (
 	instanceSetSmoke      = project.InstanceSetSmoke

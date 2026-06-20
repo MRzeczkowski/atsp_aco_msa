@@ -15,6 +15,30 @@ import (
 	"strings"
 )
 
+func finalReportsConfig() reports.FinalReportsConfig {
+	return reports.FinalReportsConfig{
+		Heuristics:                     finalResultsSummaryHeuristics,
+		BaselineHeuristic:              heuristicBaseline,
+		StrictMsaHeuristic:             heuristicStrictMsa,
+		CycleCoverHeuristic:            heuristicCycleCover,
+		CycleCoverMsaPatchingHeuristic: heuristicCycleCoverMsaPatching,
+		DisplayName:                    heuristicDisplayName,
+	}
+}
+
+func controlReportsConfig() reports.ControlReportsConfig {
+	return reports.ControlReportsConfig{
+		StrictMsaHeuristic:            heuristicStrictMsa,
+		RandomSparseHeuristic:         heuristicRandomSparse,
+		DistanceRankedSparseHeuristic: heuristicDistanceRankedSparse,
+		ShuffledMsaHeuristic:          heuristicShuffledMsa,
+		FinalStrictMsaHeuristicWeight: finalStrictMsaHeuristicWeight,
+		ReadStatistics:                readStatistics,
+		ReadHeuristicStatistics:       readHeuristicStatistics,
+		ResultFilePathForHeuristic:    resultFilePathForHeuristic,
+	}
+}
+
 func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristics []string, workers int) error {
 	if analysisScope == analysisScopeTuning {
 		if err := saveTuningSummary(project.ResultsDirectoryName, atspsData, tuningHeuristics); err != nil {
@@ -113,17 +137,17 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 
 	finalControlsRootPath := finalControlsResultsRootPath(project.FinalResultsDirectoryName)
 	randomSparseControlReportPath := filepath.Join(finalControlsRootPath, "random_sparse_control.md")
-	randomSparseControlReportSaved, err := saveRandomSparseControlReport(randomSparseControlReportPath, atspsData, project.FinalResultsDirectoryName, finalControlsRootPath)
+	randomSparseControlReportSaved, err := reports.SaveRandomSparseControlReport(randomSparseControlReportPath, atspsData, project.FinalResultsDirectoryName, finalControlsRootPath, controlReportsConfig())
 	if err != nil {
 		return err
 	}
 	distanceRankedSparseControlReportPath := filepath.Join(finalControlsRootPath, "distance_ranked_sparse_control.md")
-	distanceRankedSparseControlReportSaved, err := saveDistanceRankedSparseControlReport(distanceRankedSparseControlReportPath, atspsData, project.FinalResultsDirectoryName, finalControlsRootPath)
+	distanceRankedSparseControlReportSaved, err := reports.SaveDistanceRankedSparseControlReport(distanceRankedSparseControlReportPath, atspsData, project.FinalResultsDirectoryName, finalControlsRootPath, controlReportsConfig())
 	if err != nil {
 		return err
 	}
 	shuffledMsaControlReportPath := filepath.Join(finalControlsRootPath, "shuffled_msa_control.md")
-	shuffledMsaControlReportSaved, err := saveShuffledMsaControlReport(shuffledMsaControlReportPath, atspsData, project.FinalResultsDirectoryName, finalControlsRootPath)
+	shuffledMsaControlReportSaved, err := reports.SaveShuffledMsaControlReport(shuffledMsaControlReportPath, atspsData, project.FinalResultsDirectoryName, finalControlsRootPath, controlReportsConfig())
 	if err != nil {
 		return err
 	}
@@ -185,7 +209,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	}
 	if finalSummarySaved && finalThreeOptSummarySaved {
 		threeOptComparisonPath := filepath.Join(project.FinalThreeOptResultsDirectoryName, "comparison_to_final.md")
-		if err := saveFinalThreeOptComparisonReport(threeOptComparisonPath, finalRows, finalThreeOptRows); err != nil {
+		if err := reports.SaveFinalThreeOptComparisonReport(threeOptComparisonPath, finalRows, finalThreeOptRows, finalReportsConfig()); err != nil {
 			return err
 		}
 		fmt.Printf("Final+3opt comparison report saved to %s\n", threeOptComparisonPath)
@@ -193,7 +217,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	return nil
 }
 
-func runFinalResultsAnalysis(atspsData []AtspData, structuralAnalyses []structure.InstanceAnalysis, resultsRootPath string) (string, []finalResultsSummaryRow, bool, error) {
+func runFinalResultsAnalysis(atspsData []AtspData, structuralAnalyses []structure.InstanceAnalysis, resultsRootPath string) (string, []reports.FinalResultsSummaryRow, bool, error) {
 	finalAtspsData := make([]AtspData, 0, len(atspsData))
 	missingInstances := make([]string, 0)
 
@@ -220,23 +244,23 @@ func runFinalResultsAnalysis(atspsData []AtspData, structuralAnalyses []structur
 		return "", nil, false, fmt.Errorf("cannot create final results summary; missing final result.csv for: %s", strings.Join(missingInstances, ", "))
 	}
 
-	finalRows, err := readFinalResultsSummaryRows(finalAtspsData)
+	finalRows, err := reports.ReadFinalResultsSummaryRows(finalAtspsData)
 	if err != nil {
 		return "", nil, false, err
 	}
 
 	finalResultsSummaryPath := filepath.Join(resultsRootPath, "summary.md")
-	if err := saveFinalResultsSummaryRows(finalRows, finalResultsSummaryPath); err != nil {
+	if err := reports.SaveFinalResultsSummaryRows(finalRows, finalResultsSummaryPath, finalReportsConfig()); err != nil {
 		return "", nil, false, err
 	}
-	if err := saveFinalPairwisePerformanceReport(filepath.Join(resultsRootPath, "pairwise_performance.md"), finalRows); err != nil {
+	if err := reports.SaveFinalPairwisePerformanceReport(filepath.Join(resultsRootPath, "pairwise_performance.md"), finalRows, finalReportsConfig()); err != nil {
 		return "", nil, false, err
 	}
-	if err := saveFinalConvergenceSummaryReport(filepath.Join(resultsRootPath, "convergence_summary.md"), finalRows); err != nil {
+	if err := reports.SaveFinalConvergenceSummaryReport(filepath.Join(resultsRootPath, "convergence_summary.md"), finalRows, finalReportsConfig()); err != nil {
 		return "", nil, false, err
 	}
 	if len(structuralAnalyses) != 0 {
-		if err := saveStructuralPerformanceLinkReport(filepath.Join(resultsRootPath, "structural_performance_link.md"), finalRows, structuralAnalyses); err != nil {
+		if err := reports.SaveStructuralPerformanceLinkReport(filepath.Join(resultsRootPath, "structural_performance_link.md"), finalRows, structuralAnalyses, finalReportsConfig()); err != nil {
 			return "", nil, false, err
 		}
 	}
