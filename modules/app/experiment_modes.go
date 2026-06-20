@@ -1,6 +1,7 @@
 package app
 
 import (
+	"atsp_aco_msa/modules/algorithms/cycleCover"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
 	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
 	"atsp_aco_msa/modules/analysis/tuningSummary"
@@ -266,7 +267,7 @@ func runFinalExperimentConfiguration(instanceRun *finalExperimentInstanceRun, co
 func (instanceRun *finalExperimentInstanceRun) getCycleCover() ([][]float64, error) {
 	instanceRun.cycleCoverOnce.Do(func() {
 		var cycleCoverCost float64
-		instanceRun.cycleCover, cycleCoverCost, instanceRun.cycleCoverErr = buildMinimumCycleCoverMatrix(instanceRun.matrix)
+		instanceRun.cycleCover, cycleCoverCost, instanceRun.cycleCoverErr = cycleCover.ReadOrCreate(instanceRun.matrix, instanceRun.atspData.CycleCoverDirectoryPath)
 		if instanceRun.cycleCoverErr != nil {
 			return
 		}
@@ -509,7 +510,7 @@ func prepareExperimentSetInstance(atspData AtspData, heuristic string, experimen
 func (instanceRun *experimentSetInstanceRun) getCycleCover() ([][]float64, error) {
 	instanceRun.cycleCoverOnce.Do(func() {
 		var cycleCoverCost float64
-		instanceRun.cycleCover, cycleCoverCost, instanceRun.cycleCoverErr = buildMinimumCycleCoverMatrix(instanceRun.matrix)
+		instanceRun.cycleCover, cycleCoverCost, instanceRun.cycleCoverErr = cycleCover.ReadOrCreate(instanceRun.matrix, instanceRun.atspData.CycleCoverDirectoryPath)
 		if instanceRun.cycleCoverErr != nil {
 			return
 		}

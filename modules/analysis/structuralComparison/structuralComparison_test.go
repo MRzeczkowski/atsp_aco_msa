@@ -1,6 +1,7 @@
 package structuralComparison
 
 import (
+	"atsp_aco_msa/modules/algorithms/cycleCover"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,7 @@ func TestCalculateAnalysisStructuralMetrics(t *testing.T) {
 		{From: 2, To: 3},
 		{From: 3, To: 0},
 	}
+	cycleCoverMatrix := buildEdgeMatrix(4, cycleCoverEdges)
 
 	matrix := [][]float64{
 		{0, 1, 2, 3},
@@ -27,7 +29,7 @@ func TestCalculateAnalysisStructuralMetrics(t *testing.T) {
 		{1, 2, 1, 0},
 	}
 
-	analysis := calculateAnalysis("test", 4, matrix, msaHeuristic, tours, cycleCoverEdges, 1.0, 1.0)
+	analysis := calculateAnalysis("test", 4, matrix, msaHeuristic, tours, cycleCoverMatrix, cycleCoverEdges, 1.0, 1.0)
 	metrics := analysis.Metrics
 
 	assertFloat(t, "cycle-cover precision", metrics.CycleCoverMetrics.Precision, 1)
@@ -60,6 +62,7 @@ func TestCalculateAnalysisOptimalEdgePartition(t *testing.T) {
 		{From: 2, To: 0},
 		{From: 3, To: 2},
 	}
+	cycleCoverMatrix := buildEdgeMatrix(4, cycleCoverEdges)
 
 	matrix := [][]float64{
 		{0, 1, 2, 3},
@@ -68,7 +71,7 @@ func TestCalculateAnalysisOptimalEdgePartition(t *testing.T) {
 		{2, 3, 1, 0},
 	}
 
-	analysis := calculateAnalysis("test", 4, matrix, msaHeuristic, tours, cycleCoverEdges, 1.0, 1.0)
+	analysis := calculateAnalysis("test", 4, matrix, msaHeuristic, tours, cycleCoverMatrix, cycleCoverEdges, 1.0, 1.0)
 	metrics := analysis.Metrics
 
 	if metrics.OptimalEdgesInCycleCoverAndHighMsaHeuristic != 1 {
@@ -103,6 +106,7 @@ func TestEdgeSetMetricsWithoutFoundOptimalTours(t *testing.T) {
 func TestAnalyzeInstanceCalculatesExpectedMetrics(t *testing.T) {
 	dir := t.TempDir()
 	msaHeuristicDir := filepath.Join(dir, "msa_heuristic")
+	cycleCoverDir := filepath.Join(dir, "cycle_cover")
 	if err := os.MkdirAll(msaHeuristicDir, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -116,11 +120,15 @@ func TestAnalyzeInstanceCalculatesExpectedMetrics(t *testing.T) {
 		"Tour,Commonality with MSA heuristic",
 		`"[0,1,2]",100`,
 	}, "\n"))
+	if err := cycleCover.Save(cycleCoverDir, [][]float64{{0, 1, 0}, {0, 0, 1}, {1, 0, 0}}); err != nil {
+		t.Fatalf("failed to write cycle-cover cache: %v", err)
+	}
 
 	config := InstanceConfig{
 		Name:                      "test",
 		Dimension:                 3,
 		Matrix:                    [][]float64{{0, 1, 5}, {5, 0, 1}, {1, 5, 0}},
+		CycleCoverDirectoryPath:   cycleCoverDir,
 		MsaHeuristicDirectoryPath: msaHeuristicDir,
 		OptimalToursCsvPath:       filepath.Join(dir, "solutions.csv"),
 	}

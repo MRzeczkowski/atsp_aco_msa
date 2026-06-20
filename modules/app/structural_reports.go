@@ -1,6 +1,7 @@
 package app
 
 import (
+	"atsp_aco_msa/modules/algorithms/cycleCover"
 	"atsp_aco_msa/modules/algorithms/heuristics"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
 	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
@@ -249,9 +250,9 @@ func buildGksDeviationRows(atspsData []AtspData, msaPatchBiases []float64) ([]gk
 			return nil, fmt.Errorf("%s: failed to read MSA Heuristic: %w", atspData.Name, err)
 		}
 
-		cycleCoverMatrix, _, err := buildMinimumCycleCoverMatrix(atspData.Matrix)
+		cycleCoverMatrix, _, err := cycleCover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
 		if err != nil {
-			return nil, fmt.Errorf("%s: failed to compute minimum cycle cover: %w", atspData.Name, err)
+			return nil, fmt.Errorf("%s: failed to read or create cycle-cover cache: %w", atspData.Name, err)
 		}
 
 		for _, msaPatchBias := range msaPatchBiases {

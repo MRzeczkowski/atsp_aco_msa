@@ -1,6 +1,7 @@
 package app
 
 import (
+	"atsp_aco_msa/modules/algorithms/cycleCover"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
 	workerpool "atsp_aco_msa/modules/experiments/workers"
 	"atsp_aco_msa/modules/utilities"
@@ -27,8 +28,21 @@ func runRebuildCacheMode(atspsData []AtspData, workers int) error {
 			return fmt.Errorf("%s: save MSA plots: %w", atspData.Name, err)
 		}
 
-		fmt.Printf("[%s][%s] Rebuilt cached MSA artifacts in %s\n", logTimestamp(time.Now()), atspData.Name, time.Since(start).Round(time.Millisecond))
+		if _, cycleCoverCost, err := cycleCover.Rebuild(atspData.Matrix, atspData.CycleCoverDirectoryPath); err != nil {
+			return fmt.Errorf("%s: rebuild cycle-cover cache: %w", atspData.Name, err)
+		} else {
+			fmt.Printf("[%s][%s] Rebuilt cached cycle cover in %s (cost=%.2f)\n", logTimestamp(time.Now()), atspData.Name, cycleCover.CsvPath(atspData.CycleCoverDirectoryPath), cycleCoverCost)
+		}
+
+		fmt.Printf("[%s][%s] Rebuilt cached artifacts in %s\n", logTimestamp(time.Now()), atspData.Name, time.Since(start).Round(time.Millisecond))
 		return nil
+	}), workers)
+}
+
+func ensureCycleCoverCache(atspsData []AtspData, workers int) error {
+	return workerpool.RunJobs(instanceJobsByDescendingDimension(atspsData, "ensure-cycle-cover-cache", func(atspData AtspData) error {
+		_, _, err := cycleCover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
+		return err
 	}), workers)
 }
 

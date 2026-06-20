@@ -1,6 +1,7 @@
 package app
 
 import (
+	"atsp_aco_msa/modules/algorithms/cycleCover"
 	"atsp_aco_msa/modules/analysis/structuralComparison"
 	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/parsing"
@@ -979,16 +980,16 @@ func TestBuildHeuristicModifiersBaselineCanUseDistanceMatrixDimension(t *testing
 	}
 }
 
-func TestBuildMinimumCycleCoverMatrix(t *testing.T) {
+func TestCycleCoverBuildMatrix(t *testing.T) {
 	matrix := [][]float64{
 		{0, 5, 1},
 		{1, 0, 5},
 		{5, 1, 0},
 	}
 
-	cycleCover, cost, err := buildMinimumCycleCoverMatrix(matrix)
+	cycleCoverMatrix, cost, err := cycleCover.BuildMatrix(matrix)
 	if err != nil {
-		t.Fatalf("buildMinimumCycleCoverMatrix returned unexpected error: %v", err)
+		t.Fatalf("cycleCover.BuildMatrix returned unexpected error: %v", err)
 	}
 
 	expected := [][]float64{
@@ -996,11 +997,103 @@ func TestBuildMinimumCycleCoverMatrix(t *testing.T) {
 		{1, 0, 0},
 		{0, 1, 0},
 	}
-	if !reflect.DeepEqual(cycleCover, expected) {
-		t.Fatalf("unexpected cycle-cover matrix\nwant: %v\n got: %v", expected, cycleCover)
+	if !reflect.DeepEqual(cycleCoverMatrix, expected) {
+		t.Fatalf("unexpected cycle-cover matrix\nwant: %v\n got: %v", expected, cycleCoverMatrix)
 	}
 	if cost != 3 {
 		t.Fatalf("expected cycle-cover cost 3, got %f", cost)
+	}
+}
+
+func TestCycleCoverReadOrCreateCreatesCache(t *testing.T) {
+	matrix := [][]float64{
+		{0, 5, 1},
+		{1, 0, 5},
+		{5, 1, 0},
+	}
+	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", matrix, 3, t.TempDir())
+	atspData.CycleCoverDirectoryPath = filepath.Join(t.TempDir(), "cycle_cover", "sample")
+
+	cycleCoverMatrix, cost, err := cycleCover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
+	if err != nil {
+		t.Fatalf("cycleCover.ReadOrCreate returned unexpected error: %v", err)
+	}
+
+	expected := [][]float64{
+		{0, 0, 1},
+		{1, 0, 0},
+		{0, 1, 0},
+	}
+	if !reflect.DeepEqual(cycleCoverMatrix, expected) {
+		t.Fatalf("unexpected cycle-cover matrix\nwant: %v\n got: %v", expected, cycleCoverMatrix)
+	}
+	if cost != 3 {
+		t.Fatalf("expected cycle-cover cost 3, got %f", cost)
+	}
+	assertPathExists(t, cycleCover.CsvPath(atspData.CycleCoverDirectoryPath))
+}
+
+func TestCycleCoverReadOrCreateReusesValidCache(t *testing.T) {
+	matrix := [][]float64{
+		{0, 5, 1},
+		{1, 0, 5},
+		{5, 1, 0},
+	}
+	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", matrix, 3, t.TempDir())
+	atspData.CycleCoverDirectoryPath = filepath.Join(t.TempDir(), "cycle_cover", "sample")
+	cached := [][]float64{
+		{0, 1, 0},
+		{0, 0, 1},
+		{1, 0, 0},
+	}
+	if err := cycleCover.Save(atspData.CycleCoverDirectoryPath, cached); err != nil {
+		t.Fatalf("cycleCover.Save returned unexpected error: %v", err)
+	}
+
+	cycleCoverMatrix, cost, err := cycleCover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
+	if err != nil {
+		t.Fatalf("cycleCover.ReadOrCreate returned unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(cycleCoverMatrix, cached) {
+		t.Fatalf("expected cached cycle-cover matrix\nwant: %v\n got: %v", cached, cycleCoverMatrix)
+	}
+	if cost != 15 {
+		t.Fatalf("expected cached cycle-cover cost 15, got %f", cost)
+	}
+}
+
+func TestCycleCoverReadOrCreateRegeneratesInvalidCache(t *testing.T) {
+	matrix := [][]float64{
+		{0, 5, 1},
+		{1, 0, 5},
+		{5, 1, 0},
+	}
+	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", matrix, 3, t.TempDir())
+	atspData.CycleCoverDirectoryPath = filepath.Join(t.TempDir(), "cycle_cover", "sample")
+	if err := cycleCover.Save(atspData.CycleCoverDirectoryPath, [][]float64{
+		{0, 0, 0},
+		{0, 0, 0},
+		{0, 0, 0},
+	}); err != nil {
+		t.Fatalf("cycleCover.Save returned unexpected error: %v", err)
+	}
+
+	cycleCoverMatrix, cost, err := cycleCover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
+	if err != nil {
+		t.Fatalf("cycleCover.ReadOrCreate returned unexpected error: %v", err)
+	}
+
+	expected := [][]float64{
+		{0, 0, 1},
+		{1, 0, 0},
+		{0, 1, 0},
+	}
+	if !reflect.DeepEqual(cycleCoverMatrix, expected) {
+		t.Fatalf("expected regenerated cycle-cover matrix\nwant: %v\n got: %v", expected, cycleCoverMatrix)
+	}
+	if cost != 3 {
+		t.Fatalf("expected regenerated cycle-cover cost 3, got %f", cost)
 	}
 }
 
@@ -1034,6 +1127,9 @@ func TestWithExperimentOutputRootMovesOutputsButKeepsMsaHeuristicCache(t *testin
 
 	if output.MsaHeuristicDirectoryPath != atspData.MsaHeuristicDirectoryPath {
 		t.Fatalf("expected MSA heuristic cache path to stay %s, got %s", atspData.MsaHeuristicDirectoryPath, output.MsaHeuristicDirectoryPath)
+	}
+	if output.CycleCoverDirectoryPath != atspData.CycleCoverDirectoryPath {
+		t.Fatalf("expected cycle-cover cache path to stay %s, got %s", atspData.CycleCoverDirectoryPath, output.CycleCoverDirectoryPath)
 	}
 
 	expectedResultPath := filepath.Join(project.FinalResultsDirectoryName, "test", project.ResultFileName)
@@ -1545,6 +1641,7 @@ func TestRunRebuildCacheModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T)
 	atspData.MsaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
 	atspData.MsaHeuristicHeatmapPlotPath = filepath.Join(atspData.MsaHeuristicDirectoryPath, "plots", "msa_heuristic_heatmap.png")
 	atspData.MsaHeuristicHistogramPlotPath = filepath.Join(atspData.MsaHeuristicDirectoryPath, "plots", "msa_heuristic_histogram.png")
+	atspData.CycleCoverDirectoryPath = filepath.Join(root, "cycle_cover", "sample")
 
 	stalePath := filepath.Join(atspData.MsaHeuristicDirectoryPath, "stale.txt")
 	if err := os.MkdirAll(atspData.MsaHeuristicDirectoryPath, 0700); err != nil {
@@ -1552,6 +1649,13 @@ func TestRunRebuildCacheModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T)
 	}
 	if err := os.WriteFile(stalePath, []byte("stale"), 0644); err != nil {
 		t.Fatalf("failed to write stale file: %v", err)
+	}
+	staleCycleCoverPath := filepath.Join(atspData.CycleCoverDirectoryPath, "stale.txt")
+	if err := os.MkdirAll(atspData.CycleCoverDirectoryPath, 0700); err != nil {
+		t.Fatalf("failed to create stale cycle-cover directory: %v", err)
+	}
+	if err := os.WriteFile(staleCycleCoverPath, []byte("stale"), 0644); err != nil {
+		t.Fatalf("failed to write stale cycle-cover file: %v", err)
 	}
 
 	if err := runRebuildCacheMode([]AtspData{atspData}, 1); err != nil {
@@ -1561,9 +1665,13 @@ func TestRunRebuildCacheModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T)
 	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
 		t.Fatalf("expected stale file to be removed, stat error: %v", err)
 	}
+	if _, err := os.Stat(staleCycleCoverPath); !os.IsNotExist(err) {
+		t.Fatalf("expected stale cycle-cover file to be removed, stat error: %v", err)
+	}
 	assertPathExists(t, filepath.Join(atspData.MsaHeuristicDirectoryPath, "msa_heuristic.csv"))
 	assertPathExists(t, atspData.MsaHeuristicHeatmapPlotPath)
 	assertPathExists(t, atspData.MsaHeuristicHistogramPlotPath)
+	assertPathExists(t, cycleCover.CsvPath(atspData.CycleCoverDirectoryPath))
 
 	rootMsaFiles, err := filepath.Glob(filepath.Join(atspData.MsaHeuristicDirectoryPath, "msas", "*.csv"))
 	if err != nil {

@@ -1,8 +1,8 @@
 package structuralComparison
 
 import (
+	"atsp_aco_msa/modules/algorithms/cycleCover"
 	"atsp_aco_msa/modules/algorithms/heuristics"
-	"atsp_aco_msa/modules/algorithms/hungarian"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
 	"atsp_aco_msa/modules/analysis/msaHeuristicTours"
 	"atsp_aco_msa/modules/models"
@@ -16,6 +16,7 @@ type InstanceConfig struct {
 	Name                      string
 	Dimension                 int
 	Matrix                    [][]float64
+	CycleCoverDirectoryPath   string
 	MsaHeuristicDirectoryPath string
 	OptimalToursCsvPath       string
 }
@@ -113,24 +114,30 @@ func analyzeInstance(config InstanceConfig, highThreshold, msaPatchBias float64)
 		return InstanceAnalysis{}, fmt.Errorf("%s: invalid found optimal tours: %w", config.Name, err)
 	}
 
-	cycleCoverEdges, _, err := hungarian.MinimumCycleCover(config.Matrix)
+	cycleCoverMatrix, err := cycleCover.Read(config.CycleCoverDirectoryPath, len(config.Matrix))
 	if err != nil {
-		return InstanceAnalysis{}, fmt.Errorf("%s: failed to compute minimum cycle cover: %w", config.Name, err)
+		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read cycle cover: %w", config.Name, err)
 	}
+	if err := validateSquareMatrix(cycleCoverMatrix); err != nil {
+		return InstanceAnalysis{}, fmt.Errorf("%s: invalid cycle cover: %w", config.Name, err)
+	}
+	if len(cycleCoverMatrix) != len(config.Matrix) {
+		return InstanceAnalysis{}, fmt.Errorf("%s: cycle-cover dimension %d does not match matrix dimension %d", config.Name, len(cycleCoverMatrix), len(config.Matrix))
+	}
+	cycleCoverEdges := buildMatrixEdges(cycleCoverMatrix)
 	if err := validateCycleCover(cycleCoverEdges, len(config.Matrix)); err != nil {
-		return InstanceAnalysis{}, fmt.Errorf("%s: invalid minimum cycle cover: %w", config.Name, err)
+		return InstanceAnalysis{}, fmt.Errorf("%s: invalid cycle cover: %w", config.Name, err)
 	}
 
-	analysis := calculateAnalysis(config.Name, len(config.Matrix), config.Matrix, msaHeuristicMatrix, uniqueOptimalTours, cycleCoverEdges, highThreshold, msaPatchBias)
+	analysis := calculateAnalysis(config.Name, len(config.Matrix), config.Matrix, msaHeuristicMatrix, uniqueOptimalTours, cycleCoverMatrix, cycleCoverEdges, highThreshold, msaPatchBias)
 	return analysis, nil
 }
 
-func calculateAnalysis(instance string, dimension int, matrix, msaHeuristic [][]float64, uniqueOptimalTours map[string][]int, cycleCoverEdges []Edge, highThreshold, msaPatchBias float64) InstanceAnalysis {
+func calculateAnalysis(instance string, dimension int, matrix, msaHeuristic [][]float64, uniqueOptimalTours map[string][]int, cycleCoverMatrix [][]float64, cycleCoverEdges []Edge, highThreshold, msaPatchBias float64) InstanceAnalysis {
 	optimalEdges := buildTourEdgeSet(uniqueOptimalTours)
 	cycleCoverSet := buildEdgeSet(cycleCoverEdges)
 	highMsaHeuristicSet := buildMsaHeuristicThresholdSet(msaHeuristic, highThreshold, true)
 	cycleCoverHighMsaHeuristicSet := intersectEdgeSets(cycleCoverSet, highMsaHeuristicSet)
-	cycleCoverMatrix := buildEdgeMatrix(dimension, cycleCoverEdges)
 	cycleCoverMsaPatchingSet := buildMatrixEdgeSet(heuristics.BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, msaHeuristic, cycleCoverMatrix, msaPatchBias))
 
 	metrics := InstanceMetrics{
@@ -200,6 +207,18 @@ func buildMatrixEdgeSet(matrix [][]float64) map[Edge]struct{} {
 		}
 	}
 	return set
+}
+
+func buildMatrixEdges(matrix [][]float64) []Edge {
+	edges := make([]Edge, 0)
+	for from := 0; from < len(matrix); from++ {
+		for to, value := range matrix[from] {
+			if from != to && value != 0 {
+				edges = append(edges, Edge{From: from, To: to})
+			}
+		}
+	}
+	return edges
 }
 
 func buildEdgeMatrix(dimension int, edges []Edge) [][]float64 {

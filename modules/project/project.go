@@ -13,6 +13,7 @@ var ResultsDirectoryName = filepath.Join(ArtifactsDirectoryName, "tuning")
 var FinalResultsDirectoryName = filepath.Join(ArtifactsDirectoryName, "final", "no_3opt")
 var FinalThreeOptResultsDirectoryName = filepath.Join(ArtifactsDirectoryName, "final", "with_3opt")
 var MsaHeuristicArtifactsDirectoryName = filepath.Join(ArtifactsDirectoryName, "msa")
+var CycleCoverArtifactsDirectoryName = filepath.Join(ArtifactsDirectoryName, "cycle_cover")
 var SolutionArtifactsDirectoryName = filepath.Join(ArtifactsDirectoryName, "solutions")
 var ResultFileName = "result.csv"
 
@@ -22,6 +23,8 @@ type AtspData struct {
 	KnownOptimal float64
 
 	MsaHeuristicDirectoryPath string
+
+	CycleCoverDirectoryPath string
 
 	MsaHeuristicHeatmapPlotPath   string
 	MsaHeuristicHistogramPlotPath string
@@ -45,6 +48,7 @@ func MakeAtspDataInResultsDirectory(name string, matrix [][]float64, knownOptima
 	resultsPlotsDirectoryPath := filepath.Join(resultsDirectoryPath, "plots")
 	msaHeuristicDirectoryPath := filepath.Join(MsaHeuristicArtifactsDirectoryName, name)
 	msaHeuristicPlotsDirectoryPath := filepath.Join(msaHeuristicDirectoryPath, "plots")
+	cycleCoverDirectoryPath := filepath.Join(CycleCoverArtifactsDirectoryName, name)
 	solutionsDirectoryPath := filepath.Join(SolutionArtifactsDirectoryName, name)
 	solutionsPlotsDirectoryPath := filepath.Join(solutionsDirectoryPath, "plots")
 
@@ -53,6 +57,7 @@ func MakeAtspDataInResultsDirectory(name string, matrix [][]float64, knownOptima
 		Matrix:                                  matrix,
 		KnownOptimal:                            knownOptimal,
 		MsaHeuristicDirectoryPath:               msaHeuristicDirectoryPath,
+		CycleCoverDirectoryPath:                 cycleCoverDirectoryPath,
 		MsaHeuristicHeatmapPlotPath:             filepath.Join(msaHeuristicPlotsDirectoryPath, "msa_heuristic_heatmap.png"),
 		MsaHeuristicHistogramPlotPath:           filepath.Join(msaHeuristicPlotsDirectoryPath, "msa_heuristic_histogram.png"),
 		ResultFilePath:                          filepath.Join(resultsDirectoryPath, ResultFileName),
@@ -67,6 +72,7 @@ func MakeAtspDataInResultsDirectory(name string, matrix [][]float64, knownOptima
 func WithExperimentOutputRoot(atspData AtspData, resultsRootPath string) AtspData {
 	output := MakeAtspDataInResultsDirectory(atspData.Name, atspData.Matrix, atspData.KnownOptimal, resultsRootPath)
 	output.MsaHeuristicDirectoryPath = atspData.MsaHeuristicDirectoryPath
+	output.CycleCoverDirectoryPath = atspData.CycleCoverDirectoryPath
 	output.OptimalUniqueToursCsvPath = atspData.OptimalUniqueToursCsvPath
 	return output
 }

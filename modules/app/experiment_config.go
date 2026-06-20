@@ -1,7 +1,6 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/algorithms/hungarian"
 	"atsp_aco_msa/modules/utilities"
 	"fmt"
 	"math"
@@ -173,22 +172,4 @@ func newPatchingExperimentParameters(heuristicWeight, msaPatchBias float64) Expe
 	parameters := newDefaultExperimentParameters(heuristicWeight)
 	parameters.MsaPatchBias = msaPatchBias
 	return parameters
-}
-
-func buildMinimumCycleCoverMatrix(matrix [][]float64) ([][]float64, float64, error) {
-	edges, cost, err := hungarian.MinimumCycleCover(matrix)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	cycleCover := make([][]float64, len(matrix))
-	for i := range cycleCover {
-		cycleCover[i] = make([]float64, len(matrix))
-	}
-
-	for _, edge := range edges {
-		cycleCover[edge.From][edge.To] = 1.0
-	}
-
-	return cycleCover, cost, nil
 }

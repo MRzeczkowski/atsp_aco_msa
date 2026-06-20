@@ -50,6 +50,9 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	if err := ensureMsaHeuristicArtifacts(atspsData, workers, false); err != nil {
 		return err
 	}
+	if err := ensureCycleCoverCache(atspsData, workers); err != nil {
+		return err
+	}
 
 	msaHeuristicTourConfigs := make([]msaHeuristicTours.InstanceConfig, 0, len(atspsData))
 	structuralConfigs := make([]structuralComparison.InstanceConfig, 0, len(atspsData))
@@ -68,6 +71,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 			Name:                      atspData.Name,
 			Dimension:                 len(atspData.Matrix),
 			Matrix:                    atspData.Matrix,
+			CycleCoverDirectoryPath:   atspData.CycleCoverDirectoryPath,
 			MsaHeuristicDirectoryPath: atspData.MsaHeuristicDirectoryPath,
 			OptimalToursCsvPath:       atspData.OptimalUniqueToursCsvPath,
 		})
