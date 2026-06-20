@@ -142,6 +142,27 @@ func ensureMsaHeuristicCache(atspsData []AtspData, workers int, requireRooted bo
 	}), workers)
 }
 
+func readOrCreateIndividualMsas(atspData AtspData) ([][][]float64, error) {
+	msas, err := msaheuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)
+	if err == nil && len(msas) == len(atspData.Matrix) {
+		return msas, nil
+	}
+
+	if _, createErr := msaheuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath); createErr != nil {
+		if err != nil {
+			return nil, fmt.Errorf("%s: read individual MSAs: %w; create MSA Heuristic: %w", atspData.Name, err, createErr)
+		}
+		return nil, fmt.Errorf("%s: create MSA Heuristic: %w", atspData.Name, createErr)
+	}
+
+	msas, err = msaheuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)
+	if err != nil {
+		return nil, fmt.Errorf("%s: read individual MSAs: %w", atspData.Name, err)
+	}
+
+	return msas, nil
+}
+
 func filterZeroes(data []float64) []float64 {
 	var result []float64
 	for _, value := range data {
