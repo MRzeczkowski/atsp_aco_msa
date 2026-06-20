@@ -1,6 +1,7 @@
 package app
 
 import (
+	analysisreports "atsp_aco_msa/modules/analysis/reports"
 	"atsp_aco_msa/modules/analysis/structure"
 	"fmt"
 	"html"
@@ -26,7 +27,7 @@ func saveFinalResultsSummary(atspsData []AtspData, summaryPath string) error {
 func readFinalResultsSummaryRows(atspsData []AtspData) ([]finalResultsSummaryRow, error) {
 	rows := make([]finalResultsSummaryRow, 0, len(atspsData))
 	for _, atspData := range atspsData {
-		metrics, err := readFinalResultSummaryMetrics(atspData.ResultFilePath)
+		metrics, err := analysisreports.ReadFinalResultSummaryMetrics(atspData.ResultFilePath)
 		if err != nil {
 			return nil, fmt.Errorf("%s: failed to read final result metrics: %w", atspData.Name, err)
 		}

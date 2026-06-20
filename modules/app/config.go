@@ -1,6 +1,7 @@
 package app
 
 import (
+	"atsp_aco_msa/modules/analysis/reports"
 	"atsp_aco_msa/modules/experiments"
 	"atsp_aco_msa/modules/project"
 )
@@ -11,14 +12,7 @@ type ExperimentParameters = experiments.ExperimentParameters
 type ExperimentResult = experiments.ExperimentResult
 type ExperimentsDataStatistics = experiments.ExperimentsDataStatistics
 type HeuristicExperimentStatistics = experiments.HeuristicExperimentStatistics
-
-type finalResultsSummaryMetric struct {
-	AverageMinDeviation  float64
-	SuccessRate          float64
-	AverageBestIteration float64
-	HeuristicWeight      float64
-	Iterations           int
-}
+type finalResultsSummaryMetric = reports.FinalResultSummaryMetric
 
 type finalResultsSummaryRow struct {
 	instance string
