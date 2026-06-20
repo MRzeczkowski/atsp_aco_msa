@@ -1131,6 +1131,9 @@ func TestWithExperimentOutputRootMovesOutputsButKeepsMsaHeuristicCache(t *testin
 	if output.CycleCoverDirectoryPath != atspData.CycleCoverDirectoryPath {
 		t.Fatalf("expected cycle-cover cache path to stay %s, got %s", atspData.CycleCoverDirectoryPath, output.CycleCoverDirectoryPath)
 	}
+	if output.CycleCoverHeatmapPlotPath != atspData.CycleCoverHeatmapPlotPath {
+		t.Fatalf("expected cycle-cover heatmap path to stay %s, got %s", atspData.CycleCoverHeatmapPlotPath, output.CycleCoverHeatmapPlotPath)
+	}
 
 	expectedResultPath := filepath.Join(project.FinalResultsDirectoryName, "test", project.ResultFileName)
 	if output.ResultFilePath != expectedResultPath {
@@ -1685,8 +1688,9 @@ func TestRunRebuildCacheModeRebuildsCacheAndPreservesAnalysisPlots(t *testing.T)
 	atspData.MsaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
 	atspData.MsaHeuristicHeatmapPlotPath = filepath.Join(atspData.MsaHeuristicDirectoryPath, "plots", "msa_heuristic_heatmap.png")
 	atspData.MsaHeuristicHistogramPlotPath = filepath.Join(atspData.MsaHeuristicDirectoryPath, "plots", "msa_heuristic_histogram.png")
-	atspData.MsaHeuristicToursOverlapHeatmapPlotPath = filepath.Join(atspData.MsaHeuristicDirectoryPath, "plots", "msa_heuristic_tours_overlap_heatmap.png")
+	atspData.MsaHeuristicToursOverlapHeatmapPlotPath = filepath.Join(root, "solutions", "sample", "plots", "msa_heuristic_tours_overlap_heatmap.png")
 	atspData.CycleCoverDirectoryPath = filepath.Join(root, "cycle_cover", "sample")
+	atspData.CycleCoverHeatmapPlotPath = filepath.Join(atspData.CycleCoverDirectoryPath, "plots", "cycle_cover_heatmap.png")
 
 	staleRootMsaPath := filepath.Join(atspData.MsaHeuristicDirectoryPath, "msas", "99.csv")
 	if err := os.MkdirAll(filepath.Dir(staleRootMsaPath), 0700); err != nil {
@@ -1724,6 +1728,7 @@ func TestRunRebuildCacheModeRebuildsCacheAndPreservesAnalysisPlots(t *testing.T)
 	assertPathExists(t, atspData.MsaHeuristicHistogramPlotPath)
 	assertPathExists(t, atspData.MsaHeuristicToursOverlapHeatmapPlotPath)
 	assertPathExists(t, cycleCover.CsvPath(atspData.CycleCoverDirectoryPath))
+	assertPathExists(t, atspData.CycleCoverHeatmapPlotPath)
 
 	rootMsaFiles, err := filepath.Glob(filepath.Join(atspData.MsaHeuristicDirectoryPath, "msas", "*.csv"))
 	if err != nil {

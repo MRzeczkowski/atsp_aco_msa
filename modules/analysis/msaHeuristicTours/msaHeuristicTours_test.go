@@ -1,6 +1,7 @@
 package msaHeuristicTours
 
 import (
+	"atsp_aco_msa/modules/algorithms/cycleCover"
 	"os"
 	"path/filepath"
 	"testing"
@@ -64,6 +65,15 @@ func TestAnalyzeInstancesWritesTourPlots(t *testing.T) {
 		t.Fatalf("failed to write MSA heuristic: %v", err)
 	}
 
+	cycleCoverDir := filepath.Join(dir, "cycle_cover")
+	if err := cycleCover.Save(cycleCoverDir, [][]float64{
+		{0, 1, 0},
+		{0, 0, 1},
+		{1, 0, 0},
+	}); err != nil {
+		t.Fatalf("failed to write cycle cover: %v", err)
+	}
+
 	solutionsPath := filepath.Join(dir, "solutions.csv")
 	solutions := "Tour,Commonality with MSA heuristic,Min commonality with MSA,Avg commonality with MSA,Max commonality with MSA\n" +
 		"\"[0,1,2]\",100.00,100.00,100.00,100.00\n"
@@ -74,6 +84,7 @@ func TestAnalyzeInstancesWritesTourPlots(t *testing.T) {
 	toursHeatmapPath := filepath.Join(dir, "plots", "tours_heatmap.png")
 	toursHistogramPath := filepath.Join(dir, "plots", "tours_histogram.png")
 	overlapHeatmapPath := filepath.Join(dir, "plots", "msa_heuristic_tours_overlap_heatmap.png")
+	cycleCoverOverlapHeatmapPath := filepath.Join(dir, "plots", "cycle_cover_tours_overlap_heatmap.png")
 
 	if err := AnalyzeInstances(Config{
 		Instances: []InstanceConfig{
@@ -81,10 +92,12 @@ func TestAnalyzeInstancesWritesTourPlots(t *testing.T) {
 				Name:                                "synthetic",
 				Dimension:                           3,
 				MsaHeuristicDirectoryPath:           msaHeuristicDir,
+				CycleCoverDirectoryPath:             cycleCoverDir,
 				OptimalToursCsvPath:                 solutionsPath,
 				ToursHeatmapPath:                    toursHeatmapPath,
 				ToursHistogramPath:                  toursHistogramPath,
 				MsaHeuristicToursOverlapHeatmapPath: overlapHeatmapPath,
+				CycleCoverToursOverlapHeatmapPath:   cycleCoverOverlapHeatmapPath,
 			},
 		},
 	}); err != nil {
@@ -93,8 +106,37 @@ func TestAnalyzeInstancesWritesTourPlots(t *testing.T) {
 
 	assertFileExists(t, toursHeatmapPath)
 	assertFileExists(t, overlapHeatmapPath)
+	assertFileExists(t, cycleCoverOverlapHeatmapPath)
 	if _, err := os.Stat(toursHistogramPath); !os.IsNotExist(err) {
 		t.Fatalf("expected no histogram for a single tour, got stat error %v", err)
+	}
+}
+
+func TestBuildCycleCoverToursOverlapMatrix(t *testing.T) {
+	cycleCoverMatrix := [][]float64{
+		{0, 1, 0},
+		{0, 0, 1},
+		{1, 0, 0},
+	}
+	toursMatrix := [][]float64{
+		{0, 2, 1},
+		{1, 0, 1},
+		{2, 0, 0},
+	}
+
+	overlapMatrix := BuildCycleCoverToursOverlapMatrix(cycleCoverMatrix, toursMatrix, 2)
+	expected := [][]float64{
+		{0, 1, 0},
+		{0, 0, 0.5},
+		{1, 0, 0},
+	}
+
+	for i := range expected {
+		for j := range expected[i] {
+			if overlapMatrix[i][j] != expected[i][j] {
+				t.Fatalf("unexpected overlap at %d,%d: want %.2f, got %.2f", i, j, expected[i][j], overlapMatrix[i][j])
+			}
+		}
 	}
 }
 

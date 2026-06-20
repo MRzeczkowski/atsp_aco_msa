@@ -64,10 +64,12 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 			Name:                                atspData.Name,
 			Dimension:                           len(atspData.Matrix),
 			MsaHeuristicDirectoryPath:           atspData.MsaHeuristicDirectoryPath,
+			CycleCoverDirectoryPath:             atspData.CycleCoverDirectoryPath,
 			OptimalToursCsvPath:                 atspData.OptimalUniqueToursCsvPath,
 			ToursHeatmapPath:                    atspData.ToursHeatmapPlotPath,
 			ToursHistogramPath:                  atspData.ToursHistogramPlotPath,
 			MsaHeuristicToursOverlapHeatmapPath: atspData.MsaHeuristicToursOverlapHeatmapPlotPath,
+			CycleCoverToursOverlapHeatmapPath:   atspData.CycleCoverToursOverlapHeatmapPlotPath,
 		})
 
 		structuralConfigs = append(structuralConfigs, structuralComparison.InstanceConfig{

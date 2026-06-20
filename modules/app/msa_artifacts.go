@@ -29,11 +29,14 @@ func runRebuildCacheMode(atspsData []AtspData, workers int) error {
 			return fmt.Errorf("%s: save MSA plots: %w", atspData.Name, err)
 		}
 
-		if _, cycleCoverCost, err := cycleCover.Rebuild(atspData.Matrix, atspData.CycleCoverDirectoryPath); err != nil {
+		cycleCoverMatrix, cycleCoverCost, err := cycleCover.Rebuild(atspData.Matrix, atspData.CycleCoverDirectoryPath)
+		if err != nil {
 			return fmt.Errorf("%s: rebuild cycle-cover cache: %w", atspData.Name, err)
-		} else {
-			fmt.Printf("[%s][%s] Rebuilt cached cycle cover in %s (cost=%.2f)\n", logTimestamp(time.Now()), atspData.Name, cycleCover.CsvPath(atspData.CycleCoverDirectoryPath), cycleCoverCost)
 		}
+		if err := saveCycleCoverPlots(atspData, cycleCoverMatrix); err != nil {
+			return fmt.Errorf("%s: save cycle-cover plots: %w", atspData.Name, err)
+		}
+		fmt.Printf("[%s][%s] Rebuilt cached cycle cover in %s (cost=%.2f)\n", logTimestamp(time.Now()), atspData.Name, cycleCover.CsvPath(atspData.CycleCoverDirectoryPath), cycleCoverCost)
 
 		fmt.Printf("[%s][%s] Rebuilt cached artifacts in %s\n", logTimestamp(time.Now()), atspData.Name, time.Since(start).Round(time.Millisecond))
 		return nil
@@ -50,8 +53,12 @@ func removeMsaHeuristicCache(atspData AtspData) error {
 
 func ensureCycleCoverCache(atspsData []AtspData, workers int) error {
 	return workerpool.RunJobs(instanceJobsByDescendingDimension(atspsData, "ensure-cycle-cover-cache", func(atspData AtspData) error {
-		_, _, err := cycleCover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
-		return err
+		cycleCoverMatrix, _, err := cycleCover.ReadOrCreate(atspData.Matrix, atspData.CycleCoverDirectoryPath)
+		if err != nil {
+			return err
+		}
+
+		return saveCycleCoverPlots(atspData, cycleCoverMatrix)
 	}), workers)
 }
 
@@ -103,6 +110,11 @@ func saveMsaHeuristicPlots(atspData AtspData, msaHeuristicMatrix [][]float64) er
 	}
 
 	return nil
+}
+
+func saveCycleCoverPlots(atspData AtspData, cycleCoverMatrix [][]float64) error {
+	cycleCoverHeatmapPlotTitle := atspData.Name + " cycle cover heatmap"
+	return utilities.SaveHeatmapFromMatrix(cycleCoverMatrix, cycleCoverHeatmapPlotTitle, atspData.CycleCoverHeatmapPlotPath)
 }
 
 func ensureMsaHeuristicCache(atspsData []AtspData, workers int, requireRooted bool) error {

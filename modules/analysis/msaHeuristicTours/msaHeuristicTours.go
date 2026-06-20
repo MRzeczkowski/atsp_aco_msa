@@ -1,6 +1,7 @@
 package msaHeuristicTours
 
 import (
+	"atsp_aco_msa/modules/algorithms/cycleCover"
 	"atsp_aco_msa/modules/algorithms/msaHeuristic"
 	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/utilities"
@@ -18,10 +19,12 @@ type InstanceConfig struct {
 	Name                                string
 	Dimension                           int
 	MsaHeuristicDirectoryPath           string
+	CycleCoverDirectoryPath             string
 	OptimalToursCsvPath                 string
 	ToursHeatmapPath                    string
 	ToursHistogramPath                  string
 	MsaHeuristicToursOverlapHeatmapPath string
+	CycleCoverToursOverlapHeatmapPath   string
 }
 
 type Config struct {
@@ -70,6 +73,11 @@ func AnalyzeInstance(config InstanceConfig) error {
 
 	toursCount := len(uniqueOptimalTours)
 	if toursCount > 0 {
+		cycleCoverMatrix, err := cycleCover.Read(config.CycleCoverDirectoryPath, len(msaHeuristicMatrix))
+		if err != nil {
+			return fmt.Errorf("%s: failed to read cycle cover: %w", config.Name, err)
+		}
+
 		toursMatrix := BuildToursMatrix(uniqueOptimalTours, config.Dimension)
 		toursHeatmapPlotTitle := config.Name + " tours heatmap"
 		if err := utilities.SaveHeatmapFromMatrix(toursMatrix, toursHeatmapPlotTitle, config.ToursHeatmapPath); err != nil {
@@ -79,6 +87,12 @@ func AnalyzeInstance(config InstanceConfig) error {
 		overlapMatrix := BuildMsaHeuristicToursOverlapMatrix(msaHeuristicMatrix, toursMatrix, toursCount)
 		overlapHeatmapPlotTitle := config.Name + " MSA heuristic/tours overlap heatmap"
 		if err := utilities.SaveHeatmapFromMatrix(overlapMatrix, overlapHeatmapPlotTitle, config.MsaHeuristicToursOverlapHeatmapPath); err != nil {
+			return err
+		}
+
+		cycleCoverOverlapMatrix := BuildCycleCoverToursOverlapMatrix(cycleCoverMatrix, toursMatrix, toursCount)
+		cycleCoverOverlapHeatmapPlotTitle := config.Name + " cycle cover/tours overlap heatmap"
+		if err := utilities.SaveHeatmapFromMatrix(cycleCoverOverlapMatrix, cycleCoverOverlapHeatmapPlotTitle, config.CycleCoverToursOverlapHeatmapPath); err != nil {
 			return err
 		}
 
@@ -204,6 +218,26 @@ func BuildMsaHeuristicToursOverlapMatrix(msaHeuristic, toursMatrix [][]float64, 
 			}
 
 			overlapMatrix[i][j] = msaHeuristicFrequency * toursFrequency
+		}
+	}
+
+	return overlapMatrix
+}
+
+func BuildCycleCoverToursOverlapMatrix(cycleCoverMatrix, toursMatrix [][]float64, toursCount int) [][]float64 {
+	dimension := len(cycleCoverMatrix)
+	overlapMatrix := make([][]float64, dimension)
+	maxTourSelections := float64(toursCount)
+
+	for i := 0; i < dimension; i++ {
+		overlapMatrix[i] = make([]float64, dimension)
+		for j := 0; j < dimension; j++ {
+			toursFrequency := 0.0
+			if maxTourSelections > 0 {
+				toursFrequency = toursMatrix[i][j] / maxTourSelections
+			}
+
+			overlapMatrix[i][j] = cycleCoverMatrix[i][j] * toursFrequency
 		}
 	}
 
@@ -374,6 +408,7 @@ func removeStaleTourPlots(config InstanceConfig) error {
 		config.ToursHeatmapPath,
 		config.ToursHistogramPath,
 		config.MsaHeuristicToursOverlapHeatmapPath,
+		config.CycleCoverToursOverlapHeatmapPath,
 	} {
 		if err := removeIfExists(path); err != nil {
 			return err
