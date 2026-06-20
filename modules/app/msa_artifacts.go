@@ -7,6 +7,7 @@ import (
 	"atsp_aco_msa/modules/utilities"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -15,8 +16,8 @@ func runRebuildCacheMode(atspsData []AtspData, workers int) error {
 		start := time.Now()
 		fmt.Printf("[%s][%s] Rebuilding cached MSA artifacts in %s\n", logTimestamp(start), atspData.Name, atspData.MsaHeuristicDirectoryPath)
 
-		if err := os.RemoveAll(atspData.MsaHeuristicDirectoryPath); err != nil {
-			return fmt.Errorf("%s: remove MSA artifacts: %w", atspData.Name, err)
+		if err := removeMsaHeuristicCache(atspData); err != nil {
+			return fmt.Errorf("%s: remove MSA cache: %w", atspData.Name, err)
 		}
 
 		msaHeuristicMatrix, err := msaHeuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath)
@@ -37,6 +38,14 @@ func runRebuildCacheMode(atspsData []AtspData, workers int) error {
 		fmt.Printf("[%s][%s] Rebuilt cached artifacts in %s\n", logTimestamp(time.Now()), atspData.Name, time.Since(start).Round(time.Millisecond))
 		return nil
 	}), workers)
+}
+
+func removeMsaHeuristicCache(atspData AtspData) error {
+	if err := removeFileIfExists(filepath.Join(atspData.MsaHeuristicDirectoryPath, "msa_heuristic.csv")); err != nil {
+		return err
+	}
+
+	return os.RemoveAll(filepath.Join(atspData.MsaHeuristicDirectoryPath, "msas"))
 }
 
 func ensureCycleCoverCache(atspsData []AtspData, workers int) error {

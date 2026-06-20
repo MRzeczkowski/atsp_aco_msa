@@ -1629,7 +1629,7 @@ func TestRunFinalExperimentParametersRejectsInvalidWorkerCount(t *testing.T) {
 	}
 }
 
-func TestRunRebuildCacheModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T) {
+func TestRunRebuildCacheModeRebuildsCacheAndPreservesAnalysisPlots(t *testing.T) {
 	root := t.TempDir()
 	matrix := [][]float64{
 		{0, 1, 5, 2},
@@ -1641,14 +1641,21 @@ func TestRunRebuildCacheModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T)
 	atspData.MsaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
 	atspData.MsaHeuristicHeatmapPlotPath = filepath.Join(atspData.MsaHeuristicDirectoryPath, "plots", "msa_heuristic_heatmap.png")
 	atspData.MsaHeuristicHistogramPlotPath = filepath.Join(atspData.MsaHeuristicDirectoryPath, "plots", "msa_heuristic_histogram.png")
+	atspData.MsaHeuristicToursOverlapHeatmapPlotPath = filepath.Join(atspData.MsaHeuristicDirectoryPath, "plots", "msa_heuristic_tours_overlap_heatmap.png")
 	atspData.CycleCoverDirectoryPath = filepath.Join(root, "cycle_cover", "sample")
 
-	stalePath := filepath.Join(atspData.MsaHeuristicDirectoryPath, "stale.txt")
-	if err := os.MkdirAll(atspData.MsaHeuristicDirectoryPath, 0700); err != nil {
-		t.Fatalf("failed to create stale MSA directory: %v", err)
+	staleRootMsaPath := filepath.Join(atspData.MsaHeuristicDirectoryPath, "msas", "99.csv")
+	if err := os.MkdirAll(filepath.Dir(staleRootMsaPath), 0700); err != nil {
+		t.Fatalf("failed to create stale root MSA directory: %v", err)
 	}
-	if err := os.WriteFile(stalePath, []byte("stale"), 0644); err != nil {
-		t.Fatalf("failed to write stale file: %v", err)
+	if err := os.WriteFile(staleRootMsaPath, []byte("0,1\n0,0\n"), 0644); err != nil {
+		t.Fatalf("failed to write stale root MSA file: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(atspData.MsaHeuristicToursOverlapHeatmapPlotPath), 0700); err != nil {
+		t.Fatalf("failed to create MSA plots directory: %v", err)
+	}
+	if err := os.WriteFile(atspData.MsaHeuristicToursOverlapHeatmapPlotPath, []byte("analysis plot"), 0644); err != nil {
+		t.Fatalf("failed to write existing analysis plot: %v", err)
 	}
 	staleCycleCoverPath := filepath.Join(atspData.CycleCoverDirectoryPath, "stale.txt")
 	if err := os.MkdirAll(atspData.CycleCoverDirectoryPath, 0700); err != nil {
@@ -1662,8 +1669,8 @@ func TestRunRebuildCacheModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T)
 		t.Fatalf("runRebuildCacheMode returned unexpected error: %v", err)
 	}
 
-	if _, err := os.Stat(stalePath); !os.IsNotExist(err) {
-		t.Fatalf("expected stale file to be removed, stat error: %v", err)
+	if _, err := os.Stat(staleRootMsaPath); !os.IsNotExist(err) {
+		t.Fatalf("expected stale root MSA file to be removed, stat error: %v", err)
 	}
 	if _, err := os.Stat(staleCycleCoverPath); !os.IsNotExist(err) {
 		t.Fatalf("expected stale cycle-cover file to be removed, stat error: %v", err)
@@ -1671,6 +1678,7 @@ func TestRunRebuildCacheModeRemovesStaleArtifactsAndRecreatesFiles(t *testing.T)
 	assertPathExists(t, filepath.Join(atspData.MsaHeuristicDirectoryPath, "msa_heuristic.csv"))
 	assertPathExists(t, atspData.MsaHeuristicHeatmapPlotPath)
 	assertPathExists(t, atspData.MsaHeuristicHistogramPlotPath)
+	assertPathExists(t, atspData.MsaHeuristicToursOverlapHeatmapPlotPath)
 	assertPathExists(t, cycleCover.CsvPath(atspData.CycleCoverDirectoryPath))
 
 	rootMsaFiles, err := filepath.Glob(filepath.Join(atspData.MsaHeuristicDirectoryPath, "msas", "*.csv"))
