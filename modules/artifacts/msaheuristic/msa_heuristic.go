@@ -1,4 +1,4 @@
-package msaHeuristic
+package msaheuristic
 
 import (
 	"atsp_aco_msa/modules/algorithms/edmonds"

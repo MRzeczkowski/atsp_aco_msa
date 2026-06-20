@@ -1,8 +1,8 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/algorithms/cyclecover"
-	"atsp_aco_msa/modules/algorithms/msaHeuristic"
+	"atsp_aco_msa/modules/artifacts/cyclecover"
+	"atsp_aco_msa/modules/artifacts/msaheuristic"
 	workerpool "atsp_aco_msa/modules/experiments/workers"
 	"atsp_aco_msa/modules/utilities"
 	"fmt"
@@ -20,7 +20,7 @@ func runRebuildCacheMode(atspsData []AtspData, workers int) error {
 			return fmt.Errorf("%s: remove MSA cache: %w", atspData.Name, err)
 		}
 
-		msaHeuristicMatrix, err := msaHeuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath)
+		msaHeuristicMatrix, err := msaheuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath)
 		if err != nil {
 			return fmt.Errorf("%s: create MSA artifacts: %w", atspData.Name, err)
 		}
@@ -68,11 +68,11 @@ func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int, requireRoote
 		matrix := atspData.Matrix
 		msaHeuristicDirectoryPath := atspData.MsaHeuristicDirectoryPath
 
-		msaHeuristicMatrix, err := msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath)
+		msaHeuristicMatrix, err := msaheuristic.Read(atspData.MsaHeuristicDirectoryPath)
 
 		if err != nil {
 			start := time.Now()
-			msaHeuristicMatrix, err = msaHeuristic.Create(matrix, msaHeuristicDirectoryPath)
+			msaHeuristicMatrix, err = msaheuristic.Create(matrix, msaHeuristicDirectoryPath)
 			elapsed := time.Since(start)
 
 			fmt.Printf("\t[%s] Creating %s took: %d ms\n", name, msaHeuristicDirectoryPath, elapsed.Milliseconds())
@@ -86,7 +86,7 @@ func ensureMsaHeuristicArtifacts(atspsData []AtspData, workers int, requireRoote
 			if _, err := readOrCreateIndividualMsas(atspData); err != nil {
 				return err
 			}
-			msaHeuristicMatrix, err = msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath)
+			msaHeuristicMatrix, err = msaheuristic.Read(atspData.MsaHeuristicDirectoryPath)
 			if err != nil {
 				return err
 			}
@@ -119,7 +119,7 @@ func saveCycleCoverPlots(atspData AtspData, cycleCoverMatrix [][]float64) error 
 
 func ensureMsaHeuristicCache(atspsData []AtspData, workers int, requireRooted bool) error {
 	return workerpool.RunJobs(instanceJobsByDescendingDimension(atspsData, "ensure-msa-cache", func(atspData AtspData) error {
-		if _, err := msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath); err == nil {
+		if _, err := msaheuristic.Read(atspData.MsaHeuristicDirectoryPath); err == nil {
 			if requireRooted {
 				_, err = readOrCreateIndividualMsas(atspData)
 			}
@@ -127,7 +127,7 @@ func ensureMsaHeuristicCache(atspsData []AtspData, workers int, requireRooted bo
 		}
 
 		start := time.Now()
-		if _, err := msaHeuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath); err != nil {
+		if _, err := msaheuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath); err != nil {
 			return fmt.Errorf("error saving MSA Heuristic: %w", err)
 		}
 

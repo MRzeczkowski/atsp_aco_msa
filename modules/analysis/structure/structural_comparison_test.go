@@ -1,7 +1,7 @@
-package structuralComparison
+package structure
 
 import (
-	"atsp_aco_msa/modules/algorithms/cyclecover"
+	"atsp_aco_msa/modules/artifacts/cyclecover"
 	"os"
 	"path/filepath"
 	"strings"

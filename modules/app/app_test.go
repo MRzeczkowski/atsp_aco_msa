@@ -1,8 +1,8 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/algorithms/cyclecover"
-	"atsp_aco_msa/modules/analysis/structuralComparison"
+	"atsp_aco_msa/modules/analysis/structure"
+	"atsp_aco_msa/modules/artifacts/cyclecover"
 	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/project"
 	"atsp_aco_msa/modules/tsplib"
@@ -1907,27 +1907,27 @@ func TestSelectedInstanceSetForMode(t *testing.T) {
 	}
 }
 
-func sampleStructuralAnalyses() []structuralComparison.InstanceAnalysis {
-	return []structuralComparison.InstanceAnalysis{
+func sampleStructuralAnalyses() []structure.InstanceAnalysis {
+	return []structure.InstanceAnalysis{
 		{
 			Instance:  "b",
 			Dimension: 5,
-			Metrics: structuralComparison.InstanceMetrics{
+			Metrics: structure.InstanceMetrics{
 				FoundOptimalTourCount:       2,
 				UniqueFoundOptimalEdgeCount: 10,
-				HighMsaHeuristicMetrics: structuralComparison.EdgeSetMetrics{
+				HighMsaHeuristicMetrics: structure.EdgeSetMetrics{
 					EdgeCount:        5,
 					OptimalEdgeCount: 4,
 					Precision:        0.8,
 					Recall:           0.4,
 				},
-				CycleCoverMetrics: structuralComparison.EdgeSetMetrics{
+				CycleCoverMetrics: structure.EdgeSetMetrics{
 					EdgeCount:        5,
 					OptimalEdgeCount: 3,
 					Precision:        0.6,
 					Recall:           0.3,
 				},
-				CycleCoverMsaPatchingMetrics: structuralComparison.EdgeSetMetrics{
+				CycleCoverMsaPatchingMetrics: structure.EdgeSetMetrics{
 					EdgeCount:        6,
 					OptimalEdgeCount: 4,
 					Precision:        4.0 / 6.0,
@@ -1943,22 +1943,22 @@ func sampleStructuralAnalyses() []structuralComparison.InstanceAnalysis {
 		{
 			Instance:  "a",
 			Dimension: 4,
-			Metrics: structuralComparison.InstanceMetrics{
+			Metrics: structure.InstanceMetrics{
 				FoundOptimalTourCount:       1,
 				UniqueFoundOptimalEdgeCount: 4,
-				HighMsaHeuristicMetrics: structuralComparison.EdgeSetMetrics{
+				HighMsaHeuristicMetrics: structure.EdgeSetMetrics{
 					EdgeCount:        2,
 					OptimalEdgeCount: 1,
 					Precision:        0.5,
 					Recall:           0.25,
 				},
-				CycleCoverMetrics: structuralComparison.EdgeSetMetrics{
+				CycleCoverMetrics: structure.EdgeSetMetrics{
 					EdgeCount:        4,
 					OptimalEdgeCount: 3,
 					Precision:        0.75,
 					Recall:           0.75,
 				},
-				CycleCoverMsaPatchingMetrics: structuralComparison.EdgeSetMetrics{
+				CycleCoverMsaPatchingMetrics: structure.EdgeSetMetrics{
 					EdgeCount:        5,
 					OptimalEdgeCount: 3,
 					Precision:        0.6,

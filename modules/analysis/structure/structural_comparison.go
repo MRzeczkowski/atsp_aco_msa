@@ -1,10 +1,10 @@
-package structuralComparison
+package structure
 
 import (
-	"atsp_aco_msa/modules/algorithms/cyclecover"
 	"atsp_aco_msa/modules/algorithms/heuristics"
-	"atsp_aco_msa/modules/algorithms/msaHeuristic"
 	"atsp_aco_msa/modules/analysis/tours"
+	"atsp_aco_msa/modules/artifacts/cyclecover"
+	"atsp_aco_msa/modules/artifacts/msaheuristic"
 	"atsp_aco_msa/modules/models"
 	"fmt"
 	"sort"
@@ -95,7 +95,7 @@ func analyzeInstance(config InstanceConfig, highThreshold, msaPatchBias float64)
 		return InstanceAnalysis{}, fmt.Errorf("%s: configured dimension %d does not match matrix dimension %d", config.Name, config.Dimension, len(config.Matrix))
 	}
 
-	msaHeuristicMatrix, err := msaHeuristic.Read(config.MsaHeuristicDirectoryPath)
+	msaHeuristicMatrix, err := msaheuristic.Read(config.MsaHeuristicDirectoryPath)
 	if err != nil {
 		return InstanceAnalysis{}, fmt.Errorf("%s: failed to read MSA heuristic: %w", config.Name, err)
 	}

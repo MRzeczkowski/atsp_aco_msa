@@ -1,7 +1,7 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/analysis/structuralComparison"
+	"atsp_aco_msa/modules/analysis/structure"
 	"fmt"
 	"html"
 	"math"
@@ -659,7 +659,7 @@ func signalRemainingPercent(without, with float64) float64 {
 	return 100.0 * math.Abs(with) / math.Abs(without)
 }
 
-func saveStructuralPerformanceLinkReport(path string, rows []finalResultsSummaryRow, analyses []structuralComparison.InstanceAnalysis) error {
+func saveStructuralPerformanceLinkReport(path string, rows []finalResultsSummaryRow, analyses []structure.InstanceAnalysis) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}

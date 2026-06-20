@@ -1,11 +1,11 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/algorithms/cyclecover"
 	"atsp_aco_msa/modules/algorithms/heuristics"
-	"atsp_aco_msa/modules/algorithms/msaHeuristic"
-	"atsp_aco_msa/modules/analysis/structuralComparison"
+	"atsp_aco_msa/modules/analysis/structure"
 	"atsp_aco_msa/modules/analysis/tours"
+	"atsp_aco_msa/modules/artifacts/cyclecover"
+	"atsp_aco_msa/modules/artifacts/msaheuristic"
 	"atsp_aco_msa/modules/models"
 	"fmt"
 	"html"
@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-func saveStructuralSimilarityReport(path string, analyses []structuralComparison.InstanceAnalysis) error {
+func saveStructuralSimilarityReport(path string, analyses []structure.InstanceAnalysis) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
@@ -63,7 +63,7 @@ func writeStructuralSimilarityFindings(builder *strings.Builder, totals structur
 		totals.instanceCount)
 }
 
-func writeStructuralSimilarityTable(builder *strings.Builder, rows []structuralComparison.InstanceAnalysis, totals structuralSimilaritySummary) {
+func writeStructuralSimilarityTable(builder *strings.Builder, rows []structure.InstanceAnalysis, totals structuralSimilaritySummary) {
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
 	builder.WriteString("<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">MSA heuristic</th><th colspan=\"2\">Cycle cover</th><th colspan=\"2\">Cycle-cover MSA patching</th></tr>\n")
@@ -80,7 +80,7 @@ func writeStructuralSimilarityTable(builder *strings.Builder, rows []structuralC
 	builder.WriteString("</table>\n")
 }
 
-func writeStructuralSimilarityRow(builder *strings.Builder, analysis structuralComparison.InstanceAnalysis) {
+func writeStructuralSimilarityRow(builder *strings.Builder, analysis structure.InstanceAnalysis) {
 	metrics := analysis.Metrics
 	msaMetrics := metrics.HighMsaHeuristicMetrics
 	cycleCoverMetrics := metrics.CycleCoverMetrics
@@ -155,7 +155,7 @@ type structuralSimilaritySummary struct {
 	patchingRecallWins      int
 }
 
-func structuralSimilarityTotals(rows []structuralComparison.InstanceAnalysis) structuralSimilaritySummary {
+func structuralSimilarityTotals(rows []structure.InstanceAnalysis) structuralSimilaritySummary {
 	var totals structuralSimilaritySummary
 	totals.instanceCount = len(rows)
 
@@ -199,7 +199,7 @@ func structuralSimilarityTotals(rows []structuralComparison.InstanceAnalysis) st
 	return totals
 }
 
-func saveMsaHeuristicCycleCoverOverlapReport(path string, analyses []structuralComparison.InstanceAnalysis) error {
+func saveMsaHeuristicCycleCoverOverlapReport(path string, analyses []structure.InstanceAnalysis) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
@@ -245,7 +245,7 @@ func saveGksDeviationReport(path string, atspsData []AtspData, msaPatchBiases []
 func buildGksDeviationRows(atspsData []AtspData, msaPatchBiases []float64) ([]gksDeviationRow, error) {
 	rows := make([]gksDeviationRow, 0, len(atspsData)*len(msaPatchBiases))
 	for _, atspData := range atspsData {
-		msaHeuristicMatrix, err := msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath)
+		msaHeuristicMatrix, err := msaheuristic.Read(atspData.MsaHeuristicDirectoryPath)
 		if err != nil {
 			return nil, fmt.Errorf("%s: failed to read MSA Heuristic: %w", atspData.Name, err)
 		}
@@ -456,7 +456,7 @@ func writeMsaHeuristicCycleCoverOverlapFindings(builder *strings.Builder, totals
 		totals.optimalNeither)
 }
 
-func writeMsaHeuristicCycleCoverOverlapTable(builder *strings.Builder, rows []structuralComparison.InstanceAnalysis, totals msaHeuristicCycleCoverOverlapSummary) {
+func writeMsaHeuristicCycleCoverOverlapTable(builder *strings.Builder, rows []structure.InstanceAnalysis, totals msaHeuristicCycleCoverOverlapSummary) {
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
 	builder.WriteString("<tr><th>Instance</th><th>MSA in CC [%]</th><th>CC in MSA [%]</th><th>Optimal both</th><th>Optimal only MSA</th><th>Optimal only CC</th></tr>\n")
@@ -472,7 +472,7 @@ func writeMsaHeuristicCycleCoverOverlapTable(builder *strings.Builder, rows []st
 	builder.WriteString("</table>\n")
 }
 
-func writeMsaHeuristicCycleCoverOverlapRow(builder *strings.Builder, analysis structuralComparison.InstanceAnalysis) {
+func writeMsaHeuristicCycleCoverOverlapRow(builder *strings.Builder, analysis structure.InstanceAnalysis) {
 	metrics := analysis.Metrics
 	msaEdges := metrics.HighMsaHeuristicMetrics.EdgeCount
 	cycleCoverEdges := metrics.CycleCoverMetrics.EdgeCount
@@ -508,7 +508,7 @@ type msaHeuristicCycleCoverOverlapSummary struct {
 	optimalNeither        int
 }
 
-func msaHeuristicCycleCoverOverlapTotals(rows []structuralComparison.InstanceAnalysis) msaHeuristicCycleCoverOverlapSummary {
+func msaHeuristicCycleCoverOverlapTotals(rows []structure.InstanceAnalysis) msaHeuristicCycleCoverOverlapSummary {
 	var totals msaHeuristicCycleCoverOverlapSummary
 	for _, analysis := range rows {
 		metrics := analysis.Metrics
@@ -595,19 +595,19 @@ func buildMsaCountScalingRows(atspsData []AtspData, requestedCounts []int) ([]ms
 }
 
 func readOrCreateIndividualMsas(atspData AtspData) ([][][]float64, error) {
-	msas, err := msaHeuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)
+	msas, err := msaheuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)
 	if err == nil && len(msas) == len(atspData.Matrix) {
 		return msas, nil
 	}
 
-	if _, createErr := msaHeuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath); createErr != nil {
+	if _, createErr := msaheuristic.Create(atspData.Matrix, atspData.MsaHeuristicDirectoryPath); createErr != nil {
 		if err != nil {
 			return nil, fmt.Errorf("%s: read individual MSAs: %w; create MSA Heuristic: %w", atspData.Name, err, createErr)
 		}
 		return nil, fmt.Errorf("%s: create MSA Heuristic: %w", atspData.Name, createErr)
 	}
 
-	msas, err = msaHeuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)
+	msas, err = msaheuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)
 	if err != nil {
 		return nil, fmt.Errorf("%s: read individual MSAs: %w", atspData.Name, err)
 	}
@@ -777,8 +777,8 @@ func maxIntValue(left, right int) int {
 	return right
 }
 
-func sortedStructuralAnalyses(analyses []structuralComparison.InstanceAnalysis) []structuralComparison.InstanceAnalysis {
-	rows := append([]structuralComparison.InstanceAnalysis(nil), analyses...)
+func sortedStructuralAnalyses(analyses []structure.InstanceAnalysis) []structure.InstanceAnalysis {
+	rows := append([]structure.InstanceAnalysis(nil), analyses...)
 	sort.SliceStable(rows, func(i, j int) bool {
 		return rows[i].Instance < rows[j].Instance
 	})
@@ -786,8 +786,8 @@ func sortedStructuralAnalyses(analyses []structuralComparison.InstanceAnalysis) 
 	return rows
 }
 
-func filterAnalysesWithFoundOptimalEdges(analyses []structuralComparison.InstanceAnalysis) []structuralComparison.InstanceAnalysis {
-	rows := make([]structuralComparison.InstanceAnalysis, 0, len(analyses))
+func filterAnalysesWithFoundOptimalEdges(analyses []structure.InstanceAnalysis) []structure.InstanceAnalysis {
+	rows := make([]structure.InstanceAnalysis, 0, len(analyses))
 	for _, analysis := range analyses {
 		if analysis.Metrics.UniqueFoundOptimalEdgeCount == 0 {
 			continue

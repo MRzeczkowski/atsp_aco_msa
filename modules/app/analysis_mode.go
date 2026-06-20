@@ -1,7 +1,7 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/analysis/structuralComparison"
+	"atsp_aco_msa/modules/analysis/structure"
 	"atsp_aco_msa/modules/analysis/tours"
 	"atsp_aco_msa/modules/analysis/tuning"
 	"atsp_aco_msa/modules/project"
@@ -58,7 +58,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	}
 
 	solutionTourConfigs := make([]tours.InstanceConfig, 0, len(atspsData))
-	structuralConfigs := make([]structuralComparison.InstanceConfig, 0, len(atspsData))
+	structuralConfigs := make([]structure.InstanceConfig, 0, len(atspsData))
 	for _, atspData := range atspsData {
 		solutionTourConfigs = append(solutionTourConfigs, tours.InstanceConfig{
 			Name:                                atspData.Name,
@@ -72,7 +72,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 			CycleCoverToursOverlapHeatmapPath:   atspData.CycleCoverToursOverlapHeatmapPlotPath,
 		})
 
-		structuralConfigs = append(structuralConfigs, structuralComparison.InstanceConfig{
+		structuralConfigs = append(structuralConfigs, structure.InstanceConfig{
 			Name:                      atspData.Name,
 			Dimension:                 len(atspData.Matrix),
 			Matrix:                    atspData.Matrix,
@@ -86,7 +86,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		return err
 	}
 
-	structuralAnalyses, err := structuralComparison.AnalyzeInstances(structuralComparison.Config{
+	structuralAnalyses, err := structure.AnalyzeInstances(structure.Config{
 		Instances:     structuralConfigs,
 		HighThreshold: 1.0,
 		MsaPatchBias:  finalCycleCoverMsaPatchingMsaPatchBias,
@@ -192,7 +192,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	return nil
 }
 
-func runFinalResultsAnalysis(atspsData []AtspData, structuralAnalyses []structuralComparison.InstanceAnalysis, resultsRootPath string) (string, []finalResultsSummaryRow, bool, error) {
+func runFinalResultsAnalysis(atspsData []AtspData, structuralAnalyses []structure.InstanceAnalysis, resultsRootPath string) (string, []finalResultsSummaryRow, bool, error) {
 	finalAtspsData := make([]AtspData, 0, len(atspsData))
 	missingInstances := make([]string, 0)
 

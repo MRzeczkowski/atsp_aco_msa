@@ -1,8 +1,8 @@
 package tours
 
 import (
-	"atsp_aco_msa/modules/algorithms/cyclecover"
-	"atsp_aco_msa/modules/algorithms/msaHeuristic"
+	"atsp_aco_msa/modules/artifacts/cyclecover"
+	"atsp_aco_msa/modules/artifacts/msaheuristic"
 	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/utilities"
 	"encoding/csv"
@@ -57,7 +57,7 @@ func AnalyzeInstance(config InstanceConfig) error {
 		return fmt.Errorf("%s: failed to read optimal tours: %w", config.Name, err)
 	}
 
-	msaHeuristicMatrix, err := msaHeuristic.Read(config.MsaHeuristicDirectoryPath)
+	msaHeuristicMatrix, err := msaheuristic.Read(config.MsaHeuristicDirectoryPath)
 	if err != nil {
 		return fmt.Errorf("%s: failed to read MSA heuristic: %w", config.Name, err)
 	}
@@ -289,12 +289,12 @@ func calculateToursStatistics(msaHeuristicDir string, uniqueOptimalTours map[str
 		return nil, nil
 	}
 
-	msaHeuristicMatrix, err := msaHeuristic.Read(msaHeuristicDir)
+	msaHeuristicMatrix, err := msaheuristic.Read(msaHeuristicDir)
 	if err != nil {
 		return nil, err
 	}
 
-	msas, err := msaHeuristic.ReadMsas(msaHeuristicDir)
+	msas, err := msaheuristic.ReadMsas(msaHeuristicDir)
 	if err != nil {
 		return nil, err
 	}

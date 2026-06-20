@@ -1,4 +1,4 @@
-package msaHeuristic
+package msaheuristic
 
 import (
 	"os"

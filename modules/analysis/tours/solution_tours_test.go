@@ -1,7 +1,7 @@
 package tours
 
 import (
-	"atsp_aco_msa/modules/algorithms/cyclecover"
+	"atsp_aco_msa/modules/artifacts/cyclecover"
 	"os"
 	"path/filepath"
 	"testing"

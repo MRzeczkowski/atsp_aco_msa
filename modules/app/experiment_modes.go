@@ -1,10 +1,10 @@
 package app
 
 import (
-	"atsp_aco_msa/modules/algorithms/cyclecover"
-	"atsp_aco_msa/modules/algorithms/msaHeuristic"
 	"atsp_aco_msa/modules/analysis/tours"
 	"atsp_aco_msa/modules/analysis/tuning"
+	"atsp_aco_msa/modules/artifacts/cyclecover"
+	"atsp_aco_msa/modules/artifacts/msaheuristic"
 	workerpool "atsp_aco_msa/modules/experiments/workers"
 	"atsp_aco_msa/modules/project"
 	"fmt"
@@ -621,7 +621,7 @@ func finishExperimentSetInstance(instanceRun *experimentSetInstanceRun) error {
 }
 
 func readMsaHeuristicMatrixForHeuristic(atspData AtspData, heuristic string) ([][]float64, error) {
-	return msaHeuristic.Read(atspData.MsaHeuristicDirectoryPath)
+	return msaheuristic.Read(atspData.MsaHeuristicDirectoryPath)
 }
 
 func readMsaHeuristicMatrixForResultRoot(atspData AtspData, heuristic, resultsRootPath string) ([][]float64, error) {
@@ -629,7 +629,7 @@ func readMsaHeuristicMatrixForResultRoot(atspData AtspData, heuristic, resultsRo
 }
 
 func readRootedMsaHeuristics(atspData AtspData) ([][][]float64, error) {
-	rootedMsas, err := msaHeuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)
+	rootedMsas, err := msaheuristic.ReadMsas(atspData.MsaHeuristicDirectoryPath)
 	if err != nil {
 		return nil, err
 	}
