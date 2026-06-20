@@ -1,8 +1,10 @@
-package app
+package reports
 
 import (
 	"atsp_aco_msa/modules/analysis/tours"
+	"atsp_aco_msa/modules/artifacts/msaheuristic"
 	"atsp_aco_msa/modules/models"
+	"atsp_aco_msa/modules/project"
 	"fmt"
 	"html"
 	"os"
@@ -12,12 +14,12 @@ import (
 	"strings"
 )
 
-func saveMsaCountScalingReport(path string, atspsData []AtspData) error {
+func SaveMsaCountScaling(path string, atspsData []project.AtspData, requestedCounts []int) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
 
-	rows, err := buildMsaCountScalingRows(atspsData, msaCountScalingCounts)
+	rows, err := buildMsaCountScalingRows(atspsData, requestedCounts)
 	if err != nil {
 		return err
 	}
@@ -35,7 +37,7 @@ func saveMsaCountScalingReport(path string, atspsData []AtspData) error {
 	return os.WriteFile(path, []byte(builder.String()), 0644)
 }
 
-func buildMsaCountScalingRows(atspsData []AtspData, requestedCounts []int) ([]msaCountScalingRow, error) {
+func buildMsaCountScalingRows(atspsData []project.AtspData, requestedCounts []int) ([]msaCountScalingRow, error) {
 	rows := make([]msaCountScalingRow, 0, len(requestedCounts))
 	for _, requestedCount := range requestedCounts {
 		row := msaCountScalingRow{requestedCount: requestedCount}
@@ -80,6 +82,15 @@ func buildMsaCountScalingRows(atspsData []AtspData, requestedCounts []int) ([]ms
 	}
 
 	return rows, nil
+}
+
+func readOrCreateIndividualMsas(atspData project.AtspData) ([][][]float64, error) {
+	msas, err := msaheuristic.ReadOrCreateMsas(atspData.Matrix, atspData.MsaHeuristicDirectoryPath)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", atspData.Name, err)
+	}
+
+	return msas, nil
 }
 
 func writeMsaCountScalingFindings(builder *strings.Builder, rows []msaCountScalingRow) {

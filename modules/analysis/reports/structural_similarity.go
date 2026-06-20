@@ -1,4 +1,4 @@
-package app
+package reports
 
 import (
 	"atsp_aco_msa/modules/analysis/structure"
@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func saveStructuralSimilarityReport(path string, analyses []structure.InstanceAnalysis) error {
+func SaveStructuralSimilarity(path string, analyses []structure.InstanceAnalysis) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
@@ -120,12 +120,12 @@ func writeStructuralSimilarityTableRow(builder *strings.Builder, instanceCell st
 	fmt.Fprintf(builder,
 		"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td></tr>\n",
 		instanceCell,
-		finalResultsSummaryMetricCell(100*msaPrecision, precisionHighlights[0]),
-		finalResultsSummaryMetricCell(100*msaRecall, recallHighlights[0]),
-		finalResultsSummaryMetricCell(100*cycleCoverPrecision, precisionHighlights[1]),
-		finalResultsSummaryMetricCell(100*cycleCoverRecall, recallHighlights[1]),
-		finalResultsSummaryMetricCell(100*patchingPrecision, precisionHighlights[2]),
-		finalResultsSummaryMetricCell(100*patchingRecall, recallHighlights[2]))
+		metricCell(100*msaPrecision, precisionHighlights[0]),
+		metricCell(100*msaRecall, recallHighlights[0]),
+		metricCell(100*cycleCoverPrecision, precisionHighlights[1]),
+		metricCell(100*cycleCoverRecall, recallHighlights[1]),
+		metricCell(100*patchingPrecision, precisionHighlights[2]),
+		metricCell(100*patchingRecall, recallHighlights[2]))
 }
 
 type structuralSimilaritySummary struct {

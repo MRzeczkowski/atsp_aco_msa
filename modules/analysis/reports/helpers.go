@@ -1,7 +1,8 @@
-package app
+package reports
 
 import (
 	"atsp_aco_msa/modules/analysis/structure"
+	"fmt"
 	"math"
 	"sort"
 )
@@ -64,4 +65,13 @@ func ratio(numerator, denominator int) float64 {
 	}
 
 	return float64(numerator) / float64(denominator)
+}
+
+func metricCell(value float64, bold bool) string {
+	valueText := fmt.Sprintf("%.2f", value)
+	if bold {
+		return "<strong>" + valueText + "</strong>"
+	}
+
+	return valueText
 }

@@ -1,4 +1,4 @@
-package app
+package reports
 
 import (
 	"atsp_aco_msa/modules/analysis/structure"
@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func saveMsaHeuristicCycleCoverOverlapReport(path string, analyses []structure.InstanceAnalysis) error {
+func SaveMsaHeuristicCycleCoverOverlap(path string, analyses []structure.InstanceAnalysis) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}

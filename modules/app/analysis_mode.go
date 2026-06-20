@@ -1,6 +1,7 @@
 package app
 
 import (
+	"atsp_aco_msa/modules/analysis/reports"
 	"atsp_aco_msa/modules/analysis/structure"
 	"atsp_aco_msa/modules/analysis/tours"
 	"atsp_aco_msa/modules/analysis/tuning"
@@ -43,7 +44,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		if err := ensureCycleCoverCache(gksDeviationAtspData, workers); err != nil {
 			return err
 		}
-		if err := saveGksDeviationReport(gksDeviationReportPath, gksDeviationAtspData, gksDeviationMsaPatchBiases); err != nil {
+		if err := reports.SaveGksDeviation(gksDeviationReportPath, gksDeviationAtspData, gksDeviationMsaPatchBiases); err != nil {
 			return err
 		}
 		fmt.Printf("GKS deviation report saved to %s using %d all-known instance(s)\n", gksDeviationReportPath, len(gksDeviationAtspData))
@@ -96,17 +97,17 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	}
 
 	structuralSimilarityReportPath := filepath.Join(project.FinalResultsDirectoryName, "structural_similarity.md")
-	if err := saveStructuralSimilarityReport(structuralSimilarityReportPath, structuralAnalyses); err != nil {
+	if err := reports.SaveStructuralSimilarity(structuralSimilarityReportPath, structuralAnalyses); err != nil {
 		return err
 	}
 
 	heuristicOverlapReportPath := filepath.Join(project.FinalResultsDirectoryName, "msa_cycle_cover_overlap.md")
-	if err := saveMsaHeuristicCycleCoverOverlapReport(heuristicOverlapReportPath, structuralAnalyses); err != nil {
+	if err := reports.SaveMsaHeuristicCycleCoverOverlap(heuristicOverlapReportPath, structuralAnalyses); err != nil {
 		return err
 	}
 
 	msaCountScalingReportPath := filepath.Join(project.FinalResultsDirectoryName, "msa_count_scaling.md")
-	if err := saveMsaCountScalingReport(msaCountScalingReportPath, atspsData); err != nil {
+	if err := reports.SaveMsaCountScaling(msaCountScalingReportPath, atspsData, msaCountScalingCounts); err != nil {
 		return err
 	}
 
@@ -143,7 +144,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		return err
 	}
 
-	if err := saveGksDeviationReport(gksDeviationReportPath, gksDeviationAtspData, gksDeviationMsaPatchBiases); err != nil {
+	if err := reports.SaveGksDeviation(gksDeviationReportPath, gksDeviationAtspData, gksDeviationMsaPatchBiases); err != nil {
 		return err
 	}
 

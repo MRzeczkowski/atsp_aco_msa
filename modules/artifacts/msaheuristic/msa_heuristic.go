@@ -35,6 +35,27 @@ func ReadMsas(rootMsaHeuristicPath string) ([][][]float64, error) {
 	return msas, nil
 }
 
+func ReadOrCreateMsas(matrix [][]float64, rootMsaHeuristicPath string) ([][][]float64, error) {
+	msas, err := ReadMsas(rootMsaHeuristicPath)
+	if err == nil && len(msas) == len(matrix) {
+		return msas, nil
+	}
+
+	if _, createErr := Create(matrix, rootMsaHeuristicPath); createErr != nil {
+		if err != nil {
+			return nil, fmt.Errorf("read individual MSAs: %w; create MSA Heuristic: %w", err, createErr)
+		}
+		return nil, fmt.Errorf("create MSA Heuristic: %w", createErr)
+	}
+
+	msas, err = ReadMsas(rootMsaHeuristicPath)
+	if err != nil {
+		return nil, fmt.Errorf("read individual MSAs: %w", err)
+	}
+
+	return msas, nil
+}
+
 type rootedMsa struct {
 	root   int
 	matrix [][]float64

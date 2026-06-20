@@ -1,9 +1,10 @@
-package app
+package reports
 
 import (
 	"atsp_aco_msa/modules/algorithms/heuristics"
 	"atsp_aco_msa/modules/artifacts/cyclecover"
 	"atsp_aco_msa/modules/artifacts/msaheuristic"
+	"atsp_aco_msa/modules/project"
 	"fmt"
 	"html"
 	"math"
@@ -20,7 +21,7 @@ type gksDeviationRow struct {
 	deviation    float64
 }
 
-func saveGksDeviationReport(path string, atspsData []AtspData, msaPatchBiases []float64) error {
+func SaveGksDeviation(path string, atspsData []project.AtspData, msaPatchBiases []float64) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
@@ -38,7 +39,7 @@ func saveGksDeviationReport(path string, atspsData []AtspData, msaPatchBiases []
 	return os.WriteFile(path, []byte(builder.String()), 0644)
 }
 
-func buildGksDeviationRows(atspsData []AtspData, msaPatchBiases []float64) ([]gksDeviationRow, error) {
+func buildGksDeviationRows(atspsData []project.AtspData, msaPatchBiases []float64) ([]gksDeviationRow, error) {
 	rows := make([]gksDeviationRow, 0, len(atspsData)*len(msaPatchBiases))
 	for _, atspData := range atspsData {
 		msaHeuristicMatrix, err := msaheuristic.Read(atspData.MsaHeuristicDirectoryPath)
@@ -115,7 +116,7 @@ func writeGksDeviationTableRow(builder *strings.Builder, instance string, row gk
 		instanceCell,
 		row.msaPatchBias,
 		tourLengthCell,
-		finalResultsSummaryMetricCell(row.deviation, highlightDeviation))
+		metricCell(row.deviation, highlightDeviation))
 }
 
 func bestGksBiasesByInstance(rows []gksDeviationRow) map[string]bool {

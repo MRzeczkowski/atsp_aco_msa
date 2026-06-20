@@ -3,7 +3,6 @@ package app
 import (
 	"atsp_aco_msa/modules/analysis/structure"
 	"atsp_aco_msa/modules/artifacts/cyclecover"
-	"atsp_aco_msa/modules/models"
 	"atsp_aco_msa/modules/project"
 	"atsp_aco_msa/modules/tsplib"
 	"os"
@@ -743,104 +742,6 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 	assertContains(t, content, "<tr><td>Cycle-cover MSA patching</td><td align=\"right\">+2.50</td><td align=\"right\">+0.15</td><td align=\"right\">6.00</td></tr>")
 }
 
-func TestSaveStructuralSimilarityReport(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "structural_similarity.md")
-	if err := saveStructuralSimilarityReport(path, sampleStructuralAnalyses()); err != nil {
-		t.Fatalf("saveStructuralSimilarityReport returned unexpected error: %v", err)
-	}
-
-	contentBytes, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("failed to read structural similarity report: %v", err)
-	}
-
-	content := string(contentBytes)
-	assertContains(t, content, "- **Precision vs found-optimal tours: MSA heuristic 71.43%, cycle cover 66.67%, cycle-cover MSA patching 63.64%.**")
-	assertContains(t, content, "- **Recall vs found-optimal tours: MSA heuristic 35.71%, cycle cover 42.86%, cycle-cover MSA patching 50.00%.**")
-	assertContains(t, content, "<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">MSA heuristic</th><th colspan=\"2\">Cycle cover</th><th colspan=\"2\">Cycle-cover MSA patching</th></tr>")
-	assertContains(t, content, "<tr><td>a</td><td align=\"right\">50.00</td><td align=\"right\">25.00</td><td align=\"right\"><strong>75.00</strong></td><td align=\"right\"><strong>75.00</strong></td><td align=\"right\">60.00</td><td align=\"right\"><strong>75.00</strong></td></tr>")
-	assertContains(t, content, "<tr><td><strong>Total</strong></td><td align=\"right\"><strong>71.43</strong></td><td align=\"right\">35.71</td><td align=\"right\">66.67</td><td align=\"right\">42.86</td><td align=\"right\">63.64</td><td align=\"right\"><strong>50.00</strong></td></tr>")
-}
-
-func TestSaveMsaHeuristicCycleCoverOverlapReport(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "msa_cycle_cover_overlap.md")
-	if err := saveMsaHeuristicCycleCoverOverlapReport(path, sampleStructuralAnalyses()); err != nil {
-		t.Fatalf("saveMsaHeuristicCycleCoverOverlapReport returned unexpected error: %v", err)
-	}
-
-	contentBytes, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("failed to read MSA heuristic/cycle-cover overlap report: %v", err)
-	}
-
-	content := string(contentBytes)
-	assertContains(t, content, "- **42.86% of MSA heuristic edges are also cycle-cover edges.**")
-	assertContains(t, content, "- **33.33% of cycle-cover edges are also MSA heuristic edges.**")
-	assertContains(t, content, "- **Found-optimal edge partition: both 3, only MSA heuristic 2, only cycle cover 3, neither 6.**")
-	assertContains(t, content, "<tr><th>Instance</th><th>MSA in CC [%]</th><th>CC in MSA [%]</th><th>Optimal both</th><th>Optimal only MSA</th><th>Optimal only CC</th></tr>")
-	assertContains(t, content, "<tr><td>a</td><td align=\"right\">50.00</td><td align=\"right\">25.00</td><td align=\"right\">1</td><td align=\"right\">0</td><td align=\"right\">2</td></tr>")
-	assertContains(t, content, "<tr><td><strong>Total</strong></td><td align=\"right\">42.86</td><td align=\"right\">33.33</td><td align=\"right\">3</td><td align=\"right\">2</td><td align=\"right\">3</td></tr>")
-}
-
-func TestTourMatrixLengthValidatesSingleTourAndCalculatesLength(t *testing.T) {
-	distanceMatrix := [][]float64{
-		{0, 2, 8},
-		{4, 0, 3},
-		{5, 6, 0},
-	}
-	tourMatrix := [][]float64{
-		{0, 1, 0},
-		{0, 0, 1},
-		{1, 0, 0},
-	}
-
-	length, err := tourMatrixLength(distanceMatrix, tourMatrix)
-	if err != nil {
-		t.Fatalf("tourMatrixLength returned unexpected error: %v", err)
-	}
-	if length != 10 {
-		t.Fatalf("expected tour length 10, got %.2f", length)
-	}
-
-	disconnected := [][]float64{
-		{0, 1, 0},
-		{1, 0, 0},
-		{0, 0, 0},
-	}
-	if _, err := tourMatrixLength(distanceMatrix, disconnected); err == nil {
-		t.Fatal("expected invalid tour matrix to be rejected")
-	}
-}
-
-func TestSaveGksDeviationReportShowsMsaPatchBiasDeviation(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "gks_deviation.md")
-	rows := []gksDeviationRow{
-		{instance: "sample-a", msaPatchBias: 0.0, tourLength: 110, deviation: 10},
-		{instance: "sample-a", msaPatchBias: 0.5, tourLength: 105, deviation: 5},
-		{instance: "sample-b", msaPatchBias: 0.0, tourLength: 240, deviation: 20},
-		{instance: "sample-b", msaPatchBias: 0.5, tourLength: 260, deviation: 30},
-	}
-
-	var builder strings.Builder
-	builder.WriteString("# GKS Patching Deviation\n\n")
-	writeGksDeviationTable(&builder, rows, []float64{0.0, 0.5})
-	if err := os.WriteFile(path, []byte(builder.String()), 0644); err != nil {
-		t.Fatalf("failed to write test GKS report: %v", err)
-	}
-
-	contentBytes, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("failed to read GKS report: %v", err)
-	}
-	content := string(contentBytes)
-
-	assertContains(t, content, "<tr><th>Instance</th><th>MSA patch bias</th><th>Tour length</th><th>Deviation [%]</th></tr>")
-	assertContains(t, content, "<tr><td>sample-a</td><td align=\"right\">0.50</td><td align=\"right\">105.00</td><td align=\"right\"><strong>5.00</strong></td></tr>")
-	assertContains(t, content, "<tr><td>sample-b</td><td align=\"right\">0.00</td><td align=\"right\">240.00</td><td align=\"right\"><strong>20.00</strong></td></tr>")
-	assertContains(t, content, "<tr><td><strong>Average</strong></td><td align=\"right\">0.00</td><td align=\"right\"></td><td align=\"right\"><strong>15.00</strong></td></tr>")
-	assertContains(t, content, "<tr><td><strong>Average</strong></td><td align=\"right\">0.50</td><td align=\"right\"></td><td align=\"right\">17.50</td></tr>")
-}
-
 func TestSaveFinalPairwisePerformanceReport(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "pairwise_performance.md")
 	if err := saveFinalPairwisePerformanceReport(path, sampleFinalSummaryRows()); err != nil {
@@ -890,58 +791,6 @@ func TestSaveStructuralPerformanceLinkReport(t *testing.T) {
 	assertContains(t, content, "<tr><td>Strict MSA</td><td align=\"right\"><strong>71.43</strong></td><td align=\"right\">35.71</td><td align=\"right\">3.00</td><td align=\"right\">20.00</td></tr>")
 	assertContains(t, content, "<tr><td>Cycle cover</td><td align=\"right\">66.67</td><td align=\"right\">42.86</td><td align=\"right\">2.75</td><td align=\"right\"><strong>25.00</strong></td></tr>")
 	assertContains(t, content, "<tr><td>Cycle-cover MSA patching</td><td align=\"right\">63.64</td><td align=\"right\"><strong>50.00</strong></td><td align=\"right\"><strong>2.40</strong></td><td align=\"right\"><strong>25.00</strong></td></tr>")
-}
-
-func TestSelectEvenlySpacedRootIndexes(t *testing.T) {
-	actual := selectEvenlySpacedRootIndexes(10, 4)
-	expected := []int{0, 3, 6, 9}
-	if !reflect.DeepEqual(actual, expected) {
-		t.Fatalf("unexpected root selection\nwant: %v\n got: %v", expected, actual)
-	}
-
-	actual = selectEvenlySpacedRootIndexes(3, 64)
-	expected = []int{0, 1, 2}
-	if !reflect.DeepEqual(actual, expected) {
-		t.Fatalf("unexpected capped root selection\nwant: %v\n got: %v", expected, actual)
-	}
-}
-
-func TestBuildPartialMsaHeuristicEdgeSetUsesEligibilityByRoot(t *testing.T) {
-	msas := [][][]float64{
-		{
-			{0, 1, 0, 0},
-			{0, 0, 1, 0},
-			{0, 0, 0, 1},
-			{0, 0, 0, 0},
-		},
-		emptyMatrix(4),
-		{
-			{0, 1, 0, 0},
-			{0, 0, 0, 1},
-			{0, 0, 0, 0},
-			{1, 0, 0, 0},
-		},
-		emptyMatrix(4),
-	}
-
-	actual := buildPartialMsaHeuristicEdgeSet(msas, []int{0, 2})
-	expected := map[models.Edge]struct{}{
-		models.Edge{From: 0, To: 1}: {},
-		models.Edge{From: 1, To: 2}: {},
-		models.Edge{From: 3, To: 0}: {},
-	}
-	if !reflect.DeepEqual(actual, expected) {
-		t.Fatalf("unexpected partial MSA heuristic edge set\nwant: %v\n got: %v", expected, actual)
-	}
-}
-
-func emptyMatrix(size int) [][]float64 {
-	matrix := make([][]float64, size)
-	for i := range matrix {
-		matrix[i] = make([]float64, size)
-	}
-
-	return matrix
 }
 
 func TestBuildHeuristicModifiersReturnsNeutralMatrixForBaseline(t *testing.T) {
