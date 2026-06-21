@@ -5,6 +5,7 @@ import (
 	"atsp_aco_msa/modules/analysis/structure"
 	"atsp_aco_msa/modules/analysis/tours"
 	"atsp_aco_msa/modules/analysis/tuning"
+	"atsp_aco_msa/modules/experiments"
 	"atsp_aco_msa/modules/project"
 	"atsp_aco_msa/modules/utilities"
 	"fmt"
@@ -33,8 +34,8 @@ func controlReportsConfig() reports.ControlReportsConfig {
 		DistanceRankedSparseHeuristic:      heuristicDistanceRankedSparse,
 		ShuffledMsaHeuristic:               heuristicShuffledMsa,
 		EvaluationStrictMsaHeuristicWeight: evaluationStrictMsaHeuristicWeight,
-		ReadStatistics:                     readStatistics,
-		ReadHeuristicStatistics:            readHeuristicStatistics,
+		ReadStatistics:                     experiments.ReadStatistics,
+		ReadHeuristicStatistics:            experiments.ReadHeuristicStatistics,
 		ResultFilePathForHeuristic:         resultFilePathForHeuristic,
 	}
 }
@@ -151,15 +152,6 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	if err != nil {
 		return err
 	}
-	if err := removeFileIfExists(filepath.Join(project.EvaluationResultsDirectoryName, "random_sparse_control.md")); err != nil {
-		return err
-	}
-	if err := removeFileIfExists(filepath.Join(project.EvaluationResultsDirectoryName, "distance_ranked_sparse_control.md")); err != nil {
-		return err
-	}
-	if err := removeFileIfExists(filepath.Join(project.EvaluationResultsDirectoryName, "shuffled_msa_control.md")); err != nil {
-		return err
-	}
 
 	if err := ensureMsaHeuristicCache(gksDeviationAtspData, workers, false); err != nil {
 		return err
@@ -263,9 +255,6 @@ func runEvaluationResultsAnalysis(atspsData []AtspData, structuralAnalyses []str
 		if err := reports.SaveStructuralPerformanceLinkReport(filepath.Join(resultsRootPath, "structural_performance_link.md"), evaluationRows, structuralAnalyses, evaluationReportsConfig()); err != nil {
 			return "", nil, false, err
 		}
-	}
-	if err := removeFileIfExists(filepath.Join(resultsRootPath, "summary.csv")); err != nil {
-		return "", nil, false, err
 	}
 
 	return evaluationResultsSummaryPath, evaluationRows, true, nil

@@ -8,7 +8,6 @@ import (
 type AtspData = project.AtspData
 type ExperimentsData = experiments.ExperimentsData
 type ExperimentParameters = experiments.ExperimentParameters
-type ExperimentResult = experiments.ExperimentResult
 type ExperimentsDataStatistics = experiments.ExperimentsDataStatistics
 type HeuristicExperimentStatistics = experiments.HeuristicExperimentStatistics
 

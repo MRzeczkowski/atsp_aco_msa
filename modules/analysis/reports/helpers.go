@@ -68,10 +68,6 @@ func metricCell(value float64, bold bool) string {
 	return valueText
 }
 
-func MetricCell(value float64, bold bool) string {
-	return metricCell(value, bold)
-}
-
-func FormatSignedFloat(value float64) string {
+func formatSignedFloat(value float64) string {
 	return fmt.Sprintf("%+.2f", value)
 }

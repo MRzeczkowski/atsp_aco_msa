@@ -2,10 +2,10 @@ package app
 
 import (
 	"atsp_aco_msa/modules/artifacts/cyclecover"
+	"atsp_aco_msa/modules/experiments"
 	workerpool "atsp_aco_msa/modules/experiments/workers"
 	"atsp_aco_msa/modules/project"
 	"fmt"
-	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -22,10 +22,6 @@ func runEvaluationExperimentMode(atspsData []AtspData, resultsRootPath string, u
 		if err := ensureCycleCoverCache(atspsData, workers); err != nil {
 			return err
 		}
-	}
-
-	if err := removeLegacyEvaluationReports(resultsRootPath); err != nil {
-		return err
 	}
 
 	instanceRuns := make([]*evaluationExperimentInstanceRun, 0, len(atspsData))
@@ -72,15 +68,6 @@ func prepareEvaluationExperimentInstance(atspData AtspData, useThreeOpt bool, co
 	}
 
 	controlRun := evaluationConfigurationsAreSparseControls(configurations)
-	if controlRun {
-		if err := removeFileIfExists(atspData.ResultFilePath); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := removeLegacyEvaluationResultFiles(atspData); err != nil {
-			return nil, err
-		}
-	}
 
 	evaluationRunName := "evaluation"
 	if useThreeOpt {
@@ -172,7 +159,7 @@ func runEvaluationExperimentConfiguration(instanceRun *evaluationExperimentInsta
 		}
 	} else if heuristicUsesMsaHeuristic(config.Heuristic) {
 		var err error
-		heuristicMatrix, err = readMsaHeuristicMatrixForHeuristic(instanceRun.atspData, config.Heuristic)
+		heuristicMatrix, err = readMsaHeuristicMatrix(instanceRun.atspData)
 		if err != nil {
 			return err
 		}
@@ -200,7 +187,7 @@ func runEvaluationExperimentConfiguration(instanceRun *evaluationExperimentInsta
 		return err
 	}
 
-	statistics := calculateStatistics(experimentData)
+	statistics := experiments.CalculateStatistics(experimentData)
 	instanceRun.statisticsByConfiguration[configurationIndex] = statistics
 	if len(statistics) != 0 && !instanceRun.controlRun {
 		return removeExperimentPlotsForHeuristic(instanceRun.atspData, config.Heuristic)
@@ -214,7 +201,7 @@ func finishEvaluationExperimentInstance(instanceRun *evaluationExperimentInstanc
 		for index, config := range instanceRun.configurations {
 			statistics := instanceRun.statisticsByConfiguration[index]
 			if len(statistics) != 0 {
-				saveStatistics(resultFilePathForHeuristic(instanceRun.atspData, config.Heuristic), config.Heuristic, statistics)
+				experiments.SaveStatistics(resultFilePathForHeuristic(instanceRun.atspData, config.Heuristic), config.Heuristic, statistics)
 			}
 		}
 	} else {
@@ -264,11 +251,11 @@ func runEvaluationExperimentParameters(instanceName, heuristic string, experimen
 				parameterStart := time.Now()
 				heuristicModifiers := buildHeuristicModifiers(heuristic, matrix, heuristicMatrix, cycleCover, parameters)
 				rootedHeuristicModifiers := buildRootedHeuristicModifiers(heuristic, matrix, rootedMsaHeuristic, parameters)
-				results := runExperimentsWithRootedHeuristicModifiers(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, rootedHeuristicModifiers, useThreeOpt)
+				results := experiments.RunExperimentsWithRootedHeuristicModifiers(numberOfExperiments, parameters, knownOptimal, matrix, heuristicModifiers, rootedHeuristicModifiers, useThreeOpt)
 				data := ExperimentsData{ExperimentParameters: parameters, Results: results}
 				experimentData[index] = data
 
-				parameterStatistics := calculateStatistics([]ExperimentsData{data})
+				parameterStatistics := experiments.CalculateStatistics([]ExperimentsData{data})
 				if len(parameterStatistics) != 0 {
 					statistic := parameterStatistics[0]
 					randomSeedLog := ""
@@ -310,36 +297,4 @@ func evaluationExperimentParameterSetCount(configurations []evaluationExperiment
 	}
 
 	return count
-}
-
-func removeLegacyEvaluationReports(resultsRootPath string) error {
-	legacyReports, err := filepath.Glob(filepath.Join(resultsRootPath, "best_parameters_report*.md"))
-	if err != nil {
-		return err
-	}
-
-	for _, path := range legacyReports {
-		if err := removeFileIfExists(path); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func removeLegacyEvaluationResultFiles(atspData AtspData) error {
-	legacyFiles := []string{
-		resultFilePathForHeuristic(atspData, heuristicBaseline),
-		resultFilePathForHeuristic(atspData, heuristicCycleCover),
-		resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching),
-		filepath.Join(filepath.Dir(atspData.ResultFilePath), "solutions.csv"),
-	}
-
-	for _, path := range legacyFiles {
-		if err := removeFileIfExists(path); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }

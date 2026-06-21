@@ -41,19 +41,6 @@ func (config EvaluationReportsConfig) comparisonHeuristics() []string {
 	return config.Heuristics[1:]
 }
 
-func SaveEvaluationResultsSummary(atspsData []project.AtspData, summaryPath string, config EvaluationReportsConfig) error {
-	if err := os.MkdirAll(filepath.Dir(summaryPath), 0700); err != nil {
-		return err
-	}
-
-	rows, err := ReadEvaluationResultsSummaryRows(atspsData)
-	if err != nil {
-		return err
-	}
-
-	return SaveEvaluationResultsSummaryRows(rows, summaryPath, config)
-}
-
 func ReadEvaluationResultsSummaryRows(atspsData []project.AtspData) ([]EvaluationResultsSummaryRow, error) {
 	rows := make([]EvaluationResultsSummaryRow, 0, len(atspsData))
 	for _, atspData := range atspsData {
@@ -195,8 +182,8 @@ func writeEvaluationResultsSummaryTableRow(builder *strings.Builder, instance st
 		}
 
 		fmt.Fprintf(builder, "<td align=\"right\">%s</td><td align=\"right\">%s</td>",
-			evaluationResultsSummaryMetricCell(metric.AverageMinDeviation, deviationHighlights[heuristic]),
-			evaluationResultsSummaryMetricCell(metric.SuccessRate, successHighlights[heuristic]))
+			metricCell(metric.AverageMinDeviation, deviationHighlights[heuristic]),
+			metricCell(metric.SuccessRate, successHighlights[heuristic]))
 	}
 	builder.WriteString("</tr>\n")
 }
@@ -284,10 +271,6 @@ func heuristicFloatList(values map[string]float64, format string, config Evaluat
 		parts = append(parts, fmt.Sprintf("%s "+format, config.displayName(heuristic), value))
 	}
 	return strings.Join(parts, ", ")
-}
-
-func evaluationResultsSummaryMetricCell(value float64, bold bool) string {
-	return metricCell(value, bold)
 }
 
 func SaveEvaluationPairwisePerformanceReport(path string, rows []EvaluationResultsSummaryRow, config EvaluationReportsConfig) error {
@@ -443,7 +426,7 @@ func writeEvaluationConvergenceTable(builder *strings.Builder, rows []Evaluation
 				continue
 			}
 			fmt.Fprintf(builder, "<td align=\"right\">%s</td>",
-				evaluationResultsSummaryMetricCell(convergencePercent(metric), highlights[heuristic]))
+				metricCell(convergencePercent(metric), highlights[heuristic]))
 		}
 		builder.WriteString("</tr>\n")
 	}
@@ -457,7 +440,7 @@ func writeEvaluationConvergenceTable(builder *strings.Builder, rows []Evaluation
 			continue
 		}
 		fmt.Fprintf(builder, "<td align=\"right\">%s</td>",
-			evaluationResultsSummaryMetricCell(average, averageHighlights[heuristic]))
+			metricCell(average, averageHighlights[heuristic]))
 	}
 	builder.WriteString("</tr>\n")
 	builder.WriteString("</tbody>\n")
@@ -760,10 +743,10 @@ func writeStructuralPerformanceLinkRow(builder *strings.Builder, heuristic strin
 	fmt.Fprintf(builder,
 		"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td></tr>\n",
 		html.EscapeString(config.displayName(heuristic)),
-		evaluationResultsSummaryMetricCell(100*precision, precisionHighlights[heuristic]),
-		evaluationResultsSummaryMetricCell(100*recall, recallHighlights[heuristic]),
-		evaluationResultsSummaryMetricCell(performance.AverageMinDeviation, deviationHighlights[heuristic]),
-		evaluationResultsSummaryMetricCell(performance.SuccessRate, successHighlights[heuristic]))
+		metricCell(100*precision, precisionHighlights[heuristic]),
+		metricCell(100*recall, recallHighlights[heuristic]),
+		metricCell(performance.AverageMinDeviation, deviationHighlights[heuristic]),
+		metricCell(performance.SuccessRate, successHighlights[heuristic]))
 }
 
 func averagePerformanceByHeuristic(rows []EvaluationResultsSummaryRow, allowedInstances map[string]struct{}, config EvaluationReportsConfig) map[string]EvaluationResultSummaryMetric {
@@ -854,8 +837,4 @@ func floatHighlights(values map[string]float64, higherIsBetter, allowZero bool) 
 	}
 
 	return highlights
-}
-
-func formatSignedFloat(value float64) string {
-	return FormatSignedFloat(value)
 }

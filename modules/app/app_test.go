@@ -2,6 +2,7 @@ package app
 
 import (
 	"atsp_aco_msa/modules/artifacts/cyclecover"
+	"atsp_aco_msa/modules/experiments"
 	"atsp_aco_msa/modules/project"
 	"atsp_aco_msa/modules/tsplib"
 	"os"
@@ -33,14 +34,14 @@ func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
 		"40.00",
 	}
 
-	validContent := strings.Join(statisticsCsvHeader, ",") + "\n" + strings.Join(validRecord, ",") + "\n"
+	validContent := strings.Join(experiments.StatisticsCsvHeader, ",") + "\n" + strings.Join(validRecord, ",") + "\n"
 	if err := os.WriteFile(validPath, []byte(validContent), 0644); err != nil {
 		t.Fatalf("failed to write valid statistics CSV: %v", err)
 	}
 
-	statistics, err := readStatistics(validPath)
+	statistics, err := experiments.ReadStatistics(validPath)
 	if err != nil {
-		t.Fatalf("readStatistics returned unexpected error: %v", err)
+		t.Fatalf("experiments.ReadStatistics returned unexpected error: %v", err)
 	}
 
 	if len(statistics) != 1 {
@@ -51,16 +52,16 @@ func TestReadStatisticsRequiresFifteenColumns(t *testing.T) {
 		t.Fatalf("unexpected statistic values: heuristicWeight=%f msaPatchBias=%f successRate=%f", statistics[0].HeuristicWeight, statistics[0].MsaPatchBias, statistics[0].SuccessRate)
 	}
 
-	legacyPath := filepath.Join(dir, "legacy.csv")
-	legacyHeader := append(append([]string{}, statisticsCsvHeader...), "Avg computation time [ms]")
-	legacyRecord := append(append([]string{}, validRecord...), "0")
-	legacyContent := strings.Join(legacyHeader, ",") + "\n" + strings.Join(legacyRecord, ",") + "\n"
-	if err := os.WriteFile(legacyPath, []byte(legacyContent), 0644); err != nil {
-		t.Fatalf("failed to write legacy statistics CSV: %v", err)
+	sixteenColumnPath := filepath.Join(dir, "sixteen-column.csv")
+	sixteenColumnHeader := append(append([]string{}, experiments.StatisticsCsvHeader...), "Avg computation time [ms]")
+	sixteenColumnRecord := append(append([]string{}, validRecord...), "0")
+	sixteenColumnContent := strings.Join(sixteenColumnHeader, ",") + "\n" + strings.Join(sixteenColumnRecord, ",") + "\n"
+	if err := os.WriteFile(sixteenColumnPath, []byte(sixteenColumnContent), 0644); err != nil {
+		t.Fatalf("failed to write 16-column statistics CSV: %v", err)
 	}
 
-	if _, err := readStatistics(legacyPath); err == nil {
-		t.Fatal("expected legacy 16-column statistics CSV to be rejected")
+	if _, err := experiments.ReadStatistics(sixteenColumnPath); err == nil {
+		t.Fatal("expected 16-column statistics CSV to be rejected")
 	}
 }
 
@@ -84,14 +85,14 @@ func TestReadStatisticsAcceptsPatchingMsaPatchBiasColumn(t *testing.T) {
 		"3.00",
 		"40.00",
 	}
-	content := strings.Join(statisticsCsvHeaderForHeuristic(heuristicCycleCoverMsaPatching), ",") + "\n" + strings.Join(record, ",") + "\n"
+	content := strings.Join(experiments.StatisticsCsvHeaderForHeuristic(heuristicCycleCoverMsaPatching), ",") + "\n" + strings.Join(record, ",") + "\n"
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("failed to write patching statistics CSV: %v", err)
 	}
 
-	statistics, err := readStatistics(path)
+	statistics, err := experiments.ReadStatistics(path)
 	if err != nil {
-		t.Fatalf("readStatistics returned unexpected error: %v", err)
+		t.Fatalf("experiments.ReadStatistics returned unexpected error: %v", err)
 	}
 	if len(statistics) != 1 {
 		t.Fatalf("expected one statistic, got %d", len(statistics))
@@ -121,60 +122,20 @@ func TestReadStatisticsAcceptsRandomSparseSeedColumn(t *testing.T) {
 		"3.00",
 		"40.00",
 	}
-	content := strings.Join(statisticsCsvHeaderForHeuristic(heuristicRandomSparse), ",") + "\n" + strings.Join(record, ",") + "\n"
+	content := strings.Join(experiments.StatisticsCsvHeaderForHeuristic(heuristicRandomSparse), ",") + "\n" + strings.Join(record, ",") + "\n"
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("failed to write random-sparse statistics CSV: %v", err)
 	}
 
-	statistics, err := readStatistics(path)
+	statistics, err := experiments.ReadStatistics(path)
 	if err != nil {
-		t.Fatalf("readStatistics returned unexpected error: %v", err)
+		t.Fatalf("experiments.ReadStatistics returned unexpected error: %v", err)
 	}
 	if len(statistics) != 1 {
 		t.Fatalf("expected one statistic, got %d", len(statistics))
 	}
 	if statistics[0].HeuristicWeight != 0.90 || statistics[0].RandomSeed != 2 || statistics[0].SuccessRate != 40.00 {
 		t.Fatalf("unexpected statistic values: heuristicWeight=%f randomSeed=%d successRate=%f", statistics[0].HeuristicWeight, statistics[0].RandomSeed, statistics[0].SuccessRate)
-	}
-}
-
-func TestReadMsaHeuristicMatrixForResultRootUsesCompositeMsaForMatrixFallback(t *testing.T) {
-	root := t.TempDir()
-	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{
-		{0, 1, 1},
-		{1, 0, 1},
-		{1, 1, 0},
-	}, 3, filepath.Join(root, "results"))
-	atspData.MsaHeuristicDirectoryPath = filepath.Join(root, "msa", "sample")
-
-	compositeMsa := [][]float64{
-		{0, 2, 0},
-		{0, 0, 2},
-		{2, 0, 0},
-	}
-	writeTestMsaHeuristicMatrix(t, atspData.MsaHeuristicDirectoryPath, compositeMsa)
-	writeTestRootMsaMatrix(t, atspData.MsaHeuristicDirectoryPath, 0, [][]float64{
-		{0, 1, 1},
-		{0, 0, 0},
-		{0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, atspData.MsaHeuristicDirectoryPath, 1, [][]float64{
-		{0, 1, 0},
-		{0, 0, 1},
-		{0, 0, 0},
-	})
-	writeTestRootMsaMatrix(t, atspData.MsaHeuristicDirectoryPath, 2, [][]float64{
-		{0, 1, 0},
-		{0, 0, 1},
-		{0, 0, 0},
-	})
-
-	normalMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicStrictMsa, project.EvaluationResultsDirectoryName)
-	if err != nil {
-		t.Fatalf("read normal MSA matrix: %v", err)
-	}
-	if !reflect.DeepEqual(normalMatrix, compositeMsa) {
-		t.Fatalf("expected normal run to use composite MSA, got %v", normalMatrix)
 	}
 }
 
@@ -248,8 +209,8 @@ func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
 		},
 	}
 
-	if err := saveHeuristicStatistics(path, rows); err != nil {
-		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
+	if err := experiments.SaveHeuristicStatistics(path, rows); err != nil {
+		t.Fatalf("experiments.SaveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
 	contentBytes, err := os.ReadFile(path)
@@ -305,8 +266,8 @@ func TestRunEvaluationResultsAnalysisReadsExistingEvaluationResults(t *testing.T
 			},
 		},
 	}
-	if err := saveHeuristicStatistics(evaluationAtspData.ResultFilePath, rows); err != nil {
-		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
+	if err := experiments.SaveHeuristicStatistics(evaluationAtspData.ResultFilePath, rows); err != nil {
+		t.Fatalf("experiments.SaveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
 	summaryPath, _, saved, err := runEvaluationResultsAnalysis([]AtspData{atspData}, nil, project.EvaluationResultsDirectoryName)
@@ -352,8 +313,8 @@ func TestRunEvaluationResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
 			},
 		},
 	}
-	if err := saveHeuristicStatistics(evaluationThreeOptAtspData.ResultFilePath, rows); err != nil {
-		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
+	if err := experiments.SaveHeuristicStatistics(evaluationThreeOptAtspData.ResultFilePath, rows); err != nil {
+		t.Fatalf("experiments.SaveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
 	summaryPath, _, saved, err := runEvaluationResultsAnalysis([]AtspData{atspData}, nil, evaluationThreeOptRoot)
@@ -918,7 +879,7 @@ func TestSaveEvaluationHeuristicStatisticsMergesSelectedHeuristicIntoExistingRes
 			Statistics: makeTestExperimentStatistics(1.0, 0.5, 100.0),
 		},
 	}
-	if err := saveHeuristicStatistics(path, existing); err != nil {
+	if err := experiments.SaveHeuristicStatistics(path, existing); err != nil {
 		t.Fatalf("failed to seed evaluation result CSV: %v", err)
 	}
 
@@ -936,7 +897,7 @@ func TestSaveEvaluationHeuristicStatisticsMergesSelectedHeuristicIntoExistingRes
 		t.Fatalf("saveEvaluationHeuristicStatistics returned error: %v", err)
 	}
 
-	statistics, err := readHeuristicStatistics(path)
+	statistics, err := experiments.ReadHeuristicStatistics(path)
 	if err != nil {
 		t.Fatalf("failed to read merged evaluation result CSV: %v", err)
 	}
@@ -1035,7 +996,7 @@ func TestRunAnalysisModeTuningRegeneratesTuningSummary(t *testing.T) {
 	})
 
 	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, project.ResultsDirectoryName)
-	saveStatistics(resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching), heuristicCycleCoverMsaPatching, []ExperimentsDataStatistics{
+	experiments.SaveStatistics(resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching), heuristicCycleCoverMsaPatching, []ExperimentsDataStatistics{
 		makeTestExperimentStatistics(0.6, 2.0, 20.0),
 	})
 
@@ -1385,7 +1346,7 @@ func writeTestControlStatisticsForWeightSummary(t *testing.T, atspData AtspData,
 		}
 	}
 
-	saveStatistics(resultFilePathForHeuristic(atspData, heuristic), heuristic, statistics)
+	experiments.SaveStatistics(resultFilePathForHeuristic(atspData, heuristic), heuristic, statistics)
 }
 
 func makeTestSeededExperimentStatistics(heuristicWeight float64, randomSeed int64, averageBestDeviation, successRate float64) ExperimentsDataStatistics {

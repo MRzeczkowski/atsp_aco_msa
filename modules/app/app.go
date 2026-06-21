@@ -45,14 +45,6 @@ func heuristicUsesRootedMsa(heuristic string) bool {
 	return heuristic == heuristicRootedMsa || heuristicIsRootedSparseControl(heuristic)
 }
 
-func heuristicUsesRootedMsaForTuning(heuristic string) bool {
-	return heuristicUsesRootedMsa(heuristic)
-}
-
-func heuristicIsRandomSparse(heuristic string) bool {
-	return heuristic == heuristicRandomSparse
-}
-
 func heuristicUsesRandomSeedColumn(heuristic string) bool {
 	return heuristic == heuristicRandomSparse || heuristicIsShuffledMsaControl(heuristic)
 }

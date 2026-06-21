@@ -135,14 +135,6 @@ func newDefaultExperimentParameters(heuristicWeight float64) ExperimentParameter
 	}
 }
 
-func newDefaultExperimentParametersForWeights(heuristicWeights []float64) []ExperimentParameters {
-	parameters := make([]ExperimentParameters, 0, len(heuristicWeights))
-	for _, heuristicWeight := range heuristicWeights {
-		parameters = append(parameters, newDefaultExperimentParameters(heuristicWeight))
-	}
-	return parameters
-}
-
 func newRandomSparseEvaluationExperimentParameters() []ExperimentParameters {
 	return newSeededControlEvaluationExperimentParameters(randomSparseSeeds)
 }

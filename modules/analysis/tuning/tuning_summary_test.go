@@ -84,13 +84,8 @@ func TestSaveIncludesPatchingMsaPatchBias(t *testing.T) {
 	assertContains(t, content, "| 0.70 | 0.75 | 2.00 | 2.00 | 0 | 0 | 20.00 |")
 }
 
-func TestSaveRemovesLegacyBestParametersReports(t *testing.T) {
+func TestSaveReportsMissingResultFiles(t *testing.T) {
 	root := t.TempDir()
-	legacyPath := filepath.Join(root, "best_parameters_report.md")
-	if err := os.WriteFile(legacyPath, []byte("legacy"), 0644); err != nil {
-		t.Fatalf("failed to write legacy report: %v", err)
-	}
-
 	err := Save(Config{
 		ResultsRootPath: root,
 		Heuristics: []HeuristicConfig{
@@ -108,9 +103,6 @@ func TestSaveRemovesLegacyBestParametersReports(t *testing.T) {
 		t.Fatalf("Save returned unexpected error: %v", err)
 	}
 
-	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
-		t.Fatalf("expected legacy best-parameters report to be removed, stat err=%v", err)
-	}
 	content := readSummary(t, root)
 	assertContains(t, content, "Instances used: 0/1")
 	assertContains(t, content, "Missing result files: missing")

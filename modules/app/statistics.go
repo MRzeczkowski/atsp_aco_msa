@@ -5,38 +5,12 @@ import (
 	"os"
 )
 
-var statisticsCsvHeader = experiments.StatisticsCsvHeader
-
-func statisticsCsvHeaderForHeuristic(heuristic string) []string {
-	return experiments.StatisticsCsvHeaderForHeuristic(heuristic)
-}
-
-func readStatistics(csvFilePath string) ([]ExperimentsDataStatistics, error) {
-	return experiments.ReadStatistics(csvFilePath)
-}
-
-func parseStatisticsRecord(record []string, includeMsaPatchBias, includeRandomSeed bool, defaultMsaPatchBias float64) (ExperimentsDataStatistics, error) {
-	return experiments.ParseStatisticsRecord(record, includeMsaPatchBias, includeRandomSeed, defaultMsaPatchBias)
-}
-
-func saveStatistics(resultCsvPath, heuristic string, statistics []ExperimentsDataStatistics) {
-	experiments.SaveStatistics(resultCsvPath, heuristic, statistics)
-}
-
-func saveHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperimentStatistics) error {
-	return experiments.SaveHeuristicStatistics(resultCsvPath, statistics)
-}
-
-func readHeuristicStatistics(resultCsvPath string) ([]HeuristicExperimentStatistics, error) {
-	return experiments.ReadHeuristicStatistics(resultCsvPath)
-}
-
 func saveEvaluationHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperimentStatistics, configurations []evaluationExperimentConfiguration) error {
 	if len(configurations) == len(evaluationExperimentConfigurations()) {
-		return saveHeuristicStatistics(resultCsvPath, statistics)
+		return experiments.SaveHeuristicStatistics(resultCsvPath, statistics)
 	}
 
-	existingStatistics, err := readHeuristicStatistics(resultCsvPath)
+	existingStatistics, err := experiments.ReadHeuristicStatistics(resultCsvPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			existingStatistics = nil
@@ -46,7 +20,7 @@ func saveEvaluationHeuristicStatistics(resultCsvPath string, statistics []Heuris
 	}
 
 	mergedStatistics := mergeHeuristicStatistics(existingStatistics, statistics, configurations)
-	return saveHeuristicStatistics(resultCsvPath, mergedStatistics)
+	return experiments.SaveHeuristicStatistics(resultCsvPath, mergedStatistics)
 }
 
 func mergeHeuristicStatistics(existingStatistics, newStatistics []HeuristicExperimentStatistics, configurations []evaluationExperimentConfiguration) []HeuristicExperimentStatistics {

@@ -66,9 +66,6 @@ func Save(config Config) error {
 	if config.ReadStatistics == nil {
 		return fmt.Errorf("statistics reader is required")
 	}
-	if err := removeLegacyBestParametersReports(config.ResultsRootPath); err != nil {
-		return err
-	}
 
 	reportPath := filepath.Join(config.ResultsRootPath, ReportFileName)
 	if err := os.MkdirAll(filepath.Dir(reportPath), 0700); err != nil {
@@ -271,19 +268,4 @@ func median(values []float64) float64 {
 
 func floatEqual(left, right float64) bool {
 	return math.Abs(left-right) < 1e-9
-}
-
-func removeLegacyBestParametersReports(resultsRootPath string) error {
-	matches, err := filepath.Glob(filepath.Join(resultsRootPath, "best_parameters_report*.md"))
-	if err != nil {
-		return err
-	}
-
-	for _, match := range matches {
-		if err := os.Remove(match); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-	}
-
-	return nil
 }

@@ -105,8 +105,12 @@ func TestSaveEvaluationResultsSummaryWritesMarkdownTableWithHighlightedFindings(
 	}
 
 	summaryPath := filepath.Join(resultsRoot, "summary.md")
-	if err := SaveEvaluationResultsSummary([]project.AtspData{firstAtspData, secondAtspData}, summaryPath, evaluationReportsTestConfig()); err != nil {
-		t.Fatalf("SaveEvaluationResultsSummary returned unexpected error: %v", err)
+	summaryRows, err := ReadEvaluationResultsSummaryRows([]project.AtspData{firstAtspData, secondAtspData})
+	if err != nil {
+		t.Fatalf("ReadEvaluationResultsSummaryRows returned unexpected error: %v", err)
+	}
+	if err := SaveEvaluationResultsSummaryRows(summaryRows, summaryPath, evaluationReportsTestConfig()); err != nil {
+		t.Fatalf("SaveEvaluationResultsSummaryRows returned unexpected error: %v", err)
 	}
 
 	contentBytes, err := os.ReadFile(summaryPath)

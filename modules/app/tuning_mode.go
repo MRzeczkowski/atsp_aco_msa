@@ -4,6 +4,7 @@ import (
 	"atsp_aco_msa/modules/analysis/tours"
 	"atsp_aco_msa/modules/analysis/tuning"
 	"atsp_aco_msa/modules/artifacts/cyclecover"
+	"atsp_aco_msa/modules/experiments"
 	workerpool "atsp_aco_msa/modules/experiments/workers"
 	"atsp_aco_msa/modules/project"
 	"fmt"
@@ -63,7 +64,7 @@ func saveTuningSummary(resultsRootPath string, atspsData []AtspData, heuristics 
 }
 
 func readTuningSummaryStatistics(path string) ([]tuning.Statistic, error) {
-	experimentStatistics, err := readStatistics(path)
+	experimentStatistics, err := experiments.ReadStatistics(path)
 	if err != nil {
 		return nil, err
 	}
@@ -137,13 +138,13 @@ func prepareExperimentSetInstance(atspData AtspData, heuristic string, experimen
 	}
 
 	var err error
-	if heuristicUsesRootedMsaForTuning(heuristic) {
+	if heuristicUsesRootedMsa(heuristic) {
 		instanceRun.rootedMsaHeuristic, err = readRootedMsaHeuristics(atspData)
 		if err != nil {
 			return nil, err
 		}
 	} else if heuristicUsesMsaHeuristic(heuristic) {
-		instanceRun.heuristicMatrix, err = readMsaHeuristicMatrixForHeuristic(atspData, heuristic)
+		instanceRun.heuristicMatrix, err = readMsaHeuristicMatrix(atspData)
 		if err != nil {
 			return nil, err
 		}
@@ -207,11 +208,11 @@ func runExperimentSetParameter(instanceRun *experimentSetInstanceRun, parameters
 
 	heuristicModifiers := buildHeuristicModifiers(instanceRun.heuristic, instanceRun.matrix, instanceRun.heuristicMatrix, instanceRun.cycleCover, parameters)
 	rootedHeuristicModifiers := buildRootedHeuristicModifiers(instanceRun.heuristic, instanceRun.matrix, instanceRun.rootedMsaHeuristic, parameters)
-	results := runExperimentsWithRootedHeuristicModifiers(numberOfExperiments, parameters, instanceRun.knownOptimal, instanceRun.matrix, heuristicModifiers, rootedHeuristicModifiers, false)
+	results := experiments.RunExperimentsWithRootedHeuristicModifiers(numberOfExperiments, parameters, instanceRun.knownOptimal, instanceRun.matrix, heuristicModifiers, rootedHeuristicModifiers, false)
 	data := ExperimentsData{ExperimentParameters: parameters, Results: results}
 	instanceRun.experimentData[parameterIndex] = data
 
-	parameterStatistics := calculateStatistics([]ExperimentsData{data})
+	parameterStatistics := experiments.CalculateStatistics([]ExperimentsData{data})
 	if len(parameterStatistics) == 0 {
 		return nil
 	}
@@ -242,9 +243,9 @@ func finishExperimentSetInstance(instanceRun *experimentSetInstanceRun) error {
 	heuristic := instanceRun.heuristic
 	experimentData := instanceRun.experimentData
 
-	statistics := calculateStatistics(experimentData)
+	statistics := experiments.CalculateStatistics(experimentData)
 	if len(statistics) != 0 {
-		saveStatistics(resultFilePathForHeuristic(atspData, heuristic), heuristic, statistics)
+		experiments.SaveStatistics(resultFilePathForHeuristic(atspData, heuristic), heuristic, statistics)
 		if !heuristicIsSparseControl(heuristic) {
 			if err := removeExperimentPlotsForHeuristic(atspData, heuristic); err != nil {
 				return err
