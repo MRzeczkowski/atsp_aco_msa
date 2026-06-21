@@ -9,11 +9,13 @@ import (
 )
 
 var ArtifactsDirectoryName = "artifacts"
-var ResultsDirectoryName = filepath.Join(ArtifactsDirectoryName, "tuning")
-var EvaluationResultsDirectoryName = filepath.Join(ArtifactsDirectoryName, "evaluation", "no_3opt")
-var EvaluationThreeOptResultsDirectoryName = filepath.Join(ArtifactsDirectoryName, "evaluation", "with_3opt")
-var MsaHeuristicArtifactsDirectoryName = filepath.Join(ArtifactsDirectoryName, "msa")
-var CycleCoverArtifactsDirectoryName = filepath.Join(ArtifactsDirectoryName, "cycle_cover")
+var CacheArtifactsDirectoryName = filepath.Join(ArtifactsDirectoryName, "cache")
+var ExperimentArtifactsDirectoryName = filepath.Join(ArtifactsDirectoryName, "experiments")
+var ResultsDirectoryName = filepath.Join(ExperimentArtifactsDirectoryName, "tuning")
+var EvaluationResultsDirectoryName = filepath.Join(ExperimentArtifactsDirectoryName, "evaluation", "no_3opt")
+var EvaluationThreeOptResultsDirectoryName = filepath.Join(ExperimentArtifactsDirectoryName, "evaluation", "with_3opt")
+var MsaHeuristicArtifactsDirectoryName = filepath.Join(CacheArtifactsDirectoryName, "msa")
+var CycleCoverArtifactsDirectoryName = filepath.Join(CacheArtifactsDirectoryName, "cycle_cover")
 var SolutionArtifactsDirectoryName = filepath.Join(ArtifactsDirectoryName, "solutions")
 var ResultFileName = "result.csv"
 
