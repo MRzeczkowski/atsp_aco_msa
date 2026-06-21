@@ -4,7 +4,7 @@ Celem porównania było sprawdzenie, czy zaimplementowany wariant GKS daje wynik
 
 Fred Glover, Gregory Gutin, Anders Yeo, Alexey Zverovich, "Construction heuristics for the asymmetric TSP", European Journal of Operational Research 129 (2001), 555-568.
 
-W tabeli porównano kolumnę `GKS (%)` z pracy z wariantem `MSA patch bias = 0.00` z pliku `final/gks_deviation.md`. Ten wariant nie korzysta z informacji z MSA, więc odpowiada czystemu wariantowi GKS opartemu wyłącznie na koszcie łatania.
+W tabeli porównano kolumnę `GKS (%)` z pracy z wariantem `MSA patch bias = 0.00` z pliku `artifacts/experiments/evaluation/no_3opt/gks_deviation.md`. Ten wariant nie korzysta z informacji z MSA, więc odpowiada czystemu wariantowi GKS opartemu wyłącznie na koszcie łatania.
 
 W pracy podano 26 instancji ATSP z TSPLIB. W lokalnym zestawie brakuje instancji `kro124p`, dlatego porównanie obejmuje 25 wspólnych instancji. Dla 12 z nich wyniki są zgodne z dokładnością do 0.01 p.p., dla 6 różnice są małe, a dla 7 wyraźne.
 
