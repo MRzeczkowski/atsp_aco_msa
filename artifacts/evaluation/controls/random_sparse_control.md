@@ -1,6 +1,6 @@
 # Random Sparse Control
 
-This sanity check compares Strict MSA against deterministic random sparse masks. Each random mask boosts the same number of directed edges as Strict MSA and uses the same heuristic weight. The comparison reads Strict MSA from the final results and averages the available final-control random seeds for each instance.
+This sanity check compares Strict MSA against deterministic random sparse masks. Each random mask boosts the same number of directed edges as Strict MSA and uses the same heuristic weight. The comparison reads Strict MSA from the evaluation results and averages the available evaluation-control random seeds for each instance.
 
 ## Findings
 

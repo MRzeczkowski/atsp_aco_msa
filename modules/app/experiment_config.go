@@ -47,14 +47,14 @@ func generateParameters(heuristic string) []ExperimentParameters {
 	return parameters
 }
 
-type finalExperimentConfiguration struct {
+type evaluationExperimentConfiguration struct {
 	Heuristic            string
 	Parameters           []ExperimentParameters
 	SaveAllParameterRows bool
 }
 
-func finalExperimentConfigurations() []finalExperimentConfiguration {
-	return []finalExperimentConfiguration{
+func evaluationExperimentConfigurations() []evaluationExperimentConfiguration {
+	return []evaluationExperimentConfiguration{
 		{
 			Heuristic: heuristicBaseline,
 			Parameters: []ExperimentParameters{
@@ -64,66 +64,66 @@ func finalExperimentConfigurations() []finalExperimentConfiguration {
 		{
 			Heuristic: heuristicStrictMsa,
 			Parameters: []ExperimentParameters{
-				newDefaultExperimentParameters(finalStrictMsaHeuristicWeight),
+				newDefaultExperimentParameters(evaluationStrictMsaHeuristicWeight),
 			},
 		},
 		{
 			Heuristic: heuristicRootedMsa,
 			Parameters: []ExperimentParameters{
-				newDefaultExperimentParameters(finalRootedMsaHeuristicWeight),
+				newDefaultExperimentParameters(evaluationRootedMsaHeuristicWeight),
 			},
 		},
 		{
 			Heuristic: heuristicCycleCover,
 			Parameters: []ExperimentParameters{
-				newDefaultExperimentParameters(finalCycleCoverWeight),
+				newDefaultExperimentParameters(evaluationCycleCoverWeight),
 			},
 		},
 		{
 			Heuristic: heuristicCycleCoverMsaPatching,
 			Parameters: []ExperimentParameters{
-				newPatchingExperimentParameters(finalCycleCoverMsaPatchingWeight, finalCycleCoverMsaPatchingMsaPatchBias),
+				newPatchingExperimentParameters(evaluationCycleCoverMsaPatchingWeight, evaluationCycleCoverMsaPatchingMsaPatchBias),
 			},
 		},
 	}
 }
 
-func finalControlExperimentConfigurations() []finalExperimentConfiguration {
-	return []finalExperimentConfiguration{
+func evaluationControlExperimentConfigurations() []evaluationExperimentConfiguration {
+	return []evaluationExperimentConfiguration{
 		{
 			Heuristic:  heuristicRandomSparse,
-			Parameters: newRandomSparseFinalExperimentParameters(),
+			Parameters: newRandomSparseEvaluationExperimentParameters(),
 		},
 		{
 			Heuristic: heuristicDistanceRankedSparse,
 			Parameters: []ExperimentParameters{
-				newDefaultExperimentParameters(finalStrictMsaHeuristicWeight),
+				newDefaultExperimentParameters(evaluationStrictMsaHeuristicWeight),
 			},
 		},
 		{
 			Heuristic:  heuristicShuffledMsa,
-			Parameters: newShuffledMsaFinalExperimentParameters(),
+			Parameters: newShuffledMsaEvaluationExperimentParameters(),
 		},
 	}
 }
 
-func selectFinalExperimentConfigurations(finalHeuristic string) ([]finalExperimentConfiguration, error) {
-	configurations := finalExperimentConfigurations()
-	if finalHeuristic == finalHeuristicAll {
+func selectEvaluationExperimentConfigurations(evaluationHeuristic string) ([]evaluationExperimentConfiguration, error) {
+	configurations := evaluationExperimentConfigurations()
+	if evaluationHeuristic == evaluationHeuristicAll {
 		return configurations, nil
 	}
-	if finalHeuristic == finalHeuristicControls {
-		return finalControlExperimentConfigurations(), nil
+	if evaluationHeuristic == evaluationHeuristicControls {
+		return evaluationControlExperimentConfigurations(), nil
 	}
 
-	allConfigurations := append(append([]finalExperimentConfiguration{}, configurations...), finalControlExperimentConfigurations()...)
+	allConfigurations := append(append([]evaluationExperimentConfiguration{}, configurations...), evaluationControlExperimentConfigurations()...)
 	for _, configuration := range allConfigurations {
-		if configuration.Heuristic == finalHeuristic {
-			return []finalExperimentConfiguration{configuration}, nil
+		if configuration.Heuristic == evaluationHeuristic {
+			return []evaluationExperimentConfiguration{configuration}, nil
 		}
 	}
 
-	return nil, fmt.Errorf("unsupported final heuristic %q", finalHeuristic)
+	return nil, fmt.Errorf("unsupported evaluation heuristic %q", evaluationHeuristic)
 }
 
 func newDefaultExperimentParameters(heuristicWeight float64) ExperimentParameters {
@@ -143,16 +143,16 @@ func newDefaultExperimentParametersForWeights(heuristicWeights []float64) []Expe
 	return parameters
 }
 
-func newRandomSparseFinalExperimentParameters() []ExperimentParameters {
-	return newSeededControlFinalExperimentParameters(randomSparseSeeds)
+func newRandomSparseEvaluationExperimentParameters() []ExperimentParameters {
+	return newSeededControlEvaluationExperimentParameters(randomSparseSeeds)
 }
 
-func newShuffledMsaFinalExperimentParameters() []ExperimentParameters {
-	return newSeededControlFinalExperimentParameters(shuffledMsaSeeds)
+func newShuffledMsaEvaluationExperimentParameters() []ExperimentParameters {
+	return newSeededControlEvaluationExperimentParameters(shuffledMsaSeeds)
 }
 
-func newSeededControlFinalExperimentParameters(seeds []int64) []ExperimentParameters {
-	return newSeededControlExperimentParametersForWeights(seeds, []float64{finalStrictMsaHeuristicWeight})
+func newSeededControlEvaluationExperimentParameters(seeds []int64) []ExperimentParameters {
+	return newSeededControlExperimentParametersForWeights(seeds, []float64{evaluationStrictMsaHeuristicWeight})
 }
 
 func newSeededControlExperimentParametersForWeights(seeds []int64, heuristicWeights []float64) []ExperimentParameters {

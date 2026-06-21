@@ -18,7 +18,7 @@ const (
 	testHeuristicCycleCoverMsaPatching = "cycle-cover-msa-patching"
 )
 
-func TestSaveFinalResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *testing.T) {
+func TestSaveEvaluationResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *testing.T) {
 	resultsRoot := t.TempDir()
 	firstAtspData := project.MakeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
 	secondAtspData := project.MakeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
@@ -105,18 +105,18 @@ func TestSaveFinalResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *te
 	}
 
 	summaryPath := filepath.Join(resultsRoot, "summary.md")
-	if err := SaveFinalResultsSummary([]project.AtspData{firstAtspData, secondAtspData}, summaryPath, finalReportsTestConfig()); err != nil {
-		t.Fatalf("SaveFinalResultsSummary returned unexpected error: %v", err)
+	if err := SaveEvaluationResultsSummary([]project.AtspData{firstAtspData, secondAtspData}, summaryPath, evaluationReportsTestConfig()); err != nil {
+		t.Fatalf("SaveEvaluationResultsSummary returned unexpected error: %v", err)
 	}
 
 	contentBytes, err := os.ReadFile(summaryPath)
 	if err != nil {
-		t.Fatalf("failed to read final summary Markdown: %v", err)
+		t.Fatalf("failed to read evaluation summary Markdown: %v", err)
 	}
 
 	lines := strings.Split(strings.TrimSpace(string(contentBytes)), "\n")
 	expected := []string{
-		"# Final Results Summary",
+		"# Evaluation Results Summary",
 		"",
 		"## Findings",
 		"",
@@ -137,16 +137,16 @@ func TestSaveFinalResultsSummaryWritesMarkdownTableWithHighlightedFindings(t *te
 		"</table>",
 	}
 	if !reflect.DeepEqual(lines, expected) {
-		t.Fatalf("unexpected final summary Markdown\nwant: %v\n got: %v", expected, lines)
+		t.Fatalf("unexpected evaluation summary Markdown\nwant: %v\n got: %v", expected, lines)
 	}
 }
 
-func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "comparison_to_final.md")
-	finalRows := []FinalResultsSummaryRow{
+func TestSaveEvaluationThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "comparison_to_evaluation.md")
+	evaluationRows := []EvaluationResultsSummaryRow{
 		{
 			Instance: "sample",
-			Metrics: map[string]FinalResultSummaryMetric{
+			Metrics: map[string]EvaluationResultSummaryMetric{
 				testHeuristicBaseline: {
 					AverageMinDeviation:  10.0,
 					SuccessRate:          10.0,
@@ -174,10 +174,10 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 			},
 		},
 	}
-	finalThreeOptRows := []FinalResultsSummaryRow{
+	evaluationThreeOptRows := []EvaluationResultsSummaryRow{
 		{
 			Instance: "sample",
-			Metrics: map[string]FinalResultSummaryMetric{
+			Metrics: map[string]EvaluationResultSummaryMetric{
 				testHeuristicBaseline: {
 					AverageMinDeviation:  1.0,
 					SuccessRate:          50.0,
@@ -206,8 +206,8 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 		},
 	}
 
-	if err := SaveFinalThreeOptComparisonReport(path, finalRows, finalThreeOptRows, finalReportsTestConfig()); err != nil {
-		t.Fatalf("SaveFinalThreeOptComparisonReport returned unexpected error: %v", err)
+	if err := SaveEvaluationThreeOptComparisonReport(path, evaluationRows, evaluationThreeOptRows, evaluationReportsTestConfig()); err != nil {
+		t.Fatalf("SaveEvaluationThreeOptComparisonReport returned unexpected error: %v", err)
 	}
 
 	contentBytes, err := os.ReadFile(path)
@@ -224,10 +224,10 @@ func TestSaveFinalThreeOptComparisonReportShowsHiddenHeuristicEffect(t *testing.
 	assertContains(t, content, "<tr><td>Cycle-cover MSA patching</td><td align=\"right\">+2.50</td><td align=\"right\">+0.15</td><td align=\"right\">6.00</td></tr>")
 }
 
-func TestSaveFinalPairwisePerformanceReport(t *testing.T) {
+func TestSaveEvaluationPairwisePerformanceReport(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "pairwise_performance.md")
-	if err := SaveFinalPairwisePerformanceReport(path, sampleFinalSummaryRows(), finalReportsTestConfig()); err != nil {
-		t.Fatalf("SaveFinalPairwisePerformanceReport returned unexpected error: %v", err)
+	if err := SaveEvaluationPairwisePerformanceReport(path, sampleEvaluationSummaryRows(), evaluationReportsTestConfig()); err != nil {
+		t.Fatalf("SaveEvaluationPairwisePerformanceReport returned unexpected error: %v", err)
 	}
 
 	contentBytes, err := os.ReadFile(path)
@@ -241,10 +241,10 @@ func TestSaveFinalPairwisePerformanceReport(t *testing.T) {
 	assertContains(t, content, "<tr><td>Strict MSA vs Cycle cover</td><td align=\"right\">+0.25</td><td align=\"right\">0</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">-5.00</td></tr>")
 }
 
-func TestSaveFinalConvergenceSummaryReport(t *testing.T) {
+func TestSaveEvaluationConvergenceSummaryReport(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "convergence_summary.md")
-	if err := SaveFinalConvergenceSummaryReport(path, sampleFinalSummaryRows(), finalReportsTestConfig()); err != nil {
-		t.Fatalf("SaveFinalConvergenceSummaryReport returned unexpected error: %v", err)
+	if err := SaveEvaluationConvergenceSummaryReport(path, sampleEvaluationSummaryRows(), evaluationReportsTestConfig()); err != nil {
+		t.Fatalf("SaveEvaluationConvergenceSummaryReport returned unexpected error: %v", err)
 	}
 
 	contentBytes, err := os.ReadFile(path)
@@ -260,7 +260,7 @@ func TestSaveFinalConvergenceSummaryReport(t *testing.T) {
 
 func TestSaveStructuralPerformanceLinkReport(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "structural_performance_link.md")
-	if err := SaveStructuralPerformanceLinkReport(path, sampleFinalSummaryRows(), sampleStructuralAnalyses(), finalReportsTestConfig()); err != nil {
+	if err := SaveStructuralPerformanceLinkReport(path, sampleEvaluationSummaryRows(), sampleStructuralAnalyses(), evaluationReportsTestConfig()); err != nil {
 		t.Fatalf("SaveStructuralPerformanceLinkReport returned unexpected error: %v", err)
 	}
 
@@ -275,8 +275,8 @@ func TestSaveStructuralPerformanceLinkReport(t *testing.T) {
 	assertContains(t, content, "<tr><td>Cycle-cover MSA patching</td><td align=\"right\">63.64</td><td align=\"right\"><strong>50.00</strong></td><td align=\"right\"><strong>2.40</strong></td><td align=\"right\"><strong>25.00</strong></td></tr>")
 }
 
-func finalReportsTestConfig() FinalReportsConfig {
-	return FinalReportsConfig{
+func evaluationReportsTestConfig() EvaluationReportsConfig {
+	return EvaluationReportsConfig{
 		Heuristics: []string{
 			testHeuristicBaseline,
 			testHeuristicStrictMsa,
@@ -288,11 +288,11 @@ func finalReportsTestConfig() FinalReportsConfig {
 		StrictMsaHeuristic:             testHeuristicStrictMsa,
 		CycleCoverHeuristic:            testHeuristicCycleCover,
 		CycleCoverMsaPatchingHeuristic: testHeuristicCycleCoverMsaPatching,
-		DisplayName:                    finalReportTestDisplayName,
+		DisplayName:                    evaluationReportTestDisplayName,
 	}
 }
 
-func finalReportTestDisplayName(heuristic string) string {
+func evaluationReportTestDisplayName(heuristic string) string {
 	switch heuristic {
 	case testHeuristicBaseline:
 		return "Baseline"
@@ -309,11 +309,11 @@ func finalReportTestDisplayName(heuristic string) string {
 	}
 }
 
-func sampleFinalSummaryRows() []FinalResultsSummaryRow {
-	return []FinalResultsSummaryRow{
+func sampleEvaluationSummaryRows() []EvaluationResultsSummaryRow {
+	return []EvaluationResultsSummaryRow{
 		{
 			Instance: "a",
-			Metrics: map[string]FinalResultSummaryMetric{
+			Metrics: map[string]EvaluationResultSummaryMetric{
 				testHeuristicBaseline: {
 					AverageMinDeviation:  4.0,
 					SuccessRate:          10.0,
@@ -342,7 +342,7 @@ func sampleFinalSummaryRows() []FinalResultsSummaryRow {
 		},
 		{
 			Instance: "b",
-			Metrics: map[string]FinalResultSummaryMetric{
+			Metrics: map[string]EvaluationResultSummaryMetric{
 				testHeuristicBaseline: {
 					AverageMinDeviation:  5.0,
 					SuccessRate:          0.0,

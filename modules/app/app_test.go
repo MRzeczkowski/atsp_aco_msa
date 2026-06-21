@@ -169,7 +169,7 @@ func TestReadMsaHeuristicMatrixForResultRootUsesCompositeMsaForMatrixFallback(t 
 		{0, 0, 0},
 	})
 
-	normalMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicStrictMsa, project.FinalResultsDirectoryName)
+	normalMatrix, err := readMsaHeuristicMatrixForResultRoot(atspData, heuristicStrictMsa, project.EvaluationResultsDirectoryName)
 	if err != nil {
 		t.Fatalf("read normal MSA matrix: %v", err)
 	}
@@ -272,16 +272,16 @@ func TestSaveHeuristicStatisticsWritesSingleComparisonCsv(t *testing.T) {
 	}
 }
 
-func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
+func TestRunEvaluationResultsAnalysisReadsExistingEvaluationResults(t *testing.T) {
 	resultsRoot := t.TempDir()
-	oldFinalResultsDirectoryName := project.FinalResultsDirectoryName
-	project.FinalResultsDirectoryName = filepath.Join(resultsRoot, "final")
+	oldEvaluationResultsDirectoryName := project.EvaluationResultsDirectoryName
+	project.EvaluationResultsDirectoryName = filepath.Join(resultsRoot, "evaluation")
 	defer func() {
-		project.FinalResultsDirectoryName = oldFinalResultsDirectoryName
+		project.EvaluationResultsDirectoryName = oldEvaluationResultsDirectoryName
 	}()
 
 	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
-	finalAtspData := project.WithExperimentOutputRoot(atspData, project.FinalResultsDirectoryName)
+	evaluationAtspData := project.WithExperimentOutputRoot(atspData, project.EvaluationResultsDirectoryName)
 	rows := []HeuristicExperimentStatistics{
 		{
 			Heuristic: heuristicBaseline,
@@ -305,30 +305,30 @@ func TestRunFinalResultsAnalysisReadsExistingFinalResults(t *testing.T) {
 			},
 		},
 	}
-	if err := saveHeuristicStatistics(finalAtspData.ResultFilePath, rows); err != nil {
+	if err := saveHeuristicStatistics(evaluationAtspData.ResultFilePath, rows); err != nil {
 		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
-	summaryPath, _, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil, project.FinalResultsDirectoryName)
+	summaryPath, _, saved, err := runEvaluationResultsAnalysis([]AtspData{atspData}, nil, project.EvaluationResultsDirectoryName)
 	if err != nil {
-		t.Fatalf("runFinalResultsAnalysis returned unexpected error: %v", err)
+		t.Fatalf("runEvaluationResultsAnalysis returned unexpected error: %v", err)
 	}
 	if !saved {
-		t.Fatal("expected final results summary to be saved")
+		t.Fatal("expected evaluation results summary to be saved")
 	}
-	if summaryPath != filepath.Join(project.FinalResultsDirectoryName, "summary.md") {
+	if summaryPath != filepath.Join(project.EvaluationResultsDirectoryName, "summary.md") {
 		t.Fatalf("unexpected summary path: %s", summaryPath)
 	}
 	if _, err := os.Stat(summaryPath); err != nil {
-		t.Fatalf("expected final results summary file to exist: %v", err)
+		t.Fatalf("expected evaluation results summary file to exist: %v", err)
 	}
 }
 
-func TestRunFinalResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
+func TestRunEvaluationResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
 	resultsRoot := t.TempDir()
-	finalThreeOptRoot := filepath.Join(resultsRoot, "final_3opt")
+	evaluationThreeOptRoot := filepath.Join(resultsRoot, "evaluation_3opt")
 	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, resultsRoot)
-	finalThreeOptAtspData := project.WithExperimentOutputRoot(atspData, finalThreeOptRoot)
+	evaluationThreeOptAtspData := project.WithExperimentOutputRoot(atspData, evaluationThreeOptRoot)
 	rows := []HeuristicExperimentStatistics{
 		{
 			Heuristic: heuristicBaseline,
@@ -352,23 +352,23 @@ func TestRunFinalResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
 			},
 		},
 	}
-	if err := saveHeuristicStatistics(finalThreeOptAtspData.ResultFilePath, rows); err != nil {
+	if err := saveHeuristicStatistics(evaluationThreeOptAtspData.ResultFilePath, rows); err != nil {
 		t.Fatalf("saveHeuristicStatistics returned unexpected error: %v", err)
 	}
 
-	summaryPath, _, saved, err := runFinalResultsAnalysis([]AtspData{atspData}, nil, finalThreeOptRoot)
+	summaryPath, _, saved, err := runEvaluationResultsAnalysis([]AtspData{atspData}, nil, evaluationThreeOptRoot)
 	if err != nil {
-		t.Fatalf("runFinalResultsAnalysis returned unexpected error: %v", err)
+		t.Fatalf("runEvaluationResultsAnalysis returned unexpected error: %v", err)
 	}
 	if !saved {
-		t.Fatal("expected final+3opt results summary to be saved")
+		t.Fatal("expected evaluation+3opt results summary to be saved")
 	}
-	if summaryPath != filepath.Join(finalThreeOptRoot, "summary.md") {
+	if summaryPath != filepath.Join(evaluationThreeOptRoot, "summary.md") {
 		t.Fatalf("unexpected summary path: %s", summaryPath)
 	}
 
 	for _, name := range []string{"summary.md", "pairwise_performance.md", "convergence_summary.md"} {
-		path := filepath.Join(finalThreeOptRoot, name)
+		path := filepath.Join(evaluationThreeOptRoot, name)
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected %s to exist: %v", path, err)
 		}
@@ -554,7 +554,7 @@ func TestHeuristicSpecificPathsKeepMsaHeuristicBaselinePaths(t *testing.T) {
 
 func TestWithExperimentOutputRootMovesOutputsButKeepsMsaHeuristicCache(t *testing.T) {
 	atspData := project.MakeAtspData("test.atsp", [][]float64{{0, 1}, {1, 0}}, 2)
-	output := project.WithExperimentOutputRoot(atspData, project.FinalResultsDirectoryName)
+	output := project.WithExperimentOutputRoot(atspData, project.EvaluationResultsDirectoryName)
 
 	if output.MsaHeuristicDirectoryPath != atspData.MsaHeuristicDirectoryPath {
 		t.Fatalf("expected MSA heuristic cache path to stay %s, got %s", atspData.MsaHeuristicDirectoryPath, output.MsaHeuristicDirectoryPath)
@@ -566,9 +566,9 @@ func TestWithExperimentOutputRootMovesOutputsButKeepsMsaHeuristicCache(t *testin
 		t.Fatalf("expected cycle-cover heatmap path to stay %s, got %s", atspData.CycleCoverHeatmapPlotPath, output.CycleCoverHeatmapPlotPath)
 	}
 
-	expectedResultPath := filepath.Join(project.FinalResultsDirectoryName, "test", project.ResultFileName)
+	expectedResultPath := filepath.Join(project.EvaluationResultsDirectoryName, "test", project.ResultFileName)
 	if output.ResultFilePath != expectedResultPath {
-		t.Fatalf("unexpected final result path\nwant: %s\n got: %s", expectedResultPath, output.ResultFilePath)
+		t.Fatalf("unexpected evaluation result path\nwant: %s\n got: %s", expectedResultPath, output.ResultFilePath)
 	}
 
 	if output.OptimalUniqueToursCsvPath != atspData.OptimalUniqueToursCsvPath {
@@ -576,30 +576,30 @@ func TestWithExperimentOutputRootMovesOutputsButKeepsMsaHeuristicCache(t *testin
 	}
 }
 
-func TestFinalExperimentConfigurationsUseFixedBalancedComparison(t *testing.T) {
-	configs := finalExperimentConfigurations()
+func TestEvaluationExperimentConfigurationsUseFixedBalancedComparison(t *testing.T) {
+	configs := evaluationExperimentConfigurations()
 	expected := []struct {
 		heuristic string
 		weight    float64
 		bias      float64
 	}{
 		{heuristicBaseline, defaultBaselineHeuristicWeight, 0.0},
-		{heuristicStrictMsa, finalStrictMsaHeuristicWeight, 0.0},
-		{heuristicRootedMsa, finalRootedMsaHeuristicWeight, 0.0},
-		{heuristicCycleCover, finalCycleCoverWeight, 0.0},
-		{heuristicCycleCoverMsaPatching, finalCycleCoverMsaPatchingWeight, finalCycleCoverMsaPatchingMsaPatchBias},
+		{heuristicStrictMsa, evaluationStrictMsaHeuristicWeight, 0.0},
+		{heuristicRootedMsa, evaluationRootedMsaHeuristicWeight, 0.0},
+		{heuristicCycleCover, evaluationCycleCoverWeight, 0.0},
+		{heuristicCycleCoverMsaPatching, evaluationCycleCoverMsaPatchingWeight, evaluationCycleCoverMsaPatchingMsaPatchBias},
 	}
 
 	if len(configs) != len(expected) {
-		t.Fatalf("expected %d final experiment configurations, got %d", len(expected), len(configs))
+		t.Fatalf("expected %d evaluation experiment configurations, got %d", len(expected), len(configs))
 	}
 
 	for i, config := range configs {
 		if config.Heuristic != expected[i].heuristic {
-			t.Fatalf("unexpected final heuristic at %d: want %s got %s", i, expected[i].heuristic, config.Heuristic)
+			t.Fatalf("unexpected evaluation heuristic at %d: want %s got %s", i, expected[i].heuristic, config.Heuristic)
 		}
 		if len(config.Parameters) != 1 {
-			t.Fatalf("expected one final parameter set for %s, got %d", config.Heuristic, len(config.Parameters))
+			t.Fatalf("expected one evaluation parameter set for %s, got %d", config.Heuristic, len(config.Parameters))
 		}
 
 		parameters := config.Parameters[0]
@@ -608,7 +608,7 @@ func TestFinalExperimentConfigurationsUseFixedBalancedComparison(t *testing.T) {
 			parameters.Rho != defaultExperimentRho ||
 			parameters.HeuristicWeight != expected[i].weight ||
 			parameters.MsaPatchBias != expected[i].bias {
-			t.Fatalf("unexpected final parameters for %s: %+v", config.Heuristic, parameters)
+			t.Fatalf("unexpected evaluation parameters for %s: %+v", config.Heuristic, parameters)
 		}
 	}
 }
@@ -733,124 +733,124 @@ func TestSelectExperimentHeuristics(t *testing.T) {
 	}
 }
 
-func TestSelectFinalExperimentConfigurations(t *testing.T) {
-	allConfigurations, err := selectFinalExperimentConfigurations(finalHeuristicAll)
+func TestSelectEvaluationExperimentConfigurations(t *testing.T) {
+	allConfigurations, err := selectEvaluationExperimentConfigurations(evaluationHeuristicAll)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(all) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(all) returned error: %v", err)
 	}
-	if len(allConfigurations) != len(finalExperimentConfigurations()) {
-		t.Fatalf("expected all final configurations, got %d", len(allConfigurations))
+	if len(allConfigurations) != len(evaluationExperimentConfigurations()) {
+		t.Fatalf("expected all evaluation configurations, got %d", len(allConfigurations))
 	}
-	if finalConfigurationsAreSparseControls(allConfigurations) {
-		t.Fatal("main final all configuration should not be treated as sparse controls")
+	if evaluationConfigurationsAreSparseControls(allConfigurations) {
+		t.Fatal("main evaluation all configuration should not be treated as sparse controls")
 	}
 
-	controlConfigurations, err := selectFinalExperimentConfigurations(finalHeuristicControls)
+	controlConfigurations, err := selectEvaluationExperimentConfigurations(evaluationHeuristicControls)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(controls) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(controls) returned error: %v", err)
 	}
-	if len(controlConfigurations) != len(finalControlExperimentConfigurations()) {
-		t.Fatalf("expected all final control configurations, got %d", len(controlConfigurations))
+	if len(controlConfigurations) != len(evaluationControlExperimentConfigurations()) {
+		t.Fatalf("expected all evaluation control configurations, got %d", len(controlConfigurations))
 	}
-	if !finalConfigurationsAreSparseControls(controlConfigurations) {
+	if !evaluationConfigurationsAreSparseControls(controlConfigurations) {
 		t.Fatal("control configurations should be treated as sparse controls")
 	}
 
-	cycleCoverConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCover)
+	cycleCoverConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCover)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(cycle-cover) returned error: %v", err)
 	}
 	if len(cycleCoverConfigurations) != 1 || cycleCoverConfigurations[0].Heuristic != heuristicCycleCover {
 		t.Fatalf("expected only cycle-cover configuration, got %+v", cycleCoverConfigurations)
 	}
 
-	patchingConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCoverMsaPatching)
+	patchingConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCoverMsaPatching)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover-msa-patching) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(cycle-cover-msa-patching) returned error: %v", err)
 	}
 	if len(patchingConfigurations) != 1 || patchingConfigurations[0].Heuristic != heuristicCycleCoverMsaPatching {
 		t.Fatalf("expected only cycle-cover MSA-patching configuration, got %+v", patchingConfigurations)
 	}
 
-	randomSparseConfigurations, err := selectFinalExperimentConfigurations(heuristicRandomSparse)
+	randomSparseConfigurations, err := selectEvaluationExperimentConfigurations(heuristicRandomSparse)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(random-sparse) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(random-sparse) returned error: %v", err)
 	}
 	if len(randomSparseConfigurations) != 1 || randomSparseConfigurations[0].Heuristic != heuristicRandomSparse || len(randomSparseConfigurations[0].Parameters) != len(randomSparseSeeds) {
 		t.Fatalf("expected only random-sparse control configuration, got %+v", randomSparseConfigurations)
 	}
 
-	shuffledMsaConfigurations, err := selectFinalExperimentConfigurations(heuristicShuffledMsa)
+	shuffledMsaConfigurations, err := selectEvaluationExperimentConfigurations(heuristicShuffledMsa)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(shuffled-msa) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(shuffled-msa) returned error: %v", err)
 	}
 	if len(shuffledMsaConfigurations) != 1 || shuffledMsaConfigurations[0].Heuristic != heuristicShuffledMsa || len(shuffledMsaConfigurations[0].Parameters) != len(shuffledMsaSeeds) {
 		t.Fatalf("expected only shuffled-MSA control configuration, got %+v", shuffledMsaConfigurations)
 	}
 
-	if _, err := selectFinalExperimentConfigurations("unknown"); err == nil {
-		t.Fatal("expected invalid final heuristic to be rejected")
+	if _, err := selectEvaluationExperimentConfigurations("unknown"); err == nil {
+		t.Fatal("expected invalid evaluation heuristic to be rejected")
 	}
 }
 
-func TestFinalExperimentOutputRootUsesControlsSubdirectoryForSparseControls(t *testing.T) {
-	mainConfigurations, err := selectFinalExperimentConfigurations(finalHeuristicAll)
+func TestEvaluationExperimentOutputRootUsesControlsSubdirectoryForSparseControls(t *testing.T) {
+	mainConfigurations, err := selectEvaluationExperimentConfigurations(evaluationHeuristicAll)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(all) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(all) returned error: %v", err)
 	}
-	if finalExperimentOutputRootForConfigurations(runModeFinal, mainConfigurations) != project.FinalResultsDirectoryName {
-		t.Fatalf("main final run should use %s", project.FinalResultsDirectoryName)
+	if evaluationExperimentOutputRootForConfigurations(runModeEvaluation, mainConfigurations) != project.EvaluationResultsDirectoryName {
+		t.Fatalf("main evaluation run should use %s", project.EvaluationResultsDirectoryName)
 	}
 
-	controlConfigurations, err := selectFinalExperimentConfigurations(finalHeuristicControls)
+	controlConfigurations, err := selectEvaluationExperimentConfigurations(evaluationHeuristicControls)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(controls) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(controls) returned error: %v", err)
 	}
-	expectedControlsRoot := filepath.Join(filepath.Dir(project.FinalResultsDirectoryName), "controls")
-	if finalExperimentOutputRootForConfigurations(runModeFinal, controlConfigurations) != expectedControlsRoot {
-		t.Fatalf("final controls should use %s", expectedControlsRoot)
+	expectedControlsRoot := filepath.Join(filepath.Dir(project.EvaluationResultsDirectoryName), "controls")
+	if evaluationExperimentOutputRootForConfigurations(runModeEvaluation, controlConfigurations) != expectedControlsRoot {
+		t.Fatalf("evaluation controls should use %s", expectedControlsRoot)
 	}
 }
 
-func TestFinalConfigurationsUseMsaHeuristicOnlyWhenNeeded(t *testing.T) {
-	baselineConfigurations, err := selectFinalExperimentConfigurations(heuristicBaseline)
+func TestEvaluationConfigurationsUseMsaHeuristicOnlyWhenNeeded(t *testing.T) {
+	baselineConfigurations, err := selectEvaluationExperimentConfigurations(heuristicBaseline)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(baseline) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(baseline) returned error: %v", err)
 	}
-	if finalConfigurationsUseMsaHeuristic(baselineConfigurations) {
-		t.Fatal("baseline-only final run should not require MSA heuristic")
+	if evaluationConfigurationsUseMsaHeuristic(baselineConfigurations) {
+		t.Fatal("baseline-only evaluation run should not require MSA heuristic")
 	}
 
-	cycleCoverConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCover)
+	cycleCoverConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCover)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(cycle-cover) returned error: %v", err)
 	}
-	if finalConfigurationsUseMsaHeuristic(cycleCoverConfigurations) {
-		t.Fatal("cycle-cover-only final run should not require MSA heuristic")
+	if evaluationConfigurationsUseMsaHeuristic(cycleCoverConfigurations) {
+		t.Fatal("cycle-cover-only evaluation run should not require MSA heuristic")
 	}
 
-	strictMsaConfigurations, err := selectFinalExperimentConfigurations(heuristicStrictMsa)
+	strictMsaConfigurations, err := selectEvaluationExperimentConfigurations(heuristicStrictMsa)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(strict-msa) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(strict-msa) returned error: %v", err)
 	}
-	if !finalConfigurationsUseMsaHeuristic(strictMsaConfigurations) {
-		t.Fatal("strict MSA final run should require MSA heuristic")
+	if !evaluationConfigurationsUseMsaHeuristic(strictMsaConfigurations) {
+		t.Fatal("strict MSA evaluation run should require MSA heuristic")
 	}
 
-	rootedMsaConfigurations, err := selectFinalExperimentConfigurations(heuristicRootedMsa)
+	rootedMsaConfigurations, err := selectEvaluationExperimentConfigurations(heuristicRootedMsa)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(rooted-msa) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(rooted-msa) returned error: %v", err)
 	}
-	if !finalConfigurationsUseMsaHeuristic(rootedMsaConfigurations) {
-		t.Fatal("rooted MSA final run should require MSA heuristic")
+	if !evaluationConfigurationsUseMsaHeuristic(rootedMsaConfigurations) {
+		t.Fatal("rooted MSA evaluation run should require MSA heuristic")
 	}
 
-	patchingConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCoverMsaPatching)
+	patchingConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCoverMsaPatching)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover-msa-patching) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(cycle-cover-msa-patching) returned error: %v", err)
 	}
-	if !finalConfigurationsUseMsaHeuristic(patchingConfigurations) {
-		t.Fatal("cycle-cover MSA-patching final run should require MSA heuristic")
+	if !evaluationConfigurationsUseMsaHeuristic(patchingConfigurations) {
+		t.Fatal("cycle-cover MSA-patching evaluation run should require MSA heuristic")
 	}
 }
 
@@ -865,40 +865,40 @@ func TestCycleCoverCacheIsNeededOnlyForCycleCoverHeuristics(t *testing.T) {
 		t.Fatal("cycle-cover MSA-patching tuning heuristic should require cycle-cover cache")
 	}
 
-	baselineConfigurations, err := selectFinalExperimentConfigurations(heuristicBaseline)
+	baselineConfigurations, err := selectEvaluationExperimentConfigurations(heuristicBaseline)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(baseline) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(baseline) returned error: %v", err)
 	}
-	if finalConfigurationsUseCycleCover(baselineConfigurations) {
-		t.Fatal("baseline final run should not require cycle-cover cache")
+	if evaluationConfigurationsUseCycleCover(baselineConfigurations) {
+		t.Fatal("baseline evaluation run should not require cycle-cover cache")
 	}
 
-	strictMsaConfigurations, err := selectFinalExperimentConfigurations(heuristicStrictMsa)
+	strictMsaConfigurations, err := selectEvaluationExperimentConfigurations(heuristicStrictMsa)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(strict-msa) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(strict-msa) returned error: %v", err)
 	}
-	if finalConfigurationsUseCycleCover(strictMsaConfigurations) {
-		t.Fatal("strict MSA final run should not require cycle-cover cache")
+	if evaluationConfigurationsUseCycleCover(strictMsaConfigurations) {
+		t.Fatal("strict MSA evaluation run should not require cycle-cover cache")
 	}
 
-	cycleCoverConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCover)
+	cycleCoverConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCover)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(cycle-cover) returned error: %v", err)
 	}
-	if !finalConfigurationsUseCycleCover(cycleCoverConfigurations) {
-		t.Fatal("cycle-cover final run should require cycle-cover cache")
+	if !evaluationConfigurationsUseCycleCover(cycleCoverConfigurations) {
+		t.Fatal("cycle-cover evaluation run should require cycle-cover cache")
 	}
 
-	patchingConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCoverMsaPatching)
+	patchingConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCoverMsaPatching)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover-msa-patching) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(cycle-cover-msa-patching) returned error: %v", err)
 	}
-	if !finalConfigurationsUseCycleCover(patchingConfigurations) {
-		t.Fatal("cycle-cover MSA-patching final run should require cycle-cover cache")
+	if !evaluationConfigurationsUseCycleCover(patchingConfigurations) {
+		t.Fatal("cycle-cover MSA-patching evaluation run should require cycle-cover cache")
 	}
 }
 
-func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCsv(t *testing.T) {
+func TestSaveEvaluationHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCsv(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "result.csv")
 	existing := []HeuristicExperimentStatistics{
 		{
@@ -907,11 +907,11 @@ func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCs
 		},
 		{
 			Heuristic:  heuristicStrictMsa,
-			Statistics: makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, 3.0, 20.0),
+			Statistics: makeTestExperimentStatistics(evaluationStrictMsaHeuristicWeight, 3.0, 20.0),
 		},
 		{
 			Heuristic:  heuristicCycleCover,
-			Statistics: makeTestExperimentStatistics(finalCycleCoverWeight, 7.0, 0.0),
+			Statistics: makeTestExperimentStatistics(evaluationCycleCoverWeight, 7.0, 0.0),
 		},
 		{
 			Heuristic:  "obsolete",
@@ -919,26 +919,26 @@ func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCs
 		},
 	}
 	if err := saveHeuristicStatistics(path, existing); err != nil {
-		t.Fatalf("failed to seed final result CSV: %v", err)
+		t.Fatalf("failed to seed evaluation result CSV: %v", err)
 	}
 
 	replacement := []HeuristicExperimentStatistics{
 		{
 			Heuristic:  heuristicCycleCover,
-			Statistics: makeTestExperimentStatistics(finalCycleCoverWeight, 1.5, 40.0),
+			Statistics: makeTestExperimentStatistics(evaluationCycleCoverWeight, 1.5, 40.0),
 		},
 	}
-	cycleCoverConfigurations, err := selectFinalExperimentConfigurations(heuristicCycleCover)
+	cycleCoverConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCover)
 	if err != nil {
-		t.Fatalf("selectFinalExperimentConfigurations(cycle-cover) returned error: %v", err)
+		t.Fatalf("selectEvaluationExperimentConfigurations(cycle-cover) returned error: %v", err)
 	}
-	if err := saveFinalHeuristicStatistics(path, replacement, cycleCoverConfigurations); err != nil {
-		t.Fatalf("saveFinalHeuristicStatistics returned error: %v", err)
+	if err := saveEvaluationHeuristicStatistics(path, replacement, cycleCoverConfigurations); err != nil {
+		t.Fatalf("saveEvaluationHeuristicStatistics returned error: %v", err)
 	}
 
 	statistics, err := readHeuristicStatistics(path)
 	if err != nil {
-		t.Fatalf("failed to read merged final result CSV: %v", err)
+		t.Fatalf("failed to read merged evaluation result CSV: %v", err)
 	}
 	if len(statistics) != 3 {
 		t.Fatalf("expected three heuristic rows after merge, got %d", len(statistics))
@@ -960,16 +960,16 @@ func TestSaveFinalHeuristicStatisticsMergesSelectedHeuristicIntoExistingResultCs
 		t.Fatalf("cycle-cover row was not replaced: %+v", byHeuristic[heuristicCycleCover])
 	}
 	if _, ok := byHeuristic["obsolete"]; ok {
-		t.Fatal("obsolete heuristic row should not be preserved in final result CSV")
+		t.Fatal("obsolete heuristic row should not be preserved in evaluation result CSV")
 	}
 }
 
-func TestFinalModesAndExperimentHeuristicsAreValid(t *testing.T) {
-	if !isValidRunMode(runModeFinal) {
-		t.Fatal("final run mode should be valid")
+func TestEvaluationModesAndExperimentHeuristicsAreValid(t *testing.T) {
+	if !isValidRunMode(runModeEvaluation) {
+		t.Fatal("evaluation run mode should be valid")
 	}
-	if !isValidRunMode(runModeFinal3Opt) {
-		t.Fatal("final+3opt run mode should be valid")
+	if !isValidRunMode(runModeEvaluation3Opt) {
+		t.Fatal("evaluation+3opt run mode should be valid")
 	}
 	if !isValidRunMode(runModeRebuildCache) {
 		t.Fatal("rebuild-cache run mode should be valid")
@@ -988,36 +988,36 @@ func TestFinalModesAndExperimentHeuristicsAreValid(t *testing.T) {
 	}
 }
 
-func TestFinal3OptModeUsesSeparateOutputRootAndThreeOpt(t *testing.T) {
-	if finalExperimentOutputRoot(runModeFinal3Opt) != project.FinalThreeOptResultsDirectoryName {
-		t.Fatalf("final+3opt should use %s", project.FinalThreeOptResultsDirectoryName)
+func TestEvaluation3OptModeUsesSeparateOutputRootAndThreeOpt(t *testing.T) {
+	if evaluationExperimentOutputRoot(runModeEvaluation3Opt) != project.EvaluationThreeOptResultsDirectoryName {
+		t.Fatalf("evaluation+3opt should use %s", project.EvaluationThreeOptResultsDirectoryName)
 	}
-	if finalExperimentOutputRoot(runModeFinal) != project.FinalResultsDirectoryName {
-		t.Fatalf("final should use %s", project.FinalResultsDirectoryName)
+	if evaluationExperimentOutputRoot(runModeEvaluation) != project.EvaluationResultsDirectoryName {
+		t.Fatalf("evaluation should use %s", project.EvaluationResultsDirectoryName)
 	}
-	if !finalExperimentUsesThreeOpt(runModeFinal3Opt) {
-		t.Fatal("final+3opt should enable reduced 3-opt")
+	if !evaluationExperimentUsesThreeOpt(runModeEvaluation3Opt) {
+		t.Fatal("evaluation+3opt should enable reduced 3-opt")
 	}
-	if finalExperimentUsesThreeOpt(runModeFinal) {
-		t.Fatal("final should not enable reduced 3-opt")
+	if evaluationExperimentUsesThreeOpt(runModeEvaluation) {
+		t.Fatal("evaluation should not enable reduced 3-opt")
 	}
 }
 
-func TestFullFinalRunsTriggerAnalysis(t *testing.T) {
-	if !shouldRunAnalysisAfterFinalExperiments(runModeFinal, finalHeuristicAll) {
-		t.Fatal("full final run should trigger analysis")
+func TestFullEvaluationRunsTriggerAnalysis(t *testing.T) {
+	if !shouldRunAnalysisAfterEvaluationExperiments(runModeEvaluation, evaluationHeuristicAll) {
+		t.Fatal("full evaluation run should trigger analysis")
 	}
-	if !shouldRunAnalysisAfterFinalExperiments(runModeFinal3Opt, finalHeuristicAll) {
-		t.Fatal("full final+3opt run should trigger analysis")
+	if !shouldRunAnalysisAfterEvaluationExperiments(runModeEvaluation3Opt, evaluationHeuristicAll) {
+		t.Fatal("full evaluation+3opt run should trigger analysis")
 	}
-	if shouldRunAnalysisAfterFinalExperiments(runModeFinal, heuristicStrictMsa) {
-		t.Fatal("single final heuristic should not trigger analysis")
+	if shouldRunAnalysisAfterEvaluationExperiments(runModeEvaluation, heuristicStrictMsa) {
+		t.Fatal("single evaluation heuristic should not trigger analysis")
 	}
-	if shouldRunAnalysisAfterFinalExperiments(runModeFinal, finalHeuristicControls) {
-		t.Fatal("final controls should not trigger analysis")
+	if shouldRunAnalysisAfterEvaluationExperiments(runModeEvaluation, evaluationHeuristicControls) {
+		t.Fatal("evaluation controls should not trigger analysis")
 	}
-	if shouldRunAnalysisAfterFinalExperiments(runModeExperiment, finalHeuristicAll) {
-		t.Fatal("experiment mode should not trigger final analysis")
+	if shouldRunAnalysisAfterEvaluationExperiments(runModeExperiment, evaluationHeuristicAll) {
+		t.Fatal("experiment mode should not trigger evaluation analysis")
 	}
 }
 
@@ -1087,9 +1087,9 @@ func TestResolveWorkerCount(t *testing.T) {
 	}
 }
 
-func TestRunFinalExperimentParametersRejectsInvalidWorkerCount(t *testing.T) {
+func TestRunEvaluationExperimentParametersRejectsInvalidWorkerCount(t *testing.T) {
 	matrix := [][]float64{{0, 1}, {1, 0}}
-	_, err := runFinalExperimentParameters(
+	_, err := runEvaluationExperimentParameters(
 		"sample",
 		heuristicBaseline,
 		[]ExperimentParameters{newDefaultExperimentParameters(defaultBaselineHeuristicWeight)},
@@ -1318,17 +1318,17 @@ func testTsplibFiles() ([]string, error) {
 }
 
 func TestSelectedInstanceSetForMode(t *testing.T) {
-	if selected := selectedInstanceSetForMode(runModeFinal, instanceSetTuning, false); selected != instanceSetEvaluation {
-		t.Fatalf("final mode without explicit instances should default to %s, got %s", instanceSetEvaluation, selected)
+	if selected := selectedInstanceSetForMode(runModeEvaluation, instanceSetTuning, false); selected != instanceSetEvaluation {
+		t.Fatalf("evaluation mode without explicit instances should default to %s, got %s", instanceSetEvaluation, selected)
 	}
-	if selected := selectedInstanceSetForMode(runModeFinal3Opt, instanceSetTuning, false); selected != instanceSetEvaluation {
-		t.Fatalf("final+3opt mode without explicit instances should default to %s, got %s", instanceSetEvaluation, selected)
+	if selected := selectedInstanceSetForMode(runModeEvaluation3Opt, instanceSetTuning, false); selected != instanceSetEvaluation {
+		t.Fatalf("evaluation+3opt mode without explicit instances should default to %s, got %s", instanceSetEvaluation, selected)
 	}
 	if selected := selectedInstanceSetForMode(runModeRebuildCache, instanceSetTuning, false); selected != instanceSetAllKnown {
 		t.Fatalf("rebuild-cache mode without explicit instances should default to %s, got %s", instanceSetAllKnown, selected)
 	}
-	if selected := selectedInstanceSetForMode(runModeFinal, instanceSetTuning, true); selected != instanceSetTuning {
-		t.Fatalf("final mode should respect explicit instances, got %s", selected)
+	if selected := selectedInstanceSetForMode(runModeEvaluation, instanceSetTuning, true); selected != instanceSetTuning {
+		t.Fatalf("evaluation mode should respect explicit instances, got %s", selected)
 	}
 	if selected := selectedInstanceSetForMode(runModeRebuildCache, instanceSetTuning, true); selected != instanceSetTuning {
 		t.Fatalf("rebuild-cache mode should respect explicit instances, got %s", selected)
@@ -1361,7 +1361,7 @@ func makeTestExperimentStatistics(heuristicWeight, averageBestDeviation, success
 }
 
 func makeTestRandomSparseExperimentStatistics(randomSeed int64, averageBestDeviation, successRate float64) ExperimentsDataStatistics {
-	statistics := makeTestExperimentStatistics(finalStrictMsaHeuristicWeight, averageBestDeviation, successRate)
+	statistics := makeTestExperimentStatistics(evaluationStrictMsaHeuristicWeight, averageBestDeviation, successRate)
 	statistics.RandomSeed = randomSeed
 	return statistics
 }

@@ -157,13 +157,13 @@ func FindMSA(root int, vertices []int, edges []Edge, weights map[Edge]float64) [
 	// Remove the edge that connected the cycle to the super-node
 	delete(expandedEdgeSet, connectingEdgeToCycle)
 
-	// Convert the edge set back into a slice for the final result
-	finalMSA := make([]Edge, 0, expandedSetSize)
+	// Convert the edge set back into a slice for the result
+	resultMSA := make([]Edge, 0, expandedSetSize)
 	for edge := range expandedEdgeSet {
-		finalMSA = append(finalMSA, edge)
+		resultMSA = append(resultMSA, edge)
 	}
 
-	return finalMSA
+	return resultMSA
 }
 
 func getParentPointers(root int, vertices []int, filteredEdges []Edge, weights map[Edge]float64) map[int]int {

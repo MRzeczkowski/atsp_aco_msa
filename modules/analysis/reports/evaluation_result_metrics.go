@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-type FinalResultSummaryMetric struct {
+type EvaluationResultSummaryMetric struct {
 	AverageMinDeviation  float64
 	SuccessRate          float64
 	AverageBestIteration float64
@@ -15,7 +15,7 @@ type FinalResultSummaryMetric struct {
 	Iterations           int
 }
 
-func ReadFinalResultSummaryMetrics(resultCsvPath string) (map[string]FinalResultSummaryMetric, error) {
+func ReadEvaluationResultSummaryMetrics(resultCsvPath string) (map[string]EvaluationResultSummaryMetric, error) {
 	file, err := os.Open(resultCsvPath)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func ReadFinalResultSummaryMetrics(resultCsvPath string) (map[string]FinalResult
 		return nil, err
 	}
 
-	metrics := make(map[string]FinalResultSummaryMetric, len(records))
+	metrics := make(map[string]EvaluationResultSummaryMetric, len(records))
 	for _, record := range records {
 		if len(record) != len(header) {
 			return nil, fmt.Errorf("invalid record length: got %d want %d", len(record), len(header))
@@ -70,7 +70,7 @@ func ReadFinalResultSummaryMetrics(resultCsvPath string) (map[string]FinalResult
 			return nil, fmt.Errorf("invalid success rate for %s: %w", record[heuristicIndex], err)
 		}
 
-		metric := FinalResultSummaryMetric{
+		metric := EvaluationResultSummaryMetric{
 			AverageMinDeviation:  averageDeviation,
 			SuccessRate:          successRate,
 			AverageBestIteration: averageBestIteration,
@@ -78,7 +78,7 @@ func ReadFinalResultSummaryMetrics(resultCsvPath string) (map[string]FinalResult
 			Iterations:           iterations,
 		}
 		heuristic := record[heuristicIndex]
-		if current, ok := metrics[heuristic]; !ok || finalResultSummaryMetricIsBetter(metric, current) {
+		if current, ok := metrics[heuristic]; !ok || evaluationResultSummaryMetricIsBetter(metric, current) {
 			metrics[heuristic] = metric
 		}
 	}
@@ -86,7 +86,7 @@ func ReadFinalResultSummaryMetrics(resultCsvPath string) (map[string]FinalResult
 	return metrics, nil
 }
 
-func finalResultSummaryMetricIsBetter(candidate, current FinalResultSummaryMetric) bool {
+func evaluationResultSummaryMetricIsBetter(candidate, current EvaluationResultSummaryMetric) bool {
 	if candidate.AverageMinDeviation != current.AverageMinDeviation {
 		return candidate.AverageMinDeviation < current.AverageMinDeviation
 	}

@@ -1,6 +1,6 @@
 # Structural Similarity And Performance
 
-This table links structural similarity to found optimal tours with final MMAS performance. Both structural and performance values are computed only for instances with at least one found optimal tour.
+This table links structural similarity to found optimal tours with evaluation MMAS performance. Both structural and performance values are computed only for instances with at least one found optimal tour.
 
 <table>
 <thead>

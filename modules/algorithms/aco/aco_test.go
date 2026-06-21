@@ -175,7 +175,7 @@ func TestConstructionHeuristicProbabilityDecays(t *testing.T) {
 
 	aco.currentIteration = 100
 	if probability := aco.constructionHeuristicProbability(); probability != 0.0 {
-		t.Fatalf("expected final probability 0, got %f", probability)
+		t.Fatalf("expected terminal probability 0, got %f", probability)
 	}
 }
 
@@ -295,8 +295,8 @@ func TestUseGlobalBestPheromoneUpdateUsesIterationBudgetPercentages(t *testing.T
 		{name: "every third phase skips non-multiple", currentIteration: 1501, iterations: 5000, expected: false},
 		{name: "third boundary enters every second phase", currentIteration: 3500, iterations: 5000, expected: true},
 		{name: "every second phase skips odd iteration", currentIteration: 3501, iterations: 5000, expected: false},
-		{name: "final boundary uses global best only", currentIteration: 4750, iterations: 5000, expected: true},
-		{name: "final phase ignores modulo", currentIteration: 4751, iterations: 5000, expected: true},
+		{name: "last boundary uses global best only", currentIteration: 4750, iterations: 5000, expected: true},
+		{name: "last phase ignores modulo", currentIteration: 4751, iterations: 5000, expected: true},
 		{name: "non-positive budget uses iteration best", currentIteration: 0, iterations: 0, expected: false},
 		{name: "same schedule scales to short runs", currentIteration: 95, iterations: 100, expected: true},
 	}

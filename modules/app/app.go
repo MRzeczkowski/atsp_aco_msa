@@ -11,7 +11,7 @@ import (
 )
 
 func isValidRunMode(mode string) bool {
-	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeFinal || mode == runModeFinal3Opt || mode == runModeRebuildCache
+	return mode == runModeExperiment || mode == runModeAnalyze || mode == runModeAll || mode == runModeEvaluation || mode == runModeEvaluation3Opt || mode == runModeRebuildCache
 }
 
 func isValidHeuristic(heuristic string) bool {
@@ -77,7 +77,7 @@ func heuristicIsRootedSparseControl(heuristic string) bool {
 	return heuristic == heuristicRootedDistanceRanked || heuristic == heuristicRootedShuffledMsa
 }
 
-func finalConfigurationsUseMsaHeuristic(configurations []finalExperimentConfiguration) bool {
+func evaluationConfigurationsUseMsaHeuristic(configurations []evaluationExperimentConfiguration) bool {
 	for _, configuration := range configurations {
 		if heuristicUsesMsaHeuristic(configuration.Heuristic) {
 			return true
@@ -87,7 +87,7 @@ func finalConfigurationsUseMsaHeuristic(configurations []finalExperimentConfigur
 	return false
 }
 
-func finalConfigurationsUseCycleCover(configurations []finalExperimentConfiguration) bool {
+func evaluationConfigurationsUseCycleCover(configurations []evaluationExperimentConfiguration) bool {
 	for _, configuration := range configurations {
 		if heuristicUsesCycleCover(configuration.Heuristic) {
 			return true
@@ -97,7 +97,7 @@ func finalConfigurationsUseCycleCover(configurations []finalExperimentConfigurat
 	return false
 }
 
-func finalConfigurationsUseRootedMsa(configurations []finalExperimentConfiguration) bool {
+func evaluationConfigurationsUseRootedMsa(configurations []evaluationExperimentConfiguration) bool {
 	for _, configuration := range configurations {
 		if heuristicUsesRootedMsa(configuration.Heuristic) {
 			return true
@@ -163,44 +163,44 @@ func shouldRunAnalysis(mode string) bool {
 	return mode == runModeAnalyze || mode == runModeAll
 }
 
-func shouldRunAnalysisAfterFinalExperiments(mode, finalHeuristic string) bool {
-	return shouldRunFinalExperiments(mode) && finalHeuristic == finalHeuristicAll
+func shouldRunAnalysisAfterEvaluationExperiments(mode, evaluationHeuristic string) bool {
+	return shouldRunEvaluationExperiments(mode) && evaluationHeuristic == evaluationHeuristicAll
 }
 
 func isValidAnalysisScope(scope string) bool {
 	return scope == analysisScopeAll || scope == analysisScopeGksDeviation || scope == analysisScopeTuning
 }
 
-func shouldRunFinalExperiments(mode string) bool {
-	return mode == runModeFinal || mode == runModeFinal3Opt
+func shouldRunEvaluationExperiments(mode string) bool {
+	return mode == runModeEvaluation || mode == runModeEvaluation3Opt
 }
 
 func shouldRunCacheRebuild(mode string) bool {
 	return mode == runModeRebuildCache
 }
 
-func finalExperimentOutputRoot(mode string) string {
-	if mode == runModeFinal3Opt {
-		return project.FinalThreeOptResultsDirectoryName
+func evaluationExperimentOutputRoot(mode string) string {
+	if mode == runModeEvaluation3Opt {
+		return project.EvaluationThreeOptResultsDirectoryName
 	}
 
-	return project.FinalResultsDirectoryName
+	return project.EvaluationResultsDirectoryName
 }
 
-func finalControlsResultsRootPath(finalResultsRootPath string) string {
-	return filepath.Join(filepath.Dir(finalResultsRootPath), "controls")
+func evaluationControlsResultsRootPath(evaluationResultsRootPath string) string {
+	return filepath.Join(filepath.Dir(evaluationResultsRootPath), "controls")
 }
 
-func finalExperimentOutputRootForConfigurations(mode string, configurations []finalExperimentConfiguration) string {
-	resultsRootPath := finalExperimentOutputRoot(mode)
-	if finalConfigurationsAreSparseControls(configurations) {
-		return finalControlsResultsRootPath(resultsRootPath)
+func evaluationExperimentOutputRootForConfigurations(mode string, configurations []evaluationExperimentConfiguration) string {
+	resultsRootPath := evaluationExperimentOutputRoot(mode)
+	if evaluationConfigurationsAreSparseControls(configurations) {
+		return evaluationControlsResultsRootPath(resultsRootPath)
 	}
 
 	return resultsRootPath
 }
 
-func finalConfigurationsAreSparseControls(configurations []finalExperimentConfiguration) bool {
+func evaluationConfigurationsAreSparseControls(configurations []evaluationExperimentConfiguration) bool {
 	if len(configurations) == 0 {
 		return false
 	}
@@ -214,8 +214,8 @@ func finalConfigurationsAreSparseControls(configurations []finalExperimentConfig
 	return true
 }
 
-func finalExperimentUsesThreeOpt(mode string) bool {
-	return mode == runModeFinal3Opt
+func evaluationExperimentUsesThreeOpt(mode string) bool {
+	return mode == runModeEvaluation3Opt
 }
 
 func logTimestamp(timestamp time.Time) string {
@@ -223,7 +223,7 @@ func logTimestamp(timestamp time.Time) string {
 }
 
 func selectedInstanceSetForMode(mode, requestedInstanceSet string, instanceSetExplicit bool) string {
-	if shouldRunFinalExperiments(mode) && !instanceSetExplicit {
+	if shouldRunEvaluationExperiments(mode) && !instanceSetExplicit {
 		return instanceSetEvaluation
 	}
 	if shouldRunCacheRebuild(mode) && !instanceSetExplicit {
@@ -260,10 +260,10 @@ func configureWorkerCount(requestedWorkers int) (int, error) {
 func Run(args []string) {
 	flags := flag.NewFlagSet("atsp_aco_msa", flag.ExitOnError)
 	instances := flags.String("instances", instanceSetTuning, "ATSP instance set to run: smoke, tuning, evaluation, or all-known")
-	mode := flags.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, final, final+3opt, or rebuild-cache")
+	mode := flags.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, evaluation, evaluation+3opt, or rebuild-cache")
 	analysisScope := flags.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all, tuning, or gks-deviation")
 	heuristic := flags.String("heuristic", "", "ACO heuristic modifier to use in experiment mode: omit or use all; otherwise strict-msa, rooted-msa, cycle-cover, or cycle-cover-msa-patching")
-	finalHeuristic := flags.String("final-heuristic", finalHeuristicAll, "Final-mode heuristic to run: all, controls, baseline, strict-msa, rooted-msa, random-sparse, distance-ranked-sparse, shuffled-msa, cycle-cover, or cycle-cover-msa-patching")
+	evaluationHeuristic := flags.String("evaluation-heuristic", evaluationHeuristicAll, "Evaluation-mode heuristic to run: all, controls, baseline, strict-msa, rooted-msa, random-sparse, distance-ranked-sparse, shuffled-msa, cycle-cover, or cycle-cover-msa-patching")
 	workers := flags.Int("workers", 0, "Maximum concurrent instance workers. 0 uses half of available logical CPUs; 1 preserves serial execution")
 	flags.Parse(args)
 
@@ -283,10 +283,10 @@ func Run(args []string) {
 		fmt.Println(err)
 		return
 	}
-	selectedFinalHeuristic := *finalHeuristic
+	selectedEvaluationHeuristic := *evaluationHeuristic
 
 	if !isValidRunMode(*mode) {
-		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeFinal, runModeFinal3Opt, runModeRebuildCache)
+		fmt.Printf("Unsupported -mode value %q; use %q, %q, %q, %q, %q, or %q\n", *mode, runModeExperiment, runModeAnalyze, runModeAll, runModeEvaluation, runModeEvaluation3Opt, runModeRebuildCache)
 		return
 	}
 
@@ -303,14 +303,14 @@ func Run(args []string) {
 	fmt.Printf("Using %d worker(s); GOMAXPROCS=%d\n", effectiveWorkers, runtime.GOMAXPROCS(0))
 
 	selectedInstances := selectedInstanceSetForMode(*mode, *instances, instanceSetExplicit)
-	var finalConfigurations []finalExperimentConfiguration
-	if shouldRunFinalExperiments(*mode) {
-		configurations, err := selectFinalExperimentConfigurations(selectedFinalHeuristic)
+	var evaluationConfigurations []evaluationExperimentConfiguration
+	if shouldRunEvaluationExperiments(*mode) {
+		configurations, err := selectEvaluationExperimentConfigurations(selectedEvaluationHeuristic)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		finalConfigurations = configurations
+		evaluationConfigurations = configurations
 	}
 
 	atspsData, err := project.LoadSelectedAtspData(selectedInstances)
@@ -337,14 +337,14 @@ func Run(args []string) {
 		}
 	}
 
-	if shouldRunFinalExperiments(*mode) {
-		err = runFinalExperimentMode(atspsData, finalExperimentOutputRootForConfigurations(*mode, finalConfigurations), finalExperimentUsesThreeOpt(*mode), finalConfigurations, effectiveWorkers, finalNumberOfExperiments)
+	if shouldRunEvaluationExperiments(*mode) {
+		err = runEvaluationExperimentMode(atspsData, evaluationExperimentOutputRootForConfigurations(*mode, evaluationConfigurations), evaluationExperimentUsesThreeOpt(*mode), evaluationConfigurations, effectiveWorkers, evaluationNumberOfExperiments)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		if shouldRunAnalysisAfterFinalExperiments(*mode, selectedFinalHeuristic) {
+		if shouldRunAnalysisAfterEvaluationExperiments(*mode, selectedEvaluationHeuristic) {
 			if err := runAnalysisMode(atspsData, *analysisScope, selectedExperimentHeuristics, effectiveWorkers); err != nil {
 				fmt.Println(err)
 				return

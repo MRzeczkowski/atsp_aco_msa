@@ -31,8 +31,8 @@ func readHeuristicStatistics(resultCsvPath string) ([]HeuristicExperimentStatist
 	return experiments.ReadHeuristicStatistics(resultCsvPath)
 }
 
-func saveFinalHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperimentStatistics, configurations []finalExperimentConfiguration) error {
-	if len(configurations) == len(finalExperimentConfigurations()) {
+func saveEvaluationHeuristicStatistics(resultCsvPath string, statistics []HeuristicExperimentStatistics, configurations []evaluationExperimentConfiguration) error {
+	if len(configurations) == len(evaluationExperimentConfigurations()) {
 		return saveHeuristicStatistics(resultCsvPath, statistics)
 	}
 
@@ -49,20 +49,20 @@ func saveFinalHeuristicStatistics(resultCsvPath string, statistics []HeuristicEx
 	return saveHeuristicStatistics(resultCsvPath, mergedStatistics)
 }
 
-func mergeHeuristicStatistics(existingStatistics, newStatistics []HeuristicExperimentStatistics, configurations []finalExperimentConfiguration) []HeuristicExperimentStatistics {
+func mergeHeuristicStatistics(existingStatistics, newStatistics []HeuristicExperimentStatistics, configurations []evaluationExperimentConfiguration) []HeuristicExperimentStatistics {
 	replaceSet := make(map[string]struct{}, len(configurations))
 	for _, configuration := range configurations {
 		replaceSet[configuration.Heuristic] = struct{}{}
 	}
 
-	knownFinalHeuristics := make(map[string]struct{}, len(finalExperimentConfigurations()))
-	for _, configuration := range finalExperimentConfigurations() {
-		knownFinalHeuristics[configuration.Heuristic] = struct{}{}
+	knownEvaluationHeuristics := make(map[string]struct{}, len(evaluationExperimentConfigurations()))
+	for _, configuration := range evaluationExperimentConfigurations() {
+		knownEvaluationHeuristics[configuration.Heuristic] = struct{}{}
 	}
 
 	merged := make([]HeuristicExperimentStatistics, 0, len(existingStatistics)+len(newStatistics))
 	for _, statistic := range existingStatistics {
-		if _, known := knownFinalHeuristics[statistic.Heuristic]; !known {
+		if _, known := knownEvaluationHeuristics[statistic.Heuristic]; !known {
 			continue
 		}
 		if _, replace := replaceSet[statistic.Heuristic]; !replace {

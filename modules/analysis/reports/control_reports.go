@@ -14,14 +14,14 @@ import (
 )
 
 type ControlReportsConfig struct {
-	StrictMsaHeuristic            string
-	RandomSparseHeuristic         string
-	DistanceRankedSparseHeuristic string
-	ShuffledMsaHeuristic          string
-	FinalStrictMsaHeuristicWeight float64
-	ReadStatistics                func(string) ([]experiments.ExperimentsDataStatistics, error)
-	ReadHeuristicStatistics       func(string) ([]experiments.HeuristicExperimentStatistics, error)
-	ResultFilePathForHeuristic    func(project.AtspData, string) string
+	StrictMsaHeuristic                 string
+	RandomSparseHeuristic              string
+	DistanceRankedSparseHeuristic      string
+	ShuffledMsaHeuristic               string
+	EvaluationStrictMsaHeuristicWeight float64
+	ReadStatistics                     func(string) ([]experiments.ExperimentsDataStatistics, error)
+	ReadHeuristicStatistics            func(string) ([]experiments.HeuristicExperimentStatistics, error)
+	ResultFilePathForHeuristic         func(project.AtspData, string) string
 }
 
 type randomSparseControlRow struct {
@@ -42,8 +42,8 @@ type randomSparseControlMissingData struct {
 	reason   string
 }
 
-func SaveRandomSparseControlReport(path string, atspsData []project.AtspData, finalResultsRootPath, controlResultsRootPath string, config ControlReportsConfig) (bool, error) {
-	rows, missingData, err := buildRandomSparseControlRows(atspsData, finalResultsRootPath, controlResultsRootPath, config)
+func SaveRandomSparseControlReport(path string, atspsData []project.AtspData, evaluationResultsRootPath, controlResultsRootPath string, config ControlReportsConfig) (bool, error) {
+	rows, missingData, err := buildRandomSparseControlRows(atspsData, evaluationResultsRootPath, controlResultsRootPath, config)
 	if err != nil {
 		return false, err
 	}
@@ -56,7 +56,7 @@ func SaveRandomSparseControlReport(path string, atspsData []project.AtspData, fi
 
 	var builder strings.Builder
 	builder.WriteString("# Random Sparse Control\n\n")
-	builder.WriteString("This sanity check compares Strict MSA against deterministic random sparse masks. Each random mask boosts the same number of directed edges as Strict MSA and uses the same heuristic weight. The comparison reads Strict MSA from the final results and averages the available final-control random seeds for each instance.\n\n")
+	builder.WriteString("This sanity check compares Strict MSA against deterministic random sparse masks. Each random mask boosts the same number of directed edges as Strict MSA and uses the same heuristic weight. The comparison reads Strict MSA from the evaluation results and averages the available evaluation-control random seeds for each instance.\n\n")
 	writeRandomSparseControlFindings(&builder, rows)
 	builder.WriteString("\n")
 	writeRandomSparseControlTable(&builder, rows)
@@ -67,17 +67,17 @@ func SaveRandomSparseControlReport(path string, atspsData []project.AtspData, fi
 	return true, os.WriteFile(path, []byte(builder.String()), 0644)
 }
 
-func buildRandomSparseControlRows(atspsData []project.AtspData, finalResultsRootPath, controlResultsRootPath string, config ControlReportsConfig) ([]randomSparseControlRow, []randomSparseControlMissingData, error) {
+func buildRandomSparseControlRows(atspsData []project.AtspData, evaluationResultsRootPath, controlResultsRootPath string, config ControlReportsConfig) ([]randomSparseControlRow, []randomSparseControlMissingData, error) {
 	rows := make([]randomSparseControlRow, 0, len(atspsData))
 	missingData := make([]randomSparseControlMissingData, 0)
 
 	for _, atspData := range atspsData {
-		msaMetric, ok, err := readFinalMsaHeuristicControlMetric(atspData, finalResultsRootPath, config)
+		msaMetric, ok, err := readEvaluationMsaHeuristicControlMetric(atspData, evaluationResultsRootPath, config)
 		if err != nil {
 			return nil, nil, err
 		}
 		if !ok {
-			missingData = append(missingData, randomSparseControlMissingData{instance: atspData.Name, reason: "missing final MSA result"})
+			missingData = append(missingData, randomSparseControlMissingData{instance: atspData.Name, reason: "missing evaluation MSA result"})
 			continue
 		}
 
@@ -85,7 +85,7 @@ func buildRandomSparseControlRows(atspsData []project.AtspData, finalResultsRoot
 		randomStatistics, err := config.ReadStatistics(config.ResultFilePathForHeuristic(controlAtspData, config.RandomSparseHeuristic))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				missingData = append(missingData, randomSparseControlMissingData{instance: atspData.Name, reason: "missing final-control random-sparse result CSV"})
+				missingData = append(missingData, randomSparseControlMissingData{instance: atspData.Name, reason: "missing evaluation-control random-sparse result CSV"})
 				continue
 			}
 			return nil, nil, err
@@ -156,30 +156,30 @@ func statisticsForHeuristicWeightAll(statistics []experiments.ExperimentsDataSta
 	return rows
 }
 
-func readFinalMsaHeuristicControlMetric(atspData project.AtspData, finalResultsRootPath string, config ControlReportsConfig) (FinalResultSummaryMetric, bool, error) {
-	return readMsaControlMetric(atspData, finalResultsRootPath, config.StrictMsaHeuristic, config)
+func readEvaluationMsaHeuristicControlMetric(atspData project.AtspData, evaluationResultsRootPath string, config ControlReportsConfig) (EvaluationResultSummaryMetric, bool, error) {
+	return readMsaControlMetric(atspData, evaluationResultsRootPath, config.StrictMsaHeuristic, config)
 }
 
-func readMsaControlMetric(atspData project.AtspData, finalResultsRootPath, referenceHeuristic string, config ControlReportsConfig) (FinalResultSummaryMetric, bool, error) {
-	finalAtspData := project.WithExperimentOutputRoot(atspData, finalResultsRootPath)
-	statistics, err := config.ReadHeuristicStatistics(finalAtspData.ResultFilePath)
+func readMsaControlMetric(atspData project.AtspData, evaluationResultsRootPath, referenceHeuristic string, config ControlReportsConfig) (EvaluationResultSummaryMetric, bool, error) {
+	evaluationAtspData := project.WithExperimentOutputRoot(atspData, evaluationResultsRootPath)
+	statistics, err := config.ReadHeuristicStatistics(evaluationAtspData.ResultFilePath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return FinalResultSummaryMetric{}, false, nil
+			return EvaluationResultSummaryMetric{}, false, nil
 		}
-		return FinalResultSummaryMetric{}, false, err
+		return EvaluationResultSummaryMetric{}, false, err
 	}
 
-	return msaHeuristicControlMetricForWeight(statistics, referenceHeuristic, config.FinalStrictMsaHeuristicWeight)
+	return msaHeuristicControlMetricForWeight(statistics, referenceHeuristic, config.EvaluationStrictMsaHeuristicWeight)
 }
 
-func msaHeuristicControlMetricForWeight(statistics []experiments.HeuristicExperimentStatistics, referenceHeuristic string, heuristicWeight float64) (FinalResultSummaryMetric, bool, error) {
+func msaHeuristicControlMetricForWeight(statistics []experiments.HeuristicExperimentStatistics, referenceHeuristic string, heuristicWeight float64) (EvaluationResultSummaryMetric, bool, error) {
 	for _, statistic := range statistics {
 		if statistic.Heuristic != referenceHeuristic || math.Abs(statistic.Statistics.HeuristicWeight-heuristicWeight) >= 1e-9 {
 			continue
 		}
 
-		return FinalResultSummaryMetric{
+		return EvaluationResultSummaryMetric{
 			AverageMinDeviation:  statistic.Statistics.AverageBestDeviation,
 			SuccessRate:          statistic.Statistics.SuccessRate,
 			AverageBestIteration: statistic.Statistics.AverageBestAtIteration,
@@ -188,7 +188,7 @@ func msaHeuristicControlMetricForWeight(statistics []experiments.HeuristicExperi
 		}, true, nil
 	}
 
-	return FinalResultSummaryMetric{}, false, nil
+	return EvaluationResultSummaryMetric{}, false, nil
 }
 
 func writeRandomSparseControlFindings(builder *strings.Builder, rows []randomSparseControlRow) {
@@ -307,8 +307,8 @@ func writeRandomSparseControlTable(builder *strings.Builder, rows []randomSparse
 		fmt.Fprintf(builder,
 			"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%.2f (seed %d)</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td></tr>\n",
 			html.EscapeString(row.instance),
-			finalResultsSummaryMetricCell(row.msaAverageBestDeviation, msaWins),
-			finalResultsSummaryMetricCell(row.randomAverageBestDeviation, !msaWins),
+			evaluationResultsSummaryMetricCell(row.msaAverageBestDeviation, msaWins),
+			evaluationResultsSummaryMetricCell(row.randomAverageBestDeviation, !msaWins),
 			row.randomBestAverageBestDeviation,
 			row.randomBestAverageBestDeviationSeed,
 			formatSignedFloat(row.averageBestDeviationDelta),
@@ -351,12 +351,12 @@ type distanceRankedSparseControlMissingData struct {
 	reason   string
 }
 
-func SaveDistanceRankedSparseControlReport(path string, atspsData []project.AtspData, finalResultsRootPath, controlResultsRootPath string, config ControlReportsConfig) (bool, error) {
-	return saveDistanceRankedSparseControlReportForReference(path, atspsData, finalResultsRootPath, controlResultsRootPath, config.StrictMsaHeuristic, "Strict MSA", config.DistanceRankedSparseHeuristic, "distance-ranked sparse", config)
+func SaveDistanceRankedSparseControlReport(path string, atspsData []project.AtspData, evaluationResultsRootPath, controlResultsRootPath string, config ControlReportsConfig) (bool, error) {
+	return saveDistanceRankedSparseControlReportForReference(path, atspsData, evaluationResultsRootPath, controlResultsRootPath, config.StrictMsaHeuristic, "Strict MSA", config.DistanceRankedSparseHeuristic, "distance-ranked sparse", config)
 }
 
-func saveDistanceRankedSparseControlReportForReference(path string, atspsData []project.AtspData, finalResultsRootPath, controlResultsRootPath, referenceHeuristic, referenceName, controlHeuristic, controlName string, config ControlReportsConfig) (bool, error) {
-	rows, missingData, err := buildDistanceRankedSparseControlRows(atspsData, finalResultsRootPath, controlResultsRootPath, referenceHeuristic, controlHeuristic, config)
+func saveDistanceRankedSparseControlReportForReference(path string, atspsData []project.AtspData, evaluationResultsRootPath, controlResultsRootPath, referenceHeuristic, referenceName, controlHeuristic, controlName string, config ControlReportsConfig) (bool, error) {
+	rows, missingData, err := buildDistanceRankedSparseControlRows(atspsData, evaluationResultsRootPath, controlResultsRootPath, referenceHeuristic, controlHeuristic, config)
 	if err != nil {
 		return false, err
 	}
@@ -380,17 +380,17 @@ func saveDistanceRankedSparseControlReportForReference(path string, atspsData []
 	return true, os.WriteFile(path, []byte(builder.String()), 0644)
 }
 
-func buildDistanceRankedSparseControlRows(atspsData []project.AtspData, finalResultsRootPath, controlResultsRootPath, referenceHeuristic, controlHeuristic string, config ControlReportsConfig) ([]distanceRankedSparseControlRow, []distanceRankedSparseControlMissingData, error) {
+func buildDistanceRankedSparseControlRows(atspsData []project.AtspData, evaluationResultsRootPath, controlResultsRootPath, referenceHeuristic, controlHeuristic string, config ControlReportsConfig) ([]distanceRankedSparseControlRow, []distanceRankedSparseControlMissingData, error) {
 	rows := make([]distanceRankedSparseControlRow, 0, len(atspsData))
 	missingData := make([]distanceRankedSparseControlMissingData, 0)
 
 	for _, atspData := range atspsData {
-		msaMetric, ok, err := readMsaControlMetric(atspData, finalResultsRootPath, referenceHeuristic, config)
+		msaMetric, ok, err := readMsaControlMetric(atspData, evaluationResultsRootPath, referenceHeuristic, config)
 		if err != nil {
 			return nil, nil, err
 		}
 		if !ok {
-			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.Name, reason: "missing final " + referenceHeuristic + " result"})
+			missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.Name, reason: "missing evaluation " + referenceHeuristic + " result"})
 			continue
 		}
 
@@ -398,7 +398,7 @@ func buildDistanceRankedSparseControlRows(atspsData []project.AtspData, finalRes
 		controlStatistics, err := config.ReadStatistics(config.ResultFilePathForHeuristic(controlAtspData, controlHeuristic))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.Name, reason: "missing final-control " + controlHeuristic + " result CSV"})
+				missingData = append(missingData, distanceRankedSparseControlMissingData{instance: atspData.Name, reason: "missing evaluation-control " + controlHeuristic + " result CSV"})
 				continue
 			}
 			return nil, nil, err
@@ -514,8 +514,8 @@ func writeDistanceRankedSparseControlTable(builder *strings.Builder, rows []dist
 		fmt.Fprintf(builder,
 			"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
 			html.EscapeString(row.instance),
-			finalResultsSummaryMetricCell(row.msaAverageBestDeviation, msaWins),
-			finalResultsSummaryMetricCell(row.controlAverageBestDeviation, !msaWins),
+			evaluationResultsSummaryMetricCell(row.msaAverageBestDeviation, msaWins),
+			evaluationResultsSummaryMetricCell(row.controlAverageBestDeviation, !msaWins),
 			formatSignedFloat(row.averageBestDeviationDelta),
 			row.msaSuccessRate,
 			row.controlSuccessRate)
@@ -568,8 +568,8 @@ type seededSparseControlMissingData struct {
 	reason   string
 }
 
-func saveSeededSparseControlReport(path string, atspsData []project.AtspData, finalResultsRootPath, controlResultsRootPath string, reportConfig seededSparseControlReportConfig, config ControlReportsConfig) (bool, error) {
-	rows, missingData, err := buildSeededSparseControlRows(atspsData, finalResultsRootPath, controlResultsRootPath, reportConfig, config)
+func saveSeededSparseControlReport(path string, atspsData []project.AtspData, evaluationResultsRootPath, controlResultsRootPath string, reportConfig seededSparseControlReportConfig, config ControlReportsConfig) (bool, error) {
+	rows, missingData, err := buildSeededSparseControlRows(atspsData, evaluationResultsRootPath, controlResultsRootPath, reportConfig, config)
 	if err != nil {
 		return false, err
 	}
@@ -594,17 +594,17 @@ func saveSeededSparseControlReport(path string, atspsData []project.AtspData, fi
 	return true, os.WriteFile(path, []byte(builder.String()), 0644)
 }
 
-func buildSeededSparseControlRows(atspsData []project.AtspData, finalResultsRootPath, controlResultsRootPath string, reportConfig seededSparseControlReportConfig, config ControlReportsConfig) ([]seededSparseControlRow, []seededSparseControlMissingData, error) {
+func buildSeededSparseControlRows(atspsData []project.AtspData, evaluationResultsRootPath, controlResultsRootPath string, reportConfig seededSparseControlReportConfig, config ControlReportsConfig) ([]seededSparseControlRow, []seededSparseControlMissingData, error) {
 	rows := make([]seededSparseControlRow, 0, len(atspsData))
 	missingData := make([]seededSparseControlMissingData, 0)
 
 	for _, atspData := range atspsData {
-		msaMetric, ok, err := readMsaControlMetric(atspData, finalResultsRootPath, reportConfig.referenceHeuristic, config)
+		msaMetric, ok, err := readMsaControlMetric(atspData, evaluationResultsRootPath, reportConfig.referenceHeuristic, config)
 		if err != nil {
 			return nil, nil, err
 		}
 		if !ok {
-			missingData = append(missingData, seededSparseControlMissingData{instance: atspData.Name, reason: "missing final " + reportConfig.referenceHeuristic + " result"})
+			missingData = append(missingData, seededSparseControlMissingData{instance: atspData.Name, reason: "missing evaluation " + reportConfig.referenceHeuristic + " result"})
 			continue
 		}
 
@@ -612,7 +612,7 @@ func buildSeededSparseControlRows(atspsData []project.AtspData, finalResultsRoot
 		controlStatistics, err := config.ReadStatistics(config.ResultFilePathForHeuristic(controlAtspData, reportConfig.controlHeuristic))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				missingData = append(missingData, seededSparseControlMissingData{instance: atspData.Name, reason: "missing final-control " + reportConfig.missingResultLabel})
+				missingData = append(missingData, seededSparseControlMissingData{instance: atspData.Name, reason: "missing evaluation-control " + reportConfig.missingResultLabel})
 				continue
 			}
 			return nil, nil, err
@@ -751,8 +751,8 @@ func writeSeededSparseControlTable(builder *strings.Builder, rows []seededSparse
 		fmt.Fprintf(builder,
 			"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%.2f (seed %d)</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td></tr>\n",
 			html.EscapeString(row.instance),
-			finalResultsSummaryMetricCell(row.msaAverageBestDeviation, msaWins),
-			finalResultsSummaryMetricCell(row.controlAverageBestDeviation, !msaWins),
+			evaluationResultsSummaryMetricCell(row.msaAverageBestDeviation, msaWins),
+			evaluationResultsSummaryMetricCell(row.controlAverageBestDeviation, !msaWins),
 			row.controlBestAverageBestDeviation,
 			row.controlBestAverageBestDeviationSeed,
 			formatSignedFloat(row.averageBestDeviationDelta),
@@ -780,8 +780,8 @@ func writeSeededSparseControlMissingData(builder *strings.Builder, missingData [
 	}
 }
 
-func SaveShuffledMsaControlReport(path string, atspsData []project.AtspData, finalResultsRootPath, controlResultsRootPath string, config ControlReportsConfig) (bool, error) {
-	return saveSeededSparseControlReport(path, atspsData, finalResultsRootPath, controlResultsRootPath, seededSparseControlReportConfig{
+func SaveShuffledMsaControlReport(path string, atspsData []project.AtspData, evaluationResultsRootPath, controlResultsRootPath string, config ControlReportsConfig) (bool, error) {
+	return saveSeededSparseControlReport(path, atspsData, evaluationResultsRootPath, controlResultsRootPath, seededSparseControlReportConfig{
 		title:              "Shuffled MSA Control",
 		description:        fmt.Sprintf("This sanity check compares Strict MSA against deterministic shuffles of the strict MSA mask. Each shuffle preserves the number and boost values of strict-MSA boosted directed edges, but assigns them to shuffled directed edges. The control %s.", controlWeightDescription(config)),
 		referenceHeuristic: config.StrictMsaHeuristic,
@@ -793,5 +793,5 @@ func SaveShuffledMsaControlReport(path string, atspsData []project.AtspData, fin
 }
 
 func controlWeightDescription(config ControlReportsConfig) string {
-	return fmt.Sprintf("uses the same `heuristicWeight=%.2f`", config.FinalStrictMsaHeuristicWeight)
+	return fmt.Sprintf("uses the same `heuristicWeight=%.2f`", config.EvaluationStrictMsaHeuristicWeight)
 }

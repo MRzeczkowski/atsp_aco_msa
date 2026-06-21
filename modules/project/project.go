@@ -10,8 +10,8 @@ import (
 
 var ArtifactsDirectoryName = "artifacts"
 var ResultsDirectoryName = filepath.Join(ArtifactsDirectoryName, "tuning")
-var FinalResultsDirectoryName = filepath.Join(ArtifactsDirectoryName, "final", "no_3opt")
-var FinalThreeOptResultsDirectoryName = filepath.Join(ArtifactsDirectoryName, "final", "with_3opt")
+var EvaluationResultsDirectoryName = filepath.Join(ArtifactsDirectoryName, "evaluation", "no_3opt")
+var EvaluationThreeOptResultsDirectoryName = filepath.Join(ArtifactsDirectoryName, "evaluation", "with_3opt")
 var MsaHeuristicArtifactsDirectoryName = filepath.Join(ArtifactsDirectoryName, "msa")
 var CycleCoverArtifactsDirectoryName = filepath.Join(ArtifactsDirectoryName, "cycle_cover")
 var SolutionArtifactsDirectoryName = filepath.Join(ArtifactsDirectoryName, "solutions")

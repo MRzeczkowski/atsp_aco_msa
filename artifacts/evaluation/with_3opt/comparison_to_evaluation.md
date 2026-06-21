@@ -1,6 +1,6 @@
 # Reduced 3-Opt Impact
 
-This report compares the final MMAS experiments without local search against the final MMAS experiments with reduced 3-opt enabled.
+This report compares the evaluation MMAS experiments without local search against the evaluation MMAS experiments with reduced 3-opt enabled.
 
 ## Findings
 

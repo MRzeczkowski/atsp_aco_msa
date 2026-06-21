@@ -10,30 +10,30 @@ import (
 )
 
 const (
-	testHeuristicRandomSparse          = "random-sparse"
-	testHeuristicDistanceRankedSparse  = "distance-ranked-sparse"
-	testHeuristicShuffledMsa           = "shuffled-msa"
-	testFinalStrictMsaHeuristicWeight  = 0.4
-	testFinalControlsResultsFolderName = "controls"
+	testHeuristicRandomSparse               = "random-sparse"
+	testHeuristicDistanceRankedSparse       = "distance-ranked-sparse"
+	testHeuristicShuffledMsa                = "shuffled-msa"
+	testEvaluationStrictMsaHeuristicWeight  = 0.4
+	testEvaluationControlsResultsFolderName = "controls"
 )
 
 func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.T) {
 	root := t.TempDir()
 	sourceRoot := filepath.Join(root, "results")
-	finalRoot := filepath.Join(root, "final")
-	controlsRoot := filepath.Join(root, testFinalControlsResultsFolderName)
+	evaluationRoot := filepath.Join(root, "evaluation")
+	controlsRoot := filepath.Join(root, testEvaluationControlsResultsFolderName)
 	first := project.MakeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
 	second := project.MakeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	finalFirst := project.WithExperimentOutputRoot(first, finalRoot)
-	finalSecond := project.WithExperimentOutputRoot(second, finalRoot)
+	evaluationFirst := project.WithExperimentOutputRoot(first, evaluationRoot)
+	evaluationSecond := project.WithExperimentOutputRoot(second, evaluationRoot)
 	controlFirst := project.WithExperimentOutputRoot(first, controlsRoot)
 	controlSecond := project.WithExperimentOutputRoot(second, controlsRoot)
 
-	if err := experiments.SaveHeuristicStatistics(finalFirst.ResultFilePath, []experiments.HeuristicExperimentStatistics{
-		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testFinalStrictMsaHeuristicWeight, 2.0, 10.0)},
+	if err := experiments.SaveHeuristicStatistics(evaluationFirst.ResultFilePath, []experiments.HeuristicExperimentStatistics{
+		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testEvaluationStrictMsaHeuristicWeight, 2.0, 10.0)},
 		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(0.8, 0.5, 100.0)},
 	}); err != nil {
-		t.Fatalf("failed to write first final MSA result: %v", err)
+		t.Fatalf("failed to write first evaluation MSA result: %v", err)
 	}
 	experiments.SaveStatistics(controlReportTestResultFilePathForHeuristic(controlFirst, testHeuristicRandomSparse), testHeuristicRandomSparse, []experiments.ExperimentsDataStatistics{
 		makeControlReportTestRandomSparseStatistics(1, 4.0, 0.0),
@@ -41,11 +41,11 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 		makeControlReportTestRandomSparseStatistics(3, 6.0, 0.0),
 	})
 
-	if err := experiments.SaveHeuristicStatistics(finalSecond.ResultFilePath, []experiments.HeuristicExperimentStatistics{
-		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testFinalStrictMsaHeuristicWeight, 4.0, 0.0)},
+	if err := experiments.SaveHeuristicStatistics(evaluationSecond.ResultFilePath, []experiments.HeuristicExperimentStatistics{
+		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testEvaluationStrictMsaHeuristicWeight, 4.0, 0.0)},
 		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(0.8, 0.5, 100.0)},
 	}); err != nil {
-		t.Fatalf("failed to write second final MSA result: %v", err)
+		t.Fatalf("failed to write second evaluation MSA result: %v", err)
 	}
 	experiments.SaveStatistics(controlReportTestResultFilePathForHeuristic(controlSecond, testHeuristicRandomSparse), testHeuristicRandomSparse, []experiments.ExperimentsDataStatistics{
 		makeControlReportTestRandomSparseStatistics(1, 2.0, 20.0),
@@ -54,7 +54,7 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 	})
 
 	reportPath := filepath.Join(controlsRoot, "random_sparse_control.md")
-	saved, err := SaveRandomSparseControlReport(reportPath, []project.AtspData{second, first}, finalRoot, controlsRoot, controlReportsTestConfig())
+	saved, err := SaveRandomSparseControlReport(reportPath, []project.AtspData{second, first}, evaluationRoot, controlsRoot, controlReportsTestConfig())
 	if err != nil {
 		t.Fatalf("SaveRandomSparseControlReport returned unexpected error: %v", err)
 	}
@@ -76,35 +76,35 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 func TestSaveDistanceRankedSparseControlReportComparesMsaAgainstDistanceRankedSparse(t *testing.T) {
 	root := t.TempDir()
 	sourceRoot := filepath.Join(root, "results")
-	finalRoot := filepath.Join(root, "final")
-	controlsRoot := filepath.Join(root, testFinalControlsResultsFolderName)
+	evaluationRoot := filepath.Join(root, "evaluation")
+	controlsRoot := filepath.Join(root, testEvaluationControlsResultsFolderName)
 	first := project.MakeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
 	second := project.MakeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	finalFirst := project.WithExperimentOutputRoot(first, finalRoot)
-	finalSecond := project.WithExperimentOutputRoot(second, finalRoot)
+	evaluationFirst := project.WithExperimentOutputRoot(first, evaluationRoot)
+	evaluationSecond := project.WithExperimentOutputRoot(second, evaluationRoot)
 	controlFirst := project.WithExperimentOutputRoot(first, controlsRoot)
 	controlSecond := project.WithExperimentOutputRoot(second, controlsRoot)
 
-	if err := experiments.SaveHeuristicStatistics(finalFirst.ResultFilePath, []experiments.HeuristicExperimentStatistics{
-		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testFinalStrictMsaHeuristicWeight, 2.0, 10.0)},
+	if err := experiments.SaveHeuristicStatistics(evaluationFirst.ResultFilePath, []experiments.HeuristicExperimentStatistics{
+		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testEvaluationStrictMsaHeuristicWeight, 2.0, 10.0)},
 	}); err != nil {
-		t.Fatalf("failed to write first final MSA result: %v", err)
+		t.Fatalf("failed to write first evaluation MSA result: %v", err)
 	}
 	experiments.SaveStatistics(controlReportTestResultFilePathForHeuristic(controlFirst, testHeuristicDistanceRankedSparse), testHeuristicDistanceRankedSparse, []experiments.ExperimentsDataStatistics{
-		makeControlReportTestExperimentStatistics(testFinalStrictMsaHeuristicWeight, 4.0, 0.0),
+		makeControlReportTestExperimentStatistics(testEvaluationStrictMsaHeuristicWeight, 4.0, 0.0),
 	})
 
-	if err := experiments.SaveHeuristicStatistics(finalSecond.ResultFilePath, []experiments.HeuristicExperimentStatistics{
-		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testFinalStrictMsaHeuristicWeight, 4.0, 0.0)},
+	if err := experiments.SaveHeuristicStatistics(evaluationSecond.ResultFilePath, []experiments.HeuristicExperimentStatistics{
+		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testEvaluationStrictMsaHeuristicWeight, 4.0, 0.0)},
 	}); err != nil {
-		t.Fatalf("failed to write second final MSA result: %v", err)
+		t.Fatalf("failed to write second evaluation MSA result: %v", err)
 	}
 	experiments.SaveStatistics(controlReportTestResultFilePathForHeuristic(controlSecond, testHeuristicDistanceRankedSparse), testHeuristicDistanceRankedSparse, []experiments.ExperimentsDataStatistics{
-		makeControlReportTestExperimentStatistics(testFinalStrictMsaHeuristicWeight, 2.0, 20.0),
+		makeControlReportTestExperimentStatistics(testEvaluationStrictMsaHeuristicWeight, 2.0, 20.0),
 	})
 
 	reportPath := filepath.Join(controlsRoot, "distance_ranked_sparse_control.md")
-	saved, err := SaveDistanceRankedSparseControlReport(reportPath, []project.AtspData{second, first}, finalRoot, controlsRoot, controlReportsTestConfig())
+	saved, err := SaveDistanceRankedSparseControlReport(reportPath, []project.AtspData{second, first}, evaluationRoot, controlsRoot, controlReportsTestConfig())
 	if err != nil {
 		t.Fatalf("SaveDistanceRankedSparseControlReport returned unexpected error: %v", err)
 	}
@@ -126,19 +126,19 @@ func TestSaveDistanceRankedSparseControlReportComparesMsaAgainstDistanceRankedSp
 func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T) {
 	root := t.TempDir()
 	sourceRoot := filepath.Join(root, "results")
-	finalRoot := filepath.Join(root, "final")
-	controlsRoot := filepath.Join(root, testFinalControlsResultsFolderName)
+	evaluationRoot := filepath.Join(root, "evaluation")
+	controlsRoot := filepath.Join(root, testEvaluationControlsResultsFolderName)
 	first := project.MakeAtspDataInResultsDirectory("sample-a.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
 	second := project.MakeAtspDataInResultsDirectory("sample-b.atsp", [][]float64{{0, 1}, {1, 0}}, 2, sourceRoot)
-	finalFirst := project.WithExperimentOutputRoot(first, finalRoot)
-	finalSecond := project.WithExperimentOutputRoot(second, finalRoot)
+	evaluationFirst := project.WithExperimentOutputRoot(first, evaluationRoot)
+	evaluationSecond := project.WithExperimentOutputRoot(second, evaluationRoot)
 	controlFirst := project.WithExperimentOutputRoot(first, controlsRoot)
 	controlSecond := project.WithExperimentOutputRoot(second, controlsRoot)
 
-	if err := experiments.SaveHeuristicStatistics(finalFirst.ResultFilePath, []experiments.HeuristicExperimentStatistics{
-		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testFinalStrictMsaHeuristicWeight, 2.0, 10.0)},
+	if err := experiments.SaveHeuristicStatistics(evaluationFirst.ResultFilePath, []experiments.HeuristicExperimentStatistics{
+		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testEvaluationStrictMsaHeuristicWeight, 2.0, 10.0)},
 	}); err != nil {
-		t.Fatalf("failed to write first final MSA result: %v", err)
+		t.Fatalf("failed to write first evaluation MSA result: %v", err)
 	}
 	experiments.SaveStatistics(controlReportTestResultFilePathForHeuristic(controlFirst, testHeuristicShuffledMsa), testHeuristicShuffledMsa, []experiments.ExperimentsDataStatistics{
 		makeControlReportTestRandomSparseStatistics(1, 4.0, 0.0),
@@ -146,10 +146,10 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 		makeControlReportTestRandomSparseStatistics(3, 6.0, 0.0),
 	})
 
-	if err := experiments.SaveHeuristicStatistics(finalSecond.ResultFilePath, []experiments.HeuristicExperimentStatistics{
-		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testFinalStrictMsaHeuristicWeight, 4.0, 0.0)},
+	if err := experiments.SaveHeuristicStatistics(evaluationSecond.ResultFilePath, []experiments.HeuristicExperimentStatistics{
+		{Heuristic: testHeuristicStrictMsa, Statistics: makeControlReportTestExperimentStatistics(testEvaluationStrictMsaHeuristicWeight, 4.0, 0.0)},
 	}); err != nil {
-		t.Fatalf("failed to write second final MSA result: %v", err)
+		t.Fatalf("failed to write second evaluation MSA result: %v", err)
 	}
 	experiments.SaveStatistics(controlReportTestResultFilePathForHeuristic(controlSecond, testHeuristicShuffledMsa), testHeuristicShuffledMsa, []experiments.ExperimentsDataStatistics{
 		makeControlReportTestRandomSparseStatistics(1, 2.0, 20.0),
@@ -158,7 +158,7 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 	})
 
 	reportPath := filepath.Join(controlsRoot, "shuffled_msa_control.md")
-	saved, err := SaveShuffledMsaControlReport(reportPath, []project.AtspData{second, first}, finalRoot, controlsRoot, controlReportsTestConfig())
+	saved, err := SaveShuffledMsaControlReport(reportPath, []project.AtspData{second, first}, evaluationRoot, controlsRoot, controlReportsTestConfig())
 	if err != nil {
 		t.Fatalf("SaveShuffledMsaControlReport returned unexpected error: %v", err)
 	}
@@ -179,14 +179,14 @@ func TestSaveShuffledMsaControlReportComparesMsaAgainstShuffledMsa(t *testing.T)
 
 func controlReportsTestConfig() ControlReportsConfig {
 	return ControlReportsConfig{
-		StrictMsaHeuristic:            testHeuristicStrictMsa,
-		RandomSparseHeuristic:         testHeuristicRandomSparse,
-		DistanceRankedSparseHeuristic: testHeuristicDistanceRankedSparse,
-		ShuffledMsaHeuristic:          testHeuristicShuffledMsa,
-		FinalStrictMsaHeuristicWeight: testFinalStrictMsaHeuristicWeight,
-		ReadStatistics:                experiments.ReadStatistics,
-		ReadHeuristicStatistics:       experiments.ReadHeuristicStatistics,
-		ResultFilePathForHeuristic:    controlReportTestResultFilePathForHeuristic,
+		StrictMsaHeuristic:                 testHeuristicStrictMsa,
+		RandomSparseHeuristic:              testHeuristicRandomSparse,
+		DistanceRankedSparseHeuristic:      testHeuristicDistanceRankedSparse,
+		ShuffledMsaHeuristic:               testHeuristicShuffledMsa,
+		EvaluationStrictMsaHeuristicWeight: testEvaluationStrictMsaHeuristicWeight,
+		ReadStatistics:                     experiments.ReadStatistics,
+		ReadHeuristicStatistics:            experiments.ReadHeuristicStatistics,
+		ResultFilePathForHeuristic:         controlReportTestResultFilePathForHeuristic,
 	}
 }
 
@@ -221,7 +221,7 @@ func makeControlReportTestExperimentStatistics(heuristicWeight, averageBestDevia
 }
 
 func makeControlReportTestRandomSparseStatistics(randomSeed int64, averageBestDeviation, successRate float64) experiments.ExperimentsDataStatistics {
-	statistics := makeControlReportTestExperimentStatistics(testFinalStrictMsaHeuristicWeight, averageBestDeviation, successRate)
+	statistics := makeControlReportTestExperimentStatistics(testEvaluationStrictMsaHeuristicWeight, averageBestDeviation, successRate)
 	statistics.RandomSeed = randomSeed
 	return statistics
 }

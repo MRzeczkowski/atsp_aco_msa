@@ -20,12 +20,12 @@ const (
 )
 
 const (
-	runModeExperiment   = "experiment"
-	runModeAnalyze      = "analyze"
-	runModeAll          = "all"
-	runModeFinal        = "final"
-	runModeFinal3Opt    = "final+3opt"
-	runModeRebuildCache = "rebuild-cache"
+	runModeExperiment     = "experiment"
+	runModeAnalyze        = "analyze"
+	runModeAll            = "all"
+	runModeEvaluation     = "evaluation"
+	runModeEvaluation3Opt = "evaluation+3opt"
+	runModeRebuildCache   = "rebuild-cache"
 )
 
 const (
@@ -35,17 +35,17 @@ const (
 )
 
 const (
-	finalNumberOfExperiments               = 50
-	finalStrictMsaHeuristicWeight          = 0.4
-	finalRootedMsaHeuristicWeight          = 0.3
-	finalCycleCoverWeight                  = 0.9
-	finalCycleCoverMsaPatchingWeight       = 0.9
-	finalCycleCoverMsaPatchingMsaPatchBias = 0.5
-	defaultExperimentAlpha                 = 1.0
-	defaultExperimentBeta                  = 2.0
-	defaultExperimentRho                   = 0.8
-	defaultExperimentRunCount              = 30
-	defaultBaselineHeuristicWeight         = 0.0
+	evaluationNumberOfExperiments               = 50
+	evaluationStrictMsaHeuristicWeight          = 0.4
+	evaluationRootedMsaHeuristicWeight          = 0.3
+	evaluationCycleCoverWeight                  = 0.9
+	evaluationCycleCoverMsaPatchingWeight       = 0.9
+	evaluationCycleCoverMsaPatchingMsaPatchBias = 0.5
+	defaultExperimentAlpha                      = 1.0
+	defaultExperimentBeta                       = 2.0
+	defaultExperimentRho                        = 0.8
+	defaultExperimentRunCount                   = 30
+	defaultBaselineHeuristicWeight              = 0.0
 )
 
 const (
@@ -63,8 +63,8 @@ const (
 	heuristicCycleCoverMsaPatching = "cycle-cover-msa-patching"
 )
 
-const finalHeuristicAll = "all"
-const finalHeuristicControls = "controls"
+const evaluationHeuristicAll = "all"
+const evaluationHeuristicControls = "controls"
 const experimentHeuristicAll = "all"
 
 var gksDeviationMsaPatchBiases = []float64{0.0, 0.25, 0.5, 0.75, 1.0}
@@ -78,7 +78,7 @@ var experimentHeuristics = []string{
 	heuristicCycleCoverMsaPatching,
 }
 
-var finalResultsSummaryHeuristics = []string{
+var evaluationResultsSummaryHeuristics = []string{
 	heuristicBaseline,
 	heuristicStrictMsa,
 	heuristicRootedMsa,

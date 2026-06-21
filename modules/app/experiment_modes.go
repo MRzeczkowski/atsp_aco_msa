@@ -83,39 +83,39 @@ func readTuningSummaryStatistics(path string) ([]tuning.Statistic, error) {
 	return statistics, nil
 }
 
-func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []finalExperimentConfiguration, workers, numberOfExperiments int) error {
-	needsMsaHeuristic := finalConfigurationsUseMsaHeuristic(configurations)
+func runEvaluationExperimentMode(atspsData []AtspData, resultsRootPath string, useThreeOpt bool, configurations []evaluationExperimentConfiguration, workers, numberOfExperiments int) error {
+	needsMsaHeuristic := evaluationConfigurationsUseMsaHeuristic(configurations)
 	if needsMsaHeuristic {
-		if err := ensureMsaHeuristicCache(atspsData, workers, finalConfigurationsUseRootedMsa(configurations)); err != nil {
+		if err := ensureMsaHeuristicCache(atspsData, workers, evaluationConfigurationsUseRootedMsa(configurations)); err != nil {
 			return err
 		}
 	}
-	if finalConfigurationsUseCycleCover(configurations) {
+	if evaluationConfigurationsUseCycleCover(configurations) {
 		if err := ensureCycleCoverCache(atspsData, workers); err != nil {
 			return err
 		}
 	}
 
-	if err := removeLegacyFinalReports(resultsRootPath); err != nil {
+	if err := removeLegacyEvaluationReports(resultsRootPath); err != nil {
 		return err
 	}
 
-	instanceRuns := make([]*finalExperimentInstanceRun, 0, len(atspsData))
+	instanceRuns := make([]*evaluationExperimentInstanceRun, 0, len(atspsData))
 	for _, atspData := range atspsData {
-		finalAtspData := project.WithExperimentOutputRoot(atspData, resultsRootPath)
-		instanceRun, err := prepareFinalExperimentInstance(finalAtspData, useThreeOpt, configurations, numberOfExperiments)
+		evaluationAtspData := project.WithExperimentOutputRoot(atspData, resultsRootPath)
+		instanceRun, err := prepareEvaluationExperimentInstance(evaluationAtspData, useThreeOpt, configurations, numberOfExperiments)
 		if err != nil {
 			return err
 		}
 		instanceRuns = append(instanceRuns, instanceRun)
 	}
 
-	if err := workerpool.RunJobs(finalExperimentConfigurationJobs(instanceRuns), workers); err != nil {
+	if err := workerpool.RunJobs(evaluationExperimentConfigurationJobs(instanceRuns), workers); err != nil {
 		return err
 	}
 
 	for _, instanceRun := range instanceRuns {
-		if err := finishFinalExperimentInstance(instanceRun); err != nil {
+		if err := finishEvaluationExperimentInstance(instanceRun); err != nil {
 			return err
 		}
 	}
@@ -123,44 +123,44 @@ func runFinalExperimentMode(atspsData []AtspData, resultsRootPath string, useThr
 	return nil
 }
 
-type finalExperimentInstanceRun struct {
+type evaluationExperimentInstanceRun struct {
 	atspData                  AtspData
 	useThreeOpt               bool
-	configurations            []finalExperimentConfiguration
+	configurations            []evaluationExperimentConfiguration
 	numberOfExperiments       int
 	matrix                    [][]float64
 	knownOptimal              float64
 	dimension                 int
 	instanceStart             time.Time
 	controlRun                bool
-	finalRunName              string
+	evaluationRunName         string
 	statisticsByConfiguration [][]ExperimentsDataStatistics
 	cycleCover                [][]float64
 }
 
-func prepareFinalExperimentInstance(atspData AtspData, useThreeOpt bool, configurations []finalExperimentConfiguration, numberOfExperiments int) (*finalExperimentInstanceRun, error) {
+func prepareEvaluationExperimentInstance(atspData AtspData, useThreeOpt bool, configurations []evaluationExperimentConfiguration, numberOfExperiments int) (*evaluationExperimentInstanceRun, error) {
 	if len(configurations) == 0 {
-		return nil, fmt.Errorf("no final experiment configurations selected")
+		return nil, fmt.Errorf("no evaluation experiment configurations selected")
 	}
 
-	controlRun := finalConfigurationsAreSparseControls(configurations)
+	controlRun := evaluationConfigurationsAreSparseControls(configurations)
 	if controlRun {
 		if err := removeFileIfExists(atspData.ResultFilePath); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := removeLegacyFinalResultFiles(atspData); err != nil {
+		if err := removeLegacyEvaluationResultFiles(atspData); err != nil {
 			return nil, err
 		}
 	}
 
-	finalRunName := "final"
+	evaluationRunName := "evaluation"
 	if useThreeOpt {
-		finalRunName = "final+3opt"
+		evaluationRunName = "evaluation+3opt"
 	}
 
 	instanceStart := time.Now()
-	instanceRun := &finalExperimentInstanceRun{
+	instanceRun := &evaluationExperimentInstanceRun{
 		atspData:                  atspData,
 		useThreeOpt:               useThreeOpt,
 		configurations:            configurations,
@@ -170,11 +170,11 @@ func prepareFinalExperimentInstance(atspData AtspData, useThreeOpt bool, configu
 		dimension:                 len(atspData.Matrix),
 		instanceStart:             instanceStart,
 		controlRun:                controlRun,
-		finalRunName:              finalRunName,
+		evaluationRunName:         evaluationRunName,
 		statisticsByConfiguration: make([][]ExperimentsDataStatistics, len(configurations)),
 	}
 
-	if finalConfigurationsUseCycleCover(configurations) {
+	if evaluationConfigurationsUseCycleCover(configurations) {
 		cycleCoverMatrix, err := cyclecover.Read(atspData.CycleCoverDirectoryPath, instanceRun.dimension)
 		if err != nil {
 			return nil, err
@@ -190,17 +190,17 @@ func prepareFinalExperimentInstance(atspData AtspData, useThreeOpt bool, configu
 	fmt.Printf("[%s][%s] Starting %s (dimension=%d, heuristics=%d, parameter sets=%d, runs/parameter=%d)\n",
 		logTimestamp(instanceStart),
 		atspData.Name,
-		finalRunName,
+		evaluationRunName,
 		instanceRun.dimension,
 		len(configurations),
-		finalExperimentParameterSetCount(configurations),
+		evaluationExperimentParameterSetCount(configurations),
 		numberOfExperiments)
 
 	return instanceRun, nil
 }
 
-func finalExperimentConfigurationJobs(instanceRuns []*finalExperimentInstanceRun) []workerpool.Job {
-	orderedInstanceRuns := append([]*finalExperimentInstanceRun{}, instanceRuns...)
+func evaluationExperimentConfigurationJobs(instanceRuns []*evaluationExperimentInstanceRun) []workerpool.Job {
+	orderedInstanceRuns := append([]*evaluationExperimentInstanceRun{}, instanceRuns...)
 	sort.SliceStable(orderedInstanceRuns, func(i, j int) bool {
 		if orderedInstanceRuns[i].dimension != orderedInstanceRuns[j].dimension {
 			return orderedInstanceRuns[i].dimension > orderedInstanceRuns[j].dimension
@@ -221,9 +221,9 @@ func finalExperimentConfigurationJobs(instanceRuns []*finalExperimentInstanceRun
 			configurationIndex := configurationIndex
 			config := instanceRun.configurations[configurationIndex]
 			jobs = append(jobs, workerpool.Job{
-				Label: fmt.Sprintf("%s/%s/%s", instanceRun.finalRunName, instanceRun.atspData.Name, config.Heuristic),
+				Label: fmt.Sprintf("%s/%s/%s", instanceRun.evaluationRunName, instanceRun.atspData.Name, config.Heuristic),
 				Run: func() error {
-					return runFinalExperimentConfiguration(instanceRun, configurationIndex)
+					return runEvaluationExperimentConfiguration(instanceRun, configurationIndex)
 				},
 			})
 		}
@@ -232,7 +232,7 @@ func finalExperimentConfigurationJobs(instanceRuns []*finalExperimentInstanceRun
 	return jobs
 }
 
-func runFinalExperimentConfiguration(instanceRun *finalExperimentInstanceRun, configurationIndex int) error {
+func runEvaluationExperimentConfiguration(instanceRun *evaluationExperimentInstanceRun, configurationIndex int) error {
 	config := instanceRun.configurations[configurationIndex]
 	var heuristicMatrix [][]float64
 	var rootedMsaHeuristic [][][]float64
@@ -255,7 +255,7 @@ func runFinalExperimentConfiguration(instanceRun *finalExperimentInstanceRun, co
 		cycleCover = instanceRun.cycleCover
 	}
 
-	experimentData, err := runFinalExperimentParameters(
+	experimentData, err := runEvaluationExperimentParameters(
 		instanceRun.atspData.Name,
 		config.Heuristic,
 		config.Parameters,
@@ -281,7 +281,7 @@ func runFinalExperimentConfiguration(instanceRun *finalExperimentInstanceRun, co
 	return nil
 }
 
-func finishFinalExperimentInstance(instanceRun *finalExperimentInstanceRun) error {
+func finishEvaluationExperimentInstance(instanceRun *evaluationExperimentInstanceRun) error {
 	if instanceRun.controlRun {
 		for index, config := range instanceRun.configurations {
 			statistics := instanceRun.statisticsByConfiguration[index]
@@ -290,7 +290,7 @@ func finishFinalExperimentInstance(instanceRun *finalExperimentInstanceRun) erro
 			}
 		}
 	} else {
-		finalStatistics := make([]HeuristicExperimentStatistics, 0, len(instanceRun.configurations))
+		evaluationStatistics := make([]HeuristicExperimentStatistics, 0, len(instanceRun.configurations))
 		for index, config := range instanceRun.configurations {
 			statistics := instanceRun.statisticsByConfiguration[index]
 			if len(statistics) == 0 {
@@ -299,29 +299,29 @@ func finishFinalExperimentInstance(instanceRun *finalExperimentInstanceRun) erro
 
 			if config.SaveAllParameterRows {
 				for _, statistic := range statistics {
-					finalStatistics = append(finalStatistics, HeuristicExperimentStatistics{
+					evaluationStatistics = append(evaluationStatistics, HeuristicExperimentStatistics{
 						Heuristic:  config.Heuristic,
 						Statistics: statistic,
 					})
 				}
 			} else {
-				finalStatistics = append(finalStatistics, HeuristicExperimentStatistics{
+				evaluationStatistics = append(evaluationStatistics, HeuristicExperimentStatistics{
 					Heuristic:  config.Heuristic,
 					Statistics: statistics[0],
 				})
 			}
 		}
 
-		if err := saveFinalHeuristicStatistics(instanceRun.atspData.ResultFilePath, finalStatistics, instanceRun.configurations); err != nil {
+		if err := saveEvaluationHeuristicStatistics(instanceRun.atspData.ResultFilePath, evaluationStatistics, instanceRun.configurations); err != nil {
 			return err
 		}
 	}
 
-	fmt.Printf("[%s][%s] Finished %s in %s\n", logTimestamp(time.Now()), instanceRun.atspData.Name, instanceRun.finalRunName, time.Since(instanceRun.instanceStart).Round(time.Millisecond))
+	fmt.Printf("[%s][%s] Finished %s in %s\n", logTimestamp(time.Now()), instanceRun.atspData.Name, instanceRun.evaluationRunName, time.Since(instanceRun.instanceStart).Round(time.Millisecond))
 	return nil
 }
 
-func runFinalExperimentParameters(instanceName, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments int, knownOptimal float64, matrix, heuristicMatrix [][]float64, rootedMsaHeuristic [][][]float64, cycleCover [][]float64, useThreeOpt bool, dimension, workers int) ([]ExperimentsData, error) {
+func runEvaluationExperimentParameters(instanceName, heuristic string, experimentParameters []ExperimentParameters, numberOfExperiments int, knownOptimal float64, matrix, heuristicMatrix [][]float64, rootedMsaHeuristic [][][]float64, cycleCover [][]float64, useThreeOpt bool, dimension, workers int) ([]ExperimentsData, error) {
 	experimentData := make([]ExperimentsData, len(experimentParameters))
 	var logMutex sync.Mutex
 
@@ -375,7 +375,7 @@ func runFinalExperimentParameters(instanceName, heuristic string, experimentPara
 	return experimentData, nil
 }
 
-func finalExperimentParameterSetCount(configurations []finalExperimentConfiguration) int {
+func evaluationExperimentParameterSetCount(configurations []evaluationExperimentConfiguration) int {
 	count := 0
 	for _, configuration := range configurations {
 		count += len(configuration.Parameters)
@@ -384,7 +384,7 @@ func finalExperimentParameterSetCount(configurations []finalExperimentConfigurat
 	return count
 }
 
-func removeLegacyFinalReports(resultsRootPath string) error {
+func removeLegacyEvaluationReports(resultsRootPath string) error {
 	legacyReports, err := filepath.Glob(filepath.Join(resultsRootPath, "best_parameters_report*.md"))
 	if err != nil {
 		return err
@@ -399,7 +399,7 @@ func removeLegacyFinalReports(resultsRootPath string) error {
 	return nil
 }
 
-func removeLegacyFinalResultFiles(atspData AtspData) error {
+func removeLegacyEvaluationResultFiles(atspData AtspData) error {
 	legacyFiles := []string{
 		resultFilePathForHeuristic(atspData, heuristicBaseline),
 		resultFilePathForHeuristic(atspData, heuristicCycleCover),
