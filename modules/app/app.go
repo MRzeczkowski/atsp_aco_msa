@@ -34,7 +34,9 @@ func selectExperimentHeuristics(heuristic string, heuristicExplicit bool) ([]str
 }
 
 func heuristicUsesCycleCover(heuristic string) bool {
-	return heuristic == heuristicCycleCover || heuristic == heuristicCycleCoverMsaPatching
+	return heuristic == heuristicCycleCover ||
+		heuristic == heuristicCycleCoverPatching ||
+		heuristic == heuristicCycleCoverMsaPatching
 }
 
 func heuristicUsesMsaHeuristic(heuristic string) bool {
@@ -255,7 +257,7 @@ func Run(args []string) {
 	mode := flags.String("mode", runModeExperiment, "Run mode: experiment, analyze, all, evaluation, evaluation+3opt, or rebuild-cache")
 	analysisScope := flags.String("analysis", analysisScopeAll, "Analysis scope for analyze mode: all, tuning, or gks-deviation")
 	heuristic := flags.String("heuristic", "", "ACO heuristic modifier to use in experiment mode: omit or use all; otherwise strict-msa, rooted-msa, cycle-cover, or cycle-cover-msa-patching")
-	evaluationHeuristic := flags.String("evaluation-heuristic", evaluationHeuristicAll, "Evaluation-mode heuristic to run: all, controls, baseline, strict-msa, rooted-msa, random-sparse, distance-ranked-sparse, shuffled-msa, cycle-cover, or cycle-cover-msa-patching")
+	evaluationHeuristic := flags.String("evaluation-heuristic", evaluationHeuristicAll, "Evaluation-mode heuristic to run: all, controls, baseline, strict-msa, rooted-msa, random-sparse, distance-ranked-sparse, shuffled-msa, cycle-cover, cycle-cover-patching, or cycle-cover-msa-patching")
 	workers := flags.Int("workers", 0, "Maximum concurrent instance workers. 0 uses half of available logical CPUs; 1 preserves serial execution")
 	flags.Parse(args)
 

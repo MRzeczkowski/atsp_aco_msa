@@ -38,6 +38,7 @@ const (
 	evaluationStrictMsaHeuristicWeight          = 0.4
 	evaluationRootedMsaHeuristicWeight          = 0.3
 	evaluationCycleCoverWeight                  = 0.9
+	evaluationCycleCoverPatchingWeight          = 1.0
 	evaluationCycleCoverMsaPatchingWeight       = 0.9
 	evaluationCycleCoverMsaPatchingMsaPatchBias = 0.5
 	defaultExperimentAlpha                      = 1.0
@@ -59,6 +60,7 @@ const (
 	heuristicRootedDistanceRanked  = "rooted-distance-ranked-sparse"
 	heuristicRootedShuffledMsa     = "rooted-shuffled-msa"
 	heuristicCycleCover            = "cycle-cover"
+	heuristicCycleCoverPatching    = "cycle-cover-patching"
 	heuristicCycleCoverMsaPatching = "cycle-cover-msa-patching"
 )
 
@@ -82,6 +84,7 @@ var evaluationResultsSummaryHeuristics = []string{
 	heuristicStrictMsa,
 	heuristicRootedMsa,
 	heuristicCycleCover,
+	heuristicCycleCoverPatching,
 	heuristicCycleCoverMsaPatching,
 }
 

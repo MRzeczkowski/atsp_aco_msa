@@ -80,6 +80,12 @@ func evaluationExperimentConfigurations() []evaluationExperimentConfiguration {
 			},
 		},
 		{
+			Heuristic: heuristicCycleCoverPatching,
+			Parameters: []ExperimentParameters{
+				newPatchingExperimentParameters(evaluationCycleCoverPatchingWeight, 0.0),
+			},
+		},
+		{
 			Heuristic: heuristicCycleCoverMsaPatching,
 			Parameters: []ExperimentParameters{
 				newPatchingExperimentParameters(evaluationCycleCoverMsaPatchingWeight, evaluationCycleCoverMsaPatchingMsaPatchBias),

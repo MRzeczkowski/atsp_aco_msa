@@ -26,6 +26,8 @@ func heuristicDisplayName(heuristic string) string {
 		return "Rooted shuffled MSA"
 	case heuristicCycleCover:
 		return "Cycle cover"
+	case heuristicCycleCoverPatching:
+		return "Cycle-cover patching"
 	case heuristicCycleCoverMsaPatching:
 		return "Cycle-cover MSA patching"
 	default:
@@ -47,6 +49,8 @@ func buildHeuristicModifiers(heuristic string, matrix, msaHeuristic, cycleCover 
 		return heuristics.BuildShuffledMsaModifiers(msaHeuristic, parameters.RandomSeed)
 	case heuristicCycleCover:
 		return heuristics.BuildCycleCoverModifiers(cycleCover)
+	case heuristicCycleCoverPatching:
+		return heuristics.BuildCycleCoverMsaPatchingModifiers(matrix, nil, cycleCover, parameters.MsaPatchBias)
 	case heuristicCycleCoverMsaPatching:
 		return heuristics.BuildCycleCoverMsaPatchingModifiers(matrix, msaHeuristic, cycleCover, parameters.MsaPatchBias)
 	default:

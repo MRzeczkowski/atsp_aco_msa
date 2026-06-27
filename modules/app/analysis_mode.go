@@ -42,7 +42,7 @@ func controlReportsConfig() reports.ControlReportsConfig {
 
 func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristics []string, workers int) error {
 	if analysisScope == analysisScopeTuning {
-		if err := saveTuningSummary(project.ResultsDirectoryName, atspsData, tuningHeuristics); err != nil {
+		if err := saveConfiguredTuningSummary(tuningHeuristics); err != nil {
 			return err
 		}
 		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(project.ResultsDirectoryName, tuning.ReportFileName))
@@ -50,7 +50,7 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	}
 
 	if analysisScope == analysisScopeAll {
-		if err := saveTuningSummary(project.ResultsDirectoryName, atspsData, tuningHeuristics); err != nil {
+		if err := saveConfiguredTuningSummary(tuningHeuristics); err != nil {
 			return err
 		}
 		fmt.Printf("Tuning summary saved to %s\n", filepath.Join(project.ResultsDirectoryName, tuning.ReportFileName))
@@ -207,6 +207,15 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 		fmt.Printf("Evaluation+3opt comparison report saved to %s\n", threeOptComparisonPath)
 	}
 	return nil
+}
+
+func saveConfiguredTuningSummary(tuningHeuristics []string) error {
+	tuningAtspData := make([]AtspData, 0, len(project.TuningInstanceFiles))
+	for _, instanceFile := range project.TuningInstanceFiles {
+		tuningAtspData = append(tuningAtspData, project.MakeAtspDataInResultsDirectory(instanceFile, nil, 0, project.ResultsDirectoryName))
+	}
+
+	return saveTuningSummary(project.ResultsDirectoryName, tuningAtspData, tuningHeuristics)
 }
 
 func runEvaluationResultsAnalysis(atspsData []AtspData, structuralAnalyses []structure.InstanceAnalysis, resultsRootPath string) (string, []reports.EvaluationResultsSummaryRow, bool, error) {

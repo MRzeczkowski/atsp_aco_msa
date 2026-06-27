@@ -508,6 +508,10 @@ func TestHeuristicSpecificPathsKeepMsaHeuristicBaselinePaths(t *testing.T) {
 		t.Fatalf("unexpected cycle-cover result path: %s", resultFilePathForHeuristic(atspData, heuristicCycleCover))
 	}
 
+	if resultFilePathForHeuristic(atspData, heuristicCycleCoverPatching) != filepath.Join(project.ResultsDirectoryName, "test", "result_cycle_cover_patching.csv") {
+		t.Fatalf("unexpected cycle-cover patching result path: %s", resultFilePathForHeuristic(atspData, heuristicCycleCoverPatching))
+	}
+
 	if resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching) != filepath.Join(project.ResultsDirectoryName, "test", "result_cycle_cover_msa_patching.csv") {
 		t.Fatalf("unexpected cycle-cover MSA-patching result path: %s", resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching))
 	}
@@ -548,6 +552,7 @@ func TestEvaluationExperimentConfigurationsUseFixedBalancedComparison(t *testing
 		{heuristicStrictMsa, evaluationStrictMsaHeuristicWeight, 0.0},
 		{heuristicRootedMsa, evaluationRootedMsaHeuristicWeight, 0.0},
 		{heuristicCycleCover, evaluationCycleCoverWeight, 0.0},
+		{heuristicCycleCoverPatching, evaluationCycleCoverPatchingWeight, 0.0},
 		{heuristicCycleCoverMsaPatching, evaluationCycleCoverMsaPatchingWeight, evaluationCycleCoverMsaPatchingMsaPatchBias},
 	}
 
@@ -725,6 +730,14 @@ func TestSelectEvaluationExperimentConfigurations(t *testing.T) {
 		t.Fatalf("expected only cycle-cover configuration, got %+v", cycleCoverConfigurations)
 	}
 
+	cycleCoverPatchingConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCoverPatching)
+	if err != nil {
+		t.Fatalf("selectEvaluationExperimentConfigurations(cycle-cover-patching) returned error: %v", err)
+	}
+	if len(cycleCoverPatchingConfigurations) != 1 || cycleCoverPatchingConfigurations[0].Heuristic != heuristicCycleCoverPatching {
+		t.Fatalf("expected only cycle-cover patching configuration, got %+v", cycleCoverPatchingConfigurations)
+	}
+
 	patchingConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCoverMsaPatching)
 	if err != nil {
 		t.Fatalf("selectEvaluationExperimentConfigurations(cycle-cover-msa-patching) returned error: %v", err)
@@ -790,6 +803,14 @@ func TestEvaluationConfigurationsUseMsaHeuristicOnlyWhenNeeded(t *testing.T) {
 		t.Fatal("cycle-cover-only evaluation run should not require MSA heuristic")
 	}
 
+	cycleCoverPatchingConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCoverPatching)
+	if err != nil {
+		t.Fatalf("selectEvaluationExperimentConfigurations(cycle-cover-patching) returned error: %v", err)
+	}
+	if evaluationConfigurationsUseMsaHeuristic(cycleCoverPatchingConfigurations) {
+		t.Fatal("cycle-cover patching evaluation run should not require MSA heuristic")
+	}
+
 	strictMsaConfigurations, err := selectEvaluationExperimentConfigurations(heuristicStrictMsa)
 	if err != nil {
 		t.Fatalf("selectEvaluationExperimentConfigurations(strict-msa) returned error: %v", err)
@@ -848,6 +869,14 @@ func TestCycleCoverCacheIsNeededOnlyForCycleCoverHeuristics(t *testing.T) {
 	}
 	if !evaluationConfigurationsUseCycleCover(cycleCoverConfigurations) {
 		t.Fatal("cycle-cover evaluation run should require cycle-cover cache")
+	}
+
+	cycleCoverPatchingConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCoverPatching)
+	if err != nil {
+		t.Fatalf("selectEvaluationExperimentConfigurations(cycle-cover-patching) returned error: %v", err)
+	}
+	if !evaluationConfigurationsUseCycleCover(cycleCoverPatchingConfigurations) {
+		t.Fatal("cycle-cover patching evaluation run should require cycle-cover cache")
 	}
 
 	patchingConfigurations, err := selectEvaluationExperimentConfigurations(heuristicCycleCoverMsaPatching)
@@ -947,6 +976,9 @@ func TestEvaluationModesAndExperimentHeuristicsAreValid(t *testing.T) {
 	if isValidHeuristic(heuristicShuffledMsa) {
 		t.Fatal("shuffled MSA control should not be valid in normal experiment mode")
 	}
+	if isValidHeuristic(heuristicCycleCoverPatching) {
+		t.Fatal("cycle-cover patching should be evaluation-only")
+	}
 }
 
 func TestEvaluation3OptModeUsesSeparateOutputRootAndThreeOpt(t *testing.T) {
@@ -995,12 +1027,17 @@ func TestRunAnalysisModeTuningRegeneratesTuningSummary(t *testing.T) {
 		project.ResultsDirectoryName = originalResultsDirectoryName
 	})
 
-	atspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, project.ResultsDirectoryName)
-	experiments.SaveStatistics(resultFilePathForHeuristic(atspData, heuristicCycleCoverMsaPatching), heuristicCycleCoverMsaPatching, []ExperimentsDataStatistics{
+	tuningAtspData := project.MakeAtspDataInResultsDirectory(project.TuningInstanceFiles[0], [][]float64{{0, 1}, {1, 0}}, 2, project.ResultsDirectoryName)
+	experiments.SaveStatistics(resultFilePathForHeuristic(tuningAtspData, heuristicCycleCoverMsaPatching), heuristicCycleCoverMsaPatching, []ExperimentsDataStatistics{
 		makeTestExperimentStatistics(0.6, 2.0, 20.0),
 	})
 
-	if err := runAnalysisMode([]AtspData{atspData}, analysisScopeTuning, []string{heuristicCycleCoverMsaPatching}, 1); err != nil {
+	nonTuningAtspData := project.MakeAtspDataInResultsDirectory("sample.atsp", [][]float64{{0, 1}, {1, 0}}, 2, project.ResultsDirectoryName)
+	experiments.SaveStatistics(resultFilePathForHeuristic(nonTuningAtspData, heuristicCycleCoverMsaPatching), heuristicCycleCoverMsaPatching, []ExperimentsDataStatistics{
+		makeTestExperimentStatistics(0.9, 9.0, 90.0),
+	})
+
+	if err := runAnalysisMode([]AtspData{nonTuningAtspData}, analysisScopeTuning, []string{heuristicCycleCoverMsaPatching}, 1); err != nil {
 		t.Fatalf("runAnalysisMode(tuning) returned unexpected error: %v", err)
 	}
 
@@ -1012,6 +1049,7 @@ func TestRunAnalysisModeTuningRegeneratesTuningSummary(t *testing.T) {
 	assertContains(t, content, "# Tuning Summary")
 	assertContains(t, content, "Cycle-cover MSA patching")
 	assertContains(t, content, "| 0.60 | 0.00 | 2.00 | 2.00 | 1 | 1 | 20.00 |")
+	assertDoesNotContain(t, content, "| 0.90 | 0.00 | 9.00 | 9.00 | 1 | 1 | 90.00 |")
 }
 
 func TestResolveWorkerCount(t *testing.T) {
@@ -1418,6 +1456,13 @@ func assertContains(t *testing.T, content, expected string) {
 	t.Helper()
 	if !strings.Contains(content, expected) {
 		t.Fatalf("expected content to contain:\n%s\n\ncontent:\n%s", expected, content)
+	}
+}
+
+func assertDoesNotContain(t *testing.T, content, unexpected string) {
+	t.Helper()
+	if strings.Contains(content, unexpected) {
+		t.Fatalf("expected content not to contain:\n%s\n\ncontent:\n%s", unexpected, content)
 	}
 }
 
