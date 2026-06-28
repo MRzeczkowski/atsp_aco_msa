@@ -33,7 +33,6 @@ type randomSparseControlRow struct {
 	msaSuccessRate                     float64
 	randomSuccessRate                  float64
 	successRateDelta                   float64
-	randomSeedCount                    int
 	randomBestAverageBestDeviationSeed int64
 }
 
@@ -120,7 +119,6 @@ func buildRandomSparseControlRows(atspsData []project.AtspData, evaluationResult
 			msaSuccessRate:                     msaMetric.SuccessRate,
 			randomSuccessRate:                  randomSuccessRate,
 			successRateDelta:                   msaMetric.SuccessRate - randomSuccessRate,
-			randomSeedCount:                    len(randomStatisticsForWeight),
 			randomBestAverageBestDeviationSeed: randomBestAverageBestDeviationSeed,
 		})
 	}
@@ -299,13 +297,13 @@ func writeRandomSparseControlTable(builder *strings.Builder, rows []randomSparse
 	builder.WriteString("Negative delta means Strict MSA had lower average best deviation than the random-sparse mean.\n\n")
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
-	builder.WriteString("<tr><th>Instance</th><th>Strict MSA avg best dev. [%]</th><th>Random mean avg best dev. [%]</th><th>Best random avg best dev. [%]</th><th>Delta [pp]</th><th>Strict MSA success [%]</th><th>Random success [%]</th><th>Seeds</th></tr>\n")
+	builder.WriteString("<tr><th>Instance</th><th>Strict MSA avg best dev. [%]</th><th>Random mean avg best dev. [%]</th><th>Best random avg best dev. [%]</th><th>Delta [pp]</th><th>Strict MSA success [%]</th><th>Random success [%]</th></tr>\n")
 	builder.WriteString("</thead>\n")
 	builder.WriteString("<tbody>\n")
 	for _, row := range rows {
 		msaWins := row.averageBestDeviationDelta < 0
 		fmt.Fprintf(builder,
-			"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%.2f (seed %d)</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td></tr>\n",
+			"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%.2f (seed %d)</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
 			html.EscapeString(row.instance),
 			metricCell(row.msaAverageBestDeviation, msaWins),
 			metricCell(row.randomAverageBestDeviation, !msaWins),
@@ -313,11 +311,10 @@ func writeRandomSparseControlTable(builder *strings.Builder, rows []randomSparse
 			row.randomBestAverageBestDeviationSeed,
 			formatSignedFloat(row.averageBestDeviationDelta),
 			row.msaSuccessRate,
-			row.randomSuccessRate,
-			row.randomSeedCount)
+			row.randomSuccessRate)
 	}
 	fmt.Fprintf(builder,
-		"<tr><td><strong>Average</strong></td><td align=\"right\"><strong>%.2f</strong></td><td align=\"right\"><strong>%.2f</strong></td><td></td><td align=\"right\"><strong>%s</strong></td><td align=\"right\"><strong>%.2f</strong></td><td align=\"right\"><strong>%.2f</strong></td><td></td></tr>\n",
+		"<tr><td><strong>Average</strong></td><td align=\"right\"><strong>%.2f</strong></td><td align=\"right\"><strong>%.2f</strong></td><td></td><td align=\"right\"><strong>%s</strong></td><td align=\"right\"><strong>%.2f</strong></td><td align=\"right\"><strong>%.2f</strong></td></tr>\n",
 		summary.meanMsaAverageBestDeviation,
 		summary.meanRandomAverageBestDeviation,
 		formatSignedFloat(summary.meanAverageBestDeviationDelta),
@@ -559,7 +556,6 @@ type seededSparseControlRow struct {
 	msaSuccessRate                      float64
 	controlSuccessRate                  float64
 	successRateDelta                    float64
-	seedCount                           int
 	controlBestAverageBestDeviationSeed int64
 }
 
@@ -647,7 +643,6 @@ func buildSeededSparseControlRows(atspsData []project.AtspData, evaluationResult
 			msaSuccessRate:                      msaMetric.SuccessRate,
 			controlSuccessRate:                  controlSuccessRate,
 			successRateDelta:                    msaMetric.SuccessRate - controlSuccessRate,
-			seedCount:                           len(controlStatisticsForWeight),
 			controlBestAverageBestDeviationSeed: controlBestAverageBestDeviationSeed,
 		})
 	}
@@ -738,7 +733,7 @@ func writeSeededSparseControlTable(builder *strings.Builder, rows []seededSparse
 	fmt.Fprintf(builder, "Negative delta means %s had lower average best deviation than the %s mean.\n\n", config.referenceName, config.controlName)
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
-	fmt.Fprintf(builder, "<tr><th>Instance</th><th>%s avg best dev. [%%]</th><th>%s mean avg best dev. [%%]</th><th>Best %s avg best dev. [%%]</th><th>Delta [pp]</th><th>%s success [%%]</th><th>%s success [%%]</th><th>Seeds</th></tr>\n",
+	fmt.Fprintf(builder, "<tr><th>Instance</th><th>%s avg best dev. [%%]</th><th>%s mean avg best dev. [%%]</th><th>Best %s avg best dev. [%%]</th><th>Delta [pp]</th><th>%s success [%%]</th><th>%s success [%%]</th></tr>\n",
 		html.EscapeString(config.referenceName),
 		html.EscapeString(config.controlName),
 		html.EscapeString(config.controlName),
@@ -749,7 +744,7 @@ func writeSeededSparseControlTable(builder *strings.Builder, rows []seededSparse
 	for _, row := range rows {
 		msaWins := row.averageBestDeviationDelta < 0
 		fmt.Fprintf(builder,
-			"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%.2f (seed %d)</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td><td align=\"right\">%d</td></tr>\n",
+			"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%.2f (seed %d)</td><td align=\"right\">%s</td><td align=\"right\">%.2f</td><td align=\"right\">%.2f</td></tr>\n",
 			html.EscapeString(row.instance),
 			metricCell(row.msaAverageBestDeviation, msaWins),
 			metricCell(row.controlAverageBestDeviation, !msaWins),
@@ -757,11 +752,10 @@ func writeSeededSparseControlTable(builder *strings.Builder, rows []seededSparse
 			row.controlBestAverageBestDeviationSeed,
 			formatSignedFloat(row.averageBestDeviationDelta),
 			row.msaSuccessRate,
-			row.controlSuccessRate,
-			row.seedCount)
+			row.controlSuccessRate)
 	}
 	fmt.Fprintf(builder,
-		"<tr><td><strong>Average</strong></td><td align=\"right\"><strong>%.2f</strong></td><td align=\"right\"><strong>%.2f</strong></td><td></td><td align=\"right\"><strong>%s</strong></td><td align=\"right\"><strong>%.2f</strong></td><td align=\"right\"><strong>%.2f</strong></td><td></td></tr>\n",
+		"<tr><td><strong>Average</strong></td><td align=\"right\"><strong>%.2f</strong></td><td align=\"right\"><strong>%.2f</strong></td><td></td><td align=\"right\"><strong>%s</strong></td><td align=\"right\"><strong>%.2f</strong></td><td align=\"right\"><strong>%.2f</strong></td></tr>\n",
 		summary.meanMsaAverageBestDeviation,
 		summary.meanControlAverageBestDeviation,
 		formatSignedFloat(summary.meanAverageBestDeviationDelta),

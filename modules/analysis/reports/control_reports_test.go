@@ -67,6 +67,7 @@ func TestSaveRandomSparseControlReportComparesMsaAgainstRandomSparse(t *testing.
 		t.Fatalf("failed to read random sparse control report: %v", err)
 	}
 	content := string(contentBytes)
+	assertContains(t, content, "Two-sided sign-test p-value")
 	assertContains(t, content, "Strict MSA had lower average best deviation than the random-sparse mean in 1/2 instances.")
 	assertContains(t, content, "Mean average best deviation: Strict MSA 3.00%, random sparse 4.00%, delta -1.00 pp.")
 	assertContains(t, content, "<td>sample-a</td>")

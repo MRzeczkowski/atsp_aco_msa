@@ -245,6 +245,53 @@ func TestSaveEvaluationPairwisePerformanceReport(t *testing.T) {
 	assertContains(t, content, "<tr><td>Strict MSA vs Cycle cover</td><td align=\"right\">+0.25</td><td align=\"right\">0</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">-5.00</td></tr>")
 }
 
+func TestSaveEvaluationRbgOutlierSummaryReport(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "rbg_outlier_summary.md")
+	rows := []EvaluationResultsSummaryRow{
+		{
+			Instance: "a",
+			Metrics: map[string]EvaluationResultSummaryMetric{
+				testHeuristicBaseline: {
+					AverageMinDeviation: 4.0,
+					SuccessRate:         10.0,
+				},
+				testHeuristicCycleCoverMsaPatching: {
+					AverageMinDeviation: 2.0,
+					SuccessRate:         20.0,
+				},
+			},
+		},
+		{
+			Instance: "rbg-test",
+			Metrics: map[string]EvaluationResultSummaryMetric{
+				testHeuristicBaseline: {
+					AverageMinDeviation: 20.0,
+					SuccessRate:         0.0,
+				},
+				testHeuristicCycleCoverMsaPatching: {
+					AverageMinDeviation: 0.0,
+					SuccessRate:         100.0,
+				},
+			},
+		},
+	}
+
+	if err := SaveEvaluationRbgOutlierSummaryReport(path, rows, evaluationReportsTestConfig()); err != nil {
+		t.Fatalf("SaveEvaluationRbgOutlierSummaryReport returned unexpected error: %v", err)
+	}
+
+	contentBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read RBG outlier summary: %v", err)
+	}
+
+	content := string(contentBytes)
+	assertContains(t, content, "# RBG Outlier Summary")
+	assertContains(t, content, "<tr><td>All</td><td align=\"right\">12.00</td><td align=\"right\">5.00</td><td></td><td></td><td></td><td></td><td></td><td></td><td align=\"right\"><strong>1.00</strong></td><td align=\"right\"><strong>60.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td>Without rbg</td><td align=\"right\">4.00</td><td align=\"right\">10.00</td><td></td><td></td><td></td><td></td><td></td><td></td><td align=\"right\"><strong>2.00</strong></td><td align=\"right\"><strong>20.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td>Only rbg</td><td align=\"right\">20.00</td><td align=\"right\">0.00</td><td></td><td></td><td></td><td></td><td></td><td></td><td align=\"right\"><strong>0.00</strong></td><td align=\"right\"><strong>100.00</strong></td></tr>")
+}
+
 func TestSaveEvaluationConvergenceSummaryReport(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "convergence_summary.md")
 	if err := SaveEvaluationConvergenceSummaryReport(path, sampleEvaluationSummaryRows(), evaluationReportsTestConfig()); err != nil {

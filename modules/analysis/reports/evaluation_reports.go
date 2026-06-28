@@ -305,6 +305,79 @@ func SaveEvaluationPairwisePerformanceReport(path string, rows []EvaluationResul
 	return os.WriteFile(path, []byte(builder.String()), 0644)
 }
 
+func SaveEvaluationRbgOutlierSummaryReport(path string, rows []EvaluationResultsSummaryRow, config EvaluationReportsConfig) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+
+	groups := []evaluationRbgOutlierGroup{
+		{label: "All", rows: rows},
+		{label: "Without rbg", rows: filterEvaluationRows(rows, func(instance string) bool {
+			return !strings.HasPrefix(instance, "rbg")
+		})},
+		{label: "Only rbg", rows: filterEvaluationRows(rows, func(instance string) bool {
+			return strings.HasPrefix(instance, "rbg")
+		})},
+	}
+
+	var builder strings.Builder
+	builder.WriteString("# RBG Outlier Summary\n\n")
+	builder.WriteString("This report recomputes evaluation averages for all instances, for instances excluding the `rbg` family, and for the `rbg` family alone.\n\n")
+	builder.WriteString("<table>\n")
+	builder.WriteString("<thead>\n")
+	builder.WriteString("<tr><th rowspan=\"2\">Instance set</th>")
+	for _, heuristic := range config.Heuristics {
+		fmt.Fprintf(&builder, "<th colspan=\"2\">%s</th>", html.EscapeString(config.displayName(heuristic)))
+	}
+	builder.WriteString("</tr>\n")
+	builder.WriteString("<tr>")
+	for range config.Heuristics {
+		builder.WriteString("<th>Avg best dev. [%]</th><th>Success [%]</th>")
+	}
+	builder.WriteString("</tr>\n")
+	builder.WriteString("</thead>\n")
+	builder.WriteString("<tbody>\n")
+	for _, group := range groups {
+		averages := averageEvaluationResultsSummaryMetrics(group.rows, config)
+		writeEvaluationRbgOutlierSummaryRow(&builder, group.label, averages, config)
+	}
+	builder.WriteString("</tbody>\n")
+	builder.WriteString("</table>\n")
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+type evaluationRbgOutlierGroup struct {
+	label string
+	rows  []EvaluationResultsSummaryRow
+}
+
+func filterEvaluationRows(rows []EvaluationResultsSummaryRow, keep func(instance string) bool) []EvaluationResultsSummaryRow {
+	filtered := make([]EvaluationResultsSummaryRow, 0, len(rows))
+	for _, row := range rows {
+		if keep(row.Instance) {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
+}
+
+func writeEvaluationRbgOutlierSummaryRow(builder *strings.Builder, label string, metrics map[string]EvaluationResultSummaryMetric, config EvaluationReportsConfig) {
+	deviationHighlights, successHighlights := evaluationResultsSummaryHighlights(metrics, config)
+	fmt.Fprintf(builder, "<tr><td>%s</td>", html.EscapeString(label))
+	for _, heuristic := range config.Heuristics {
+		metric, ok := metrics[heuristic]
+		if !ok {
+			builder.WriteString("<td></td><td></td>")
+			continue
+		}
+		fmt.Fprintf(builder, "<td align=\"right\">%s</td><td align=\"right\">%s</td>",
+			metricCell(metric.AverageMinDeviation, deviationHighlights[heuristic]),
+			metricCell(metric.SuccessRate, successHighlights[heuristic]))
+	}
+	builder.WriteString("</tr>\n")
+}
+
 func evaluationPairwisePerformanceComparisons(rows []EvaluationResultsSummaryRow, config EvaluationReportsConfig) []evaluationPairwisePerformanceComparison {
 	comparisons := make([]evaluationPairwisePerformanceComparison, 0)
 	for _, heuristic := range config.comparisonHeuristics() {
