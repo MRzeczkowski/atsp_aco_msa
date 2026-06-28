@@ -254,42 +254,6 @@ func randomSparseControlSummary(rows []randomSparseControlRow) randomSparseContr
 	return summary
 }
 
-func twoSidedSignTestPValue(wins, losses int) float64 {
-	n := wins + losses
-	if n == 0 {
-		return 1.0
-	}
-
-	observed := max(wins, losses)
-	probability := 0.0
-	for k := observed; k <= n; k++ {
-		probability += binomialCoefficient(n, k) / math.Pow(2, float64(n))
-	}
-
-	probability *= 2
-	if probability > 1 {
-		return 1
-	}
-
-	return probability
-}
-
-func binomialCoefficient(n, k int) float64 {
-	if k < 0 || k > n {
-		return 0
-	}
-	if k > n-k {
-		k = n - k
-	}
-
-	coefficient := 1.0
-	for i := 1; i <= k; i++ {
-		coefficient *= float64(n-k+i) / float64(i)
-	}
-
-	return coefficient
-}
-
 func writeRandomSparseControlTable(builder *strings.Builder, rows []randomSparseControlRow) {
 	summary := randomSparseControlSummary(rows)
 

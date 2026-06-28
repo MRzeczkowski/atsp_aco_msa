@@ -228,21 +228,25 @@ func TestSaveEvaluationThreeOptComparisonReportShowsHiddenHeuristicEffect(t *tes
 	assertContains(t, content, "<tr><td>Cycle-cover MSA patching</td><td align=\"right\">+2.50</td><td align=\"right\">+0.15</td><td align=\"right\">6.00</td></tr>")
 }
 
-func TestSaveEvaluationPairwisePerformanceReport(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "pairwise_performance.md")
-	if err := SaveEvaluationPairwisePerformanceReport(path, sampleEvaluationSummaryRows(), evaluationReportsTestConfig()); err != nil {
-		t.Fatalf("SaveEvaluationPairwisePerformanceReport returned unexpected error: %v", err)
+func TestSaveEvaluationBaselineComparisonReport(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "baseline_comparison.md")
+	if err := SaveEvaluationBaselineComparisonReport(path, sampleEvaluationSummaryRows(), evaluationReportsTestConfig()); err != nil {
+		t.Fatalf("SaveEvaluationBaselineComparisonReport returned unexpected error: %v", err)
 	}
 
 	contentBytes, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("failed to read pairwise performance report: %v", err)
+		t.Fatalf("failed to read baseline comparison report: %v", err)
 	}
 
 	content := string(contentBytes)
-	assertContains(t, content, "<tr><td>Strict MSA vs Baseline</td><td align=\"right\">-1.50</td><td align=\"right\">2</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">+15.00</td></tr>")
-	assertContains(t, content, "<tr><td>Cycle-cover MSA patching vs Baseline</td><td align=\"right\">-2.10</td><td align=\"right\">2</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">+20.00</td></tr>")
-	assertContains(t, content, "<tr><td>Strict MSA vs Cycle cover</td><td align=\"right\">+0.25</td><td align=\"right\">0</td><td align=\"right\">1</td><td align=\"right\">1</td><td align=\"right\">-5.00</td></tr>")
+	assertContains(t, content, "# Baseline Comparison Summary")
+	assertContains(t, content, "## All")
+	assertContains(t, content, "Instances: 2")
+	assertContains(t, content, "## Without rbg")
+	assertContains(t, content, "<tr><th>Heuristic</th><th>Avg best dev. delta [pp]</th><th>Wins</th><th>Ties</th><th>Losses</th><th>Sign-test p-value</th><th>Success delta [pp]</th></tr>")
+	assertContains(t, content, "<tr><td>Strict MSA</td><td align=\"right\">-1.50</td><td align=\"right\">2</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">0.500000</td><td align=\"right\">+15.00</td></tr>")
+	assertContains(t, content, "<tr><td>Cycle-cover MSA patching</td><td align=\"right\">-2.10</td><td align=\"right\">2</td><td align=\"right\">0</td><td align=\"right\">0</td><td align=\"right\">0.500000</td><td align=\"right\">+20.00</td></tr>")
 }
 
 func TestSaveEvaluationRbgOutlierSummaryReport(t *testing.T) {

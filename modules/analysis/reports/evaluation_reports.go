@@ -273,36 +273,60 @@ func heuristicFloatList(values map[string]float64, format string, config Evaluat
 	return strings.Join(parts, ", ")
 }
 
-func SaveEvaluationPairwisePerformanceReport(path string, rows []EvaluationResultsSummaryRow, config EvaluationReportsConfig) error {
+func SaveEvaluationBaselineComparisonReport(path string, rows []EvaluationResultsSummaryRow, config EvaluationReportsConfig) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
 
-	comparisons := evaluationPairwisePerformanceComparisons(rows, config)
-
 	var builder strings.Builder
-	builder.WriteString("# Pairwise Performance Summary\n\n")
-	builder.WriteString("Negative average-best-deviation delta means the first heuristic in the comparison had lower deviation.\n\n")
+	builder.WriteString("# Baseline Comparison Summary\n\n")
+	builder.WriteString("This report compares every heuristic against the baseline MMAS variant. Negative average-best-deviation delta means the heuristic had lower deviation than the baseline.\n\n")
+	builder.WriteString("The `rbg` split is included because this family can strongly affect aggregate averages.\n\n")
+	for _, group := range evaluationBaselineComparisonGroups(rows) {
+		if len(group.rows) == 0 {
+			continue
+		}
+		writeEvaluationBaselineComparisonSection(&builder, group.label, group.rows, config)
+	}
+
+	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+func evaluationBaselineComparisonGroups(rows []EvaluationResultsSummaryRow) []evaluationRbgOutlierGroup {
+	return []evaluationRbgOutlierGroup{
+		{label: "All", rows: rows},
+		{label: "Without rbg", rows: filterEvaluationRows(rows, func(instance string) bool {
+			return !strings.HasPrefix(instance, "rbg")
+		})},
+	}
+}
+
+func writeEvaluationBaselineComparisonSection(builder *strings.Builder, label string, rows []EvaluationResultsSummaryRow, config EvaluationReportsConfig) {
+	comparisons := evaluationBaselinePerformanceComparisons(rows, config)
+	if len(comparisons) == 0 {
+		return
+	}
+
+	fmt.Fprintf(builder, "## %s\n\n", label)
+	fmt.Fprintf(builder, "Instances: %d\n\n", len(rows))
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
-	builder.WriteString("<tr><th>Comparison</th><th>Avg best dev. delta [pp]</th><th>Wins</th><th>Ties</th><th>Losses</th><th>Success delta [pp]</th></tr>\n")
+	builder.WriteString("<tr><th>Heuristic</th><th>Avg best dev. delta [pp]</th><th>Wins</th><th>Ties</th><th>Losses</th><th>Sign-test p-value</th><th>Success delta [pp]</th></tr>\n")
 	builder.WriteString("</thead>\n")
 	builder.WriteString("<tbody>\n")
 	for _, comparison := range comparisons {
-		fmt.Fprintf(&builder,
-			"<tr><td>%s vs %s</td><td align=\"right\">%s</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%s</td></tr>\n",
+		fmt.Fprintf(builder,
+			"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%d</td><td align=\"right\">%.6f</td><td align=\"right\">%s</td></tr>\n",
 			html.EscapeString(config.displayName(comparison.left)),
-			html.EscapeString(config.displayName(comparison.right)),
 			formatSignedFloat(comparison.averageBestDeviationDelta),
 			comparison.wins,
 			comparison.ties,
 			comparison.losses,
+			comparison.signTestPValue,
 			formatSignedFloat(comparison.successRateDelta))
 	}
 	builder.WriteString("</tbody>\n")
-	builder.WriteString("</table>\n")
-
-	return os.WriteFile(path, []byte(builder.String()), 0644)
+	builder.WriteString("</table>\n\n")
 }
 
 func SaveEvaluationRbgOutlierSummaryReport(path string, rows []EvaluationResultsSummaryRow, config EvaluationReportsConfig) error {
@@ -310,15 +334,7 @@ func SaveEvaluationRbgOutlierSummaryReport(path string, rows []EvaluationResults
 		return err
 	}
 
-	groups := []evaluationRbgOutlierGroup{
-		{label: "All", rows: rows},
-		{label: "Without rbg", rows: filterEvaluationRows(rows, func(instance string) bool {
-			return !strings.HasPrefix(instance, "rbg")
-		})},
-		{label: "Only rbg", rows: filterEvaluationRows(rows, func(instance string) bool {
-			return strings.HasPrefix(instance, "rbg")
-		})},
-	}
+	groups := evaluationRbgSplitGroups(rows)
 
 	var builder strings.Builder
 	builder.WriteString("# RBG Outlier Summary\n\n")
@@ -345,6 +361,18 @@ func SaveEvaluationRbgOutlierSummaryReport(path string, rows []EvaluationResults
 	builder.WriteString("</table>\n")
 
 	return os.WriteFile(path, []byte(builder.String()), 0644)
+}
+
+func evaluationRbgSplitGroups(rows []EvaluationResultsSummaryRow) []evaluationRbgOutlierGroup {
+	return []evaluationRbgOutlierGroup{
+		{label: "All", rows: rows},
+		{label: "Without rbg", rows: filterEvaluationRows(rows, func(instance string) bool {
+			return !strings.HasPrefix(instance, "rbg")
+		})},
+		{label: "Only rbg", rows: filterEvaluationRows(rows, func(instance string) bool {
+			return strings.HasPrefix(instance, "rbg")
+		})},
+	}
 }
 
 type evaluationRbgOutlierGroup struct {
@@ -378,27 +406,18 @@ func writeEvaluationRbgOutlierSummaryRow(builder *strings.Builder, label string,
 	builder.WriteString("</tr>\n")
 }
 
-func evaluationPairwisePerformanceComparisons(rows []EvaluationResultsSummaryRow, config EvaluationReportsConfig) []evaluationPairwisePerformanceComparison {
-	comparisons := make([]evaluationPairwisePerformanceComparison, 0)
+func evaluationBaselinePerformanceComparisons(rows []EvaluationResultsSummaryRow, config EvaluationReportsConfig) []evaluationBaselinePerformanceComparison {
+	comparisons := make([]evaluationBaselinePerformanceComparison, 0)
 	for _, heuristic := range config.comparisonHeuristics() {
-		comparison := calculateEvaluationPairwisePerformanceComparison(rows, heuristic, config.BaselineHeuristic)
+		comparison := calculateEvaluationBaselinePerformanceComparison(rows, heuristic, config.BaselineHeuristic)
 		if comparison.count > 0 {
 			comparisons = append(comparisons, comparison)
-		}
-	}
-	heuristics := config.comparisonHeuristics()
-	for i := 0; i < len(heuristics); i++ {
-		for j := i + 1; j < len(heuristics); j++ {
-			comparison := calculateEvaluationPairwisePerformanceComparison(rows, heuristics[i], heuristics[j])
-			if comparison.count > 0 {
-				comparisons = append(comparisons, comparison)
-			}
 		}
 	}
 	return comparisons
 }
 
-type evaluationPairwisePerformanceComparison struct {
+type evaluationBaselinePerformanceComparison struct {
 	left                      string
 	right                     string
 	count                     int
@@ -406,12 +425,13 @@ type evaluationPairwisePerformanceComparison struct {
 	ties                      int
 	losses                    int
 	averageBestDeviationDelta float64
+	signTestPValue            float64
 	successRateDelta          float64
 }
 
-func calculateEvaluationPairwisePerformanceComparison(rows []EvaluationResultsSummaryRow, left, right string) evaluationPairwisePerformanceComparison {
+func calculateEvaluationBaselinePerformanceComparison(rows []EvaluationResultsSummaryRow, left, right string) evaluationBaselinePerformanceComparison {
 	const epsilon = 1e-9
-	comparison := evaluationPairwisePerformanceComparison{left: left, right: right}
+	comparison := evaluationBaselinePerformanceComparison{left: left, right: right}
 
 	for _, row := range rows {
 		leftMetric, leftOk := row.Metrics[left]
@@ -438,6 +458,7 @@ func calculateEvaluationPairwisePerformanceComparison(rows []EvaluationResultsSu
 		comparison.averageBestDeviationDelta /= float64(comparison.count)
 		comparison.successRateDelta /= float64(comparison.count)
 	}
+	comparison.signTestPValue = twoSidedSignTestPValue(comparison.wins, comparison.losses)
 
 	return comparison
 }

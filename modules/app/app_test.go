@@ -328,7 +328,7 @@ func TestRunEvaluationResultsAnalysisUsesProvidedResultsRoot(t *testing.T) {
 		t.Fatalf("unexpected summary path: %s", summaryPath)
 	}
 
-	for _, name := range []string{"summary.md", "pairwise_performance.md", "rbg_outlier_summary.md", "convergence_summary.md"} {
+	for _, name := range []string{"summary.md", "baseline_comparison.md", "rbg_outlier_summary.md", "convergence_summary.md"} {
 		path := filepath.Join(evaluationThreeOptRoot, name)
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("expected %s to exist: %v", path, err)

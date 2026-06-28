@@ -189,14 +189,14 @@ func runAnalysisMode(atspsData []AtspData, analysisScope string, tuningHeuristic
 	fmt.Printf("GKS deviation report saved to %s using %d all-known instance(s)\n", gksDeviationReportPath, len(gksDeviationAtspData))
 	if evaluationSummarySaved {
 		fmt.Printf("Evaluation results summary saved to %s\n", evaluationResultsSummaryPath)
-		fmt.Printf("Pairwise performance report saved to %s\n", filepath.Join(project.EvaluationResultsDirectoryName, "pairwise_performance.md"))
+		fmt.Printf("Baseline comparison report saved to %s\n", filepath.Join(project.EvaluationResultsDirectoryName, "baseline_comparison.md"))
 		fmt.Printf("RBG outlier summary report saved to %s\n", filepath.Join(project.EvaluationResultsDirectoryName, "rbg_outlier_summary.md"))
 		fmt.Printf("Convergence summary report saved to %s\n", filepath.Join(project.EvaluationResultsDirectoryName, "convergence_summary.md"))
 		fmt.Printf("Structural/performance link report saved to %s\n", filepath.Join(project.EvaluationResultsDirectoryName, "structural_performance_link.md"))
 	}
 	if evaluationThreeOptSummarySaved {
 		fmt.Printf("Evaluation+3opt results summary saved to %s\n", evaluationThreeOptResultsSummaryPath)
-		fmt.Printf("Evaluation+3opt pairwise performance report saved to %s\n", filepath.Join(project.EvaluationThreeOptResultsDirectoryName, "pairwise_performance.md"))
+		fmt.Printf("Evaluation+3opt baseline comparison report saved to %s\n", filepath.Join(project.EvaluationThreeOptResultsDirectoryName, "baseline_comparison.md"))
 		fmt.Printf("Evaluation+3opt RBG outlier summary report saved to %s\n", filepath.Join(project.EvaluationThreeOptResultsDirectoryName, "rbg_outlier_summary.md"))
 		fmt.Printf("Evaluation+3opt convergence summary report saved to %s\n", filepath.Join(project.EvaluationThreeOptResultsDirectoryName, "convergence_summary.md"))
 		fmt.Printf("Evaluation+3opt structural/performance link report saved to %s\n", filepath.Join(project.EvaluationThreeOptResultsDirectoryName, "structural_performance_link.md"))
@@ -256,7 +256,7 @@ func runEvaluationResultsAnalysis(atspsData []AtspData, structuralAnalyses []str
 	if err := reports.SaveEvaluationResultsSummaryRows(evaluationRows, evaluationResultsSummaryPath, evaluationReportsConfig()); err != nil {
 		return "", nil, false, err
 	}
-	if err := reports.SaveEvaluationPairwisePerformanceReport(filepath.Join(resultsRootPath, "pairwise_performance.md"), evaluationRows, evaluationReportsConfig()); err != nil {
+	if err := reports.SaveEvaluationBaselineComparisonReport(filepath.Join(resultsRootPath, "baseline_comparison.md"), evaluationRows, evaluationReportsConfig()); err != nil {
 		return "", nil, false, err
 	}
 	if err := reports.SaveEvaluationRbgOutlierSummaryReport(filepath.Join(resultsRootPath, "rbg_outlier_summary.md"), evaluationRows, evaluationReportsConfig()); err != nil {
