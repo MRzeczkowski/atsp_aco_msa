@@ -1048,8 +1048,8 @@ func TestRunAnalysisModeTuningRegeneratesTuningSummary(t *testing.T) {
 	content := string(contentBytes)
 	assertContains(t, content, "# Tuning Summary")
 	assertContains(t, content, "Cycle-cover MSA patching")
-	assertContains(t, content, "| 0.60 | 0.00 | 2.00 | 2.00 | 1 | 1 | 20.00 |")
-	assertDoesNotContain(t, content, "| 0.90 | 0.00 | 9.00 | 9.00 | 1 | 1 | 90.00 |")
+	assertContains(t, content, "| 0.60 | 0.00 | 2.00 | 2.00 | 20.00 |")
+	assertDoesNotContain(t, content, "| 0.90 | 0.00 | 9.00 | 9.00 | 90.00 |")
 }
 
 func TestResolveWorkerCount(t *testing.T) {

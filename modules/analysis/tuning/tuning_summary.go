@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	ReportFileName    = "tuning_summary.md"
-	nearBestTolerance = 0.25
+	ReportFileName = "tuning_summary.md"
 )
 
 type Statistic struct {
@@ -46,20 +45,16 @@ type summaryKey struct {
 }
 
 type summaryAggregate struct {
-	key            summaryKey
-	results        []float64
-	successRates   []float64
-	exactBestCount int
-	nearBestCount  int
+	key          summaryKey
+	results      []float64
+	successRates []float64
 }
 
 type summaryRow struct {
-	key            summaryKey
-	meanResult     float64
-	medianResult   float64
-	meanSuccess    float64
-	exactBestCount int
-	nearBestCount  int
+	key          summaryKey
+	meanResult   float64
+	medianResult float64
+	meanSuccess  float64
 }
 
 func Save(config Config) error {
@@ -74,8 +69,7 @@ func Save(config Config) error {
 
 	var builder strings.Builder
 	builder.WriteString("# Tuning Summary\n\n")
-	builder.WriteString("Result means average best deviation from `result.csv`; lower is better. ")
-	builder.WriteString(fmt.Sprintf("Near-best means within %.2f percentage points of the best result for the same instance.\n\n", nearBestTolerance))
+	builder.WriteString("Result means average best deviation from `result.csv`; lower is better.\n\n")
 
 	for _, heuristic := range config.Heuristics {
 		if err := appendHeuristicSummary(&builder, heuristic, config.ReadStatistics); err != nil {
@@ -108,30 +102,26 @@ func appendHeuristicSummary(builder *strings.Builder, heuristic HeuristicConfig,
 	}
 
 	if heuristic.IncludeMsaPatchBias {
-		builder.WriteString("| Heuristic weight | MSA patch bias | Mean result [%] | Median result [%] | Exact best | Near best | Mean success [%] |\n")
-		builder.WriteString("|------------------|----------------|-----------------|-------------------|------------|-----------|------------------|\n")
+		builder.WriteString("| Heuristic weight | MSA patch bias | Mean result [%] | Median result [%] | Mean success [%] |\n")
+		builder.WriteString("|------------------|----------------|-----------------|-------------------|------------------|\n")
 	} else {
-		builder.WriteString("| Heuristic weight | Mean result [%] | Median result [%] | Exact best | Near best | Mean success [%] |\n")
-		builder.WriteString("|------------------|-----------------|-------------------|------------|-----------|------------------|\n")
+		builder.WriteString("| Heuristic weight | Mean result [%] | Median result [%] | Mean success [%] |\n")
+		builder.WriteString("|------------------|-----------------|-------------------|------------------|\n")
 	}
 
 	for _, row := range rows {
 		if heuristic.IncludeMsaPatchBias {
-			fmt.Fprintf(builder, "| %.2f | %.2f | %.2f | %.2f | %d | %d | %.2f |\n",
+			fmt.Fprintf(builder, "| %.2f | %.2f | %.2f | %.2f | %.2f |\n",
 				row.key.heuristicWeight,
 				row.key.msaPatchBias,
 				row.meanResult,
 				row.medianResult,
-				row.exactBestCount,
-				row.nearBestCount,
 				row.meanSuccess)
 		} else {
-			fmt.Fprintf(builder, "| %.2f | %.2f | %.2f | %d | %d | %.2f |\n",
+			fmt.Fprintf(builder, "| %.2f | %.2f | %.2f | %.2f |\n",
 				row.key.heuristicWeight,
 				row.meanResult,
 				row.medianResult,
-				row.exactBestCount,
-				row.nearBestCount,
 				row.meanSuccess)
 		}
 	}
@@ -160,7 +150,6 @@ func buildSummaryRows(heuristic HeuristicConfig, readStatistics func(path string
 		}
 
 		instanceCount++
-		instanceBestResult := bestResult(statistics)
 		for _, statistic := range statistics {
 			key := summaryKey{
 				heuristicWeight: statistic.HeuristicWeight,
@@ -178,12 +167,6 @@ func buildSummaryRows(heuristic HeuristicConfig, readStatistics func(path string
 
 			aggregate.results = append(aggregate.results, statistic.AverageBestDeviation)
 			aggregate.successRates = append(aggregate.successRates, statistic.SuccessRate)
-			if floatEqual(statistic.AverageBestDeviation, instanceBestResult) {
-				aggregate.exactBestCount++
-			}
-			if statistic.AverageBestDeviation <= instanceBestResult+nearBestTolerance {
-				aggregate.nearBestCount++
-			}
 		}
 	}
 
@@ -191,27 +174,15 @@ func buildSummaryRows(heuristic HeuristicConfig, readStatistics func(path string
 	rows := make([]summaryRow, 0, len(aggregates))
 	for _, aggregate := range aggregates {
 		rows = append(rows, summaryRow{
-			key:            aggregate.key,
-			meanResult:     average(aggregate.results),
-			medianResult:   median(aggregate.results),
-			meanSuccess:    average(aggregate.successRates),
-			exactBestCount: aggregate.exactBestCount,
-			nearBestCount:  aggregate.nearBestCount,
+			key:          aggregate.key,
+			meanResult:   average(aggregate.results),
+			medianResult: median(aggregate.results),
+			meanSuccess:  average(aggregate.successRates),
 		})
 	}
 
 	sortSummaryRows(rows)
 	return rows, instanceCount, missingInstances, nil
-}
-
-func bestResult(statistics []Statistic) float64 {
-	best := math.Inf(1)
-	for _, statistic := range statistics {
-		if statistic.AverageBestDeviation < best {
-			best = statistic.AverageBestDeviation
-		}
-	}
-	return best
 }
 
 func sortSummaryRows(rows []summaryRow) {
@@ -222,12 +193,6 @@ func sortSummaryRows(rows []summaryRow) {
 		}
 		if !floatEqual(left.medianResult, right.medianResult) {
 			return left.medianResult < right.medianResult
-		}
-		if left.exactBestCount != right.exactBestCount {
-			return left.exactBestCount > right.exactBestCount
-		}
-		if left.nearBestCount != right.nearBestCount {
-			return left.nearBestCount > right.nearBestCount
 		}
 		if !floatEqual(left.meanSuccess, right.meanSuccess) {
 			return left.meanSuccess > right.meanSuccess

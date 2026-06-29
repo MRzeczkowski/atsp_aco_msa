@@ -42,11 +42,11 @@ func TestSaveRanksParametersAcrossInstances(t *testing.T) {
 	assertContains(t, content, "# Tuning Summary")
 	assertContains(t, content, "## MSA heuristic")
 	assertContains(t, content, "Instances used: 2/2")
-	assertContains(t, content, "| 0.90 | 1.10 | 1.10 | 1 | 2 | 50.00 |")
-	assertContains(t, content, "| 0.50 | 1.50 | 1.50 | 1 | 1 | 15.00 |")
+	assertContains(t, content, "| 0.90 | 1.10 | 1.10 | 50.00 |")
+	assertContains(t, content, "| 0.50 | 1.50 | 1.50 | 15.00 |")
 
-	bestRow := strings.Index(content, "| 0.90 | 1.10 | 1.10 | 1 | 2 | 50.00 |")
-	secondRow := strings.Index(content, "| 0.50 | 1.50 | 1.50 | 1 | 1 | 15.00 |")
+	bestRow := strings.Index(content, "| 0.90 | 1.10 | 1.10 | 50.00 |")
+	secondRow := strings.Index(content, "| 0.50 | 1.50 | 1.50 | 15.00 |")
 	if bestRow < 0 || secondRow < 0 || bestRow > secondRow {
 		t.Fatalf("expected rows to be sorted by mean result, got:\n%s", content)
 	}
@@ -79,9 +79,9 @@ func TestSaveIncludesPatchingMsaPatchBias(t *testing.T) {
 
 	content := readSummary(t, root)
 	assertContains(t, content, "## Cycle-cover MSA patching")
-	assertContains(t, content, "| Heuristic weight | MSA patch bias | Mean result [%] | Median result [%] | Exact best | Near best | Mean success [%] |")
-	assertContains(t, content, "| 0.70 | 0.25 | 1.00 | 1.00 | 1 | 1 | 60.00 |")
-	assertContains(t, content, "| 0.70 | 0.75 | 2.00 | 2.00 | 0 | 0 | 20.00 |")
+	assertContains(t, content, "| Heuristic weight | MSA patch bias | Mean result [%] | Median result [%] | Mean success [%] |")
+	assertContains(t, content, "| 0.70 | 0.25 | 1.00 | 1.00 | 60.00 |")
+	assertContains(t, content, "| 0.70 | 0.75 | 2.00 | 2.00 | 20.00 |")
 }
 
 func TestSaveReportsMissingResultFiles(t *testing.T) {
