@@ -15,6 +15,7 @@ const (
 	testHeuristicStrictMsa             = "strict-msa"
 	testHeuristicRootedMsa             = "rooted-msa"
 	testHeuristicCycleCover            = "cycle-cover"
+	testHeuristicCycleCoverPatching    = "cycle-cover-patching"
 	testHeuristicCycleCoverMsaPatching = "cycle-cover-msa-patching"
 )
 
@@ -49,6 +50,13 @@ func TestSaveEvaluationResultsSummaryWritesMarkdownTableWithHighlightedFindings(
 			Statistics: experiments.ExperimentsDataStatistics{
 				AverageBestDeviation: 1.75,
 				SuccessRate:          30.0,
+			},
+		},
+		{
+			Heuristic: testHeuristicCycleCoverPatching,
+			Statistics: experiments.ExperimentsDataStatistics{
+				AverageBestDeviation: 1.90,
+				SuccessRate:          28.0,
 			},
 		},
 		{
@@ -89,6 +97,13 @@ func TestSaveEvaluationResultsSummaryWritesMarkdownTableWithHighlightedFindings(
 			},
 		},
 		{
+			Heuristic: testHeuristicCycleCoverPatching,
+			Statistics: experiments.ExperimentsDataStatistics{
+				AverageBestDeviation: 2.30,
+				SuccessRate:          58.0,
+			},
+		},
+		{
 			Heuristic: testHeuristicCycleCoverMsaPatching,
 			Statistics: experiments.ExperimentsDataStatistics{
 				AverageBestDeviation: 2.50,
@@ -126,17 +141,17 @@ func TestSaveEvaluationResultsSummaryWritesMarkdownTableWithHighlightedFindings(
 		"",
 		"- **Cycle cover has the lowest average best deviation overall: 2.00%.**",
 		"- **Cycle cover has the highest average success rate overall: 45.00%.**",
-		"- **Best-or-tied average best deviation counts: Baseline 0/2, Strict MSA 0/2, Rooted MSA 0/2, Cycle cover 2/2, Cycle-cover MSA patching 0/2.**",
+		"- **Best-or-tied average best deviation counts: Baseline 0/2, Strict MSA 0/2, Rooted MSA 0/2, Cycle cover 2/2, Cycle-cover patching 0/2, Cycle-cover MSA patching 0/2.**",
 		"",
 		"<table>",
 		"<thead>",
-		"<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">Baseline</th><th colspan=\"2\">Strict MSA</th><th colspan=\"2\">Rooted MSA</th><th colspan=\"2\">Cycle cover</th><th colspan=\"2\">Cycle-cover MSA patching</th></tr>",
-		"<tr><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th></tr>",
+		"<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">Baseline</th><th colspan=\"2\">Strict MSA</th><th colspan=\"2\">Rooted MSA</th><th colspan=\"2\">Cycle cover</th><th colspan=\"2\">Cycle-cover patching</th><th colspan=\"2\">Cycle-cover MSA patching</th></tr>",
+		"<tr><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th></tr>",
 		"</thead>",
 		"<tbody>",
-		"<tr><td>sample-a</td><td align=\"right\">4.25</td><td align=\"right\">10.00</td><td align=\"right\">2.50</td><td align=\"right\">20.00</td><td align=\"right\">3.00</td><td align=\"right\">15.00</td><td align=\"right\"><strong>1.75</strong></td><td align=\"right\"><strong>30.00</strong></td><td align=\"right\">2.00</td><td align=\"right\">25.00</td></tr>",
-		"<tr><td>sample-b</td><td align=\"right\">6.75</td><td align=\"right\">20.00</td><td align=\"right\">3.50</td><td align=\"right\">40.00</td><td align=\"right\">4.00</td><td align=\"right\">35.00</td><td align=\"right\"><strong>2.25</strong></td><td align=\"right\"><strong>60.00</strong></td><td align=\"right\">2.50</td><td align=\"right\">55.00</td></tr>",
-		"<tr><td><strong>Average</strong></td><td align=\"right\">5.50</td><td align=\"right\">15.00</td><td align=\"right\">3.00</td><td align=\"right\">30.00</td><td align=\"right\">3.50</td><td align=\"right\">25.00</td><td align=\"right\"><strong>2.00</strong></td><td align=\"right\"><strong>45.00</strong></td><td align=\"right\">2.25</td><td align=\"right\">40.00</td></tr>",
+		"<tr><td>sample-a</td><td align=\"right\">4.25</td><td align=\"right\">10.00</td><td align=\"right\">2.50</td><td align=\"right\">20.00</td><td align=\"right\">3.00</td><td align=\"right\">15.00</td><td align=\"right\"><strong>1.75</strong></td><td align=\"right\"><strong>30.00</strong></td><td align=\"right\">1.90</td><td align=\"right\">28.00</td><td align=\"right\">2.00</td><td align=\"right\">25.00</td></tr>",
+		"<tr><td>sample-b</td><td align=\"right\">6.75</td><td align=\"right\">20.00</td><td align=\"right\">3.50</td><td align=\"right\">40.00</td><td align=\"right\">4.00</td><td align=\"right\">35.00</td><td align=\"right\"><strong>2.25</strong></td><td align=\"right\"><strong>60.00</strong></td><td align=\"right\">2.30</td><td align=\"right\">58.00</td><td align=\"right\">2.50</td><td align=\"right\">55.00</td></tr>",
+		"<tr><td><strong>Average</strong></td><td align=\"right\">5.50</td><td align=\"right\">15.00</td><td align=\"right\">3.00</td><td align=\"right\">30.00</td><td align=\"right\">3.50</td><td align=\"right\">25.00</td><td align=\"right\"><strong>2.00</strong></td><td align=\"right\"><strong>45.00</strong></td><td align=\"right\">2.10</td><td align=\"right\">43.00</td><td align=\"right\">2.25</td><td align=\"right\">40.00</td></tr>",
 		"</tbody>",
 		"</table>",
 	}
@@ -291,9 +306,9 @@ func TestSaveEvaluationRbgOutlierSummaryReport(t *testing.T) {
 
 	content := string(contentBytes)
 	assertContains(t, content, "# RBG Outlier Summary")
-	assertContains(t, content, "<tr><td>All</td><td align=\"right\">12.00</td><td align=\"right\">5.00</td><td></td><td></td><td></td><td></td><td></td><td></td><td align=\"right\"><strong>1.00</strong></td><td align=\"right\"><strong>60.00</strong></td></tr>")
-	assertContains(t, content, "<tr><td>Without rbg</td><td align=\"right\">4.00</td><td align=\"right\">10.00</td><td></td><td></td><td></td><td></td><td></td><td></td><td align=\"right\"><strong>2.00</strong></td><td align=\"right\"><strong>20.00</strong></td></tr>")
-	assertContains(t, content, "<tr><td>Only rbg</td><td align=\"right\">20.00</td><td align=\"right\">0.00</td><td></td><td></td><td></td><td></td><td></td><td></td><td align=\"right\"><strong>0.00</strong></td><td align=\"right\"><strong>100.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td>All</td><td align=\"right\">12.00</td><td align=\"right\">5.00</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td align=\"right\"><strong>1.00</strong></td><td align=\"right\"><strong>60.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td>Without rbg</td><td align=\"right\">4.00</td><td align=\"right\">10.00</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td align=\"right\"><strong>2.00</strong></td><td align=\"right\"><strong>20.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td>Only rbg</td><td align=\"right\">20.00</td><td align=\"right\">0.00</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td align=\"right\"><strong>0.00</strong></td><td align=\"right\"><strong>100.00</strong></td></tr>")
 }
 
 func TestSaveEvaluationConvergenceSummaryReport(t *testing.T) {
@@ -308,9 +323,9 @@ func TestSaveEvaluationConvergenceSummaryReport(t *testing.T) {
 	}
 
 	content := string(contentBytes)
-	assertContains(t, content, "- **Average best-iteration position: Baseline 75.00%, Strict MSA 50.00%, Cycle cover 35.00%, Cycle-cover MSA patching 27.50%.**")
-	assertContains(t, content, "<tr><td>a</td><td align=\"right\">80.00</td><td align=\"right\">60.00</td><td></td><td align=\"right\">40.00</td><td align=\"right\"><strong>35.00</strong></td></tr>")
-	assertContains(t, content, "<tr><td><strong>Average</strong></td><td align=\"right\">75.00</td><td align=\"right\">50.00</td><td></td><td align=\"right\">35.00</td><td align=\"right\"><strong>27.50</strong></td></tr>")
+	assertContains(t, content, "- **Average best-iteration position: Baseline 75.00%, Strict MSA 50.00%, Cycle cover 35.00%, Cycle-cover patching 31.50%, Cycle-cover MSA patching 27.50%.**")
+	assertContains(t, content, "<tr><td>a</td><td align=\"right\">80.00</td><td align=\"right\">60.00</td><td></td><td align=\"right\">40.00</td><td align=\"right\">38.00</td><td align=\"right\"><strong>35.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td><strong>Average</strong></td><td align=\"right\">75.00</td><td align=\"right\">50.00</td><td></td><td align=\"right\">35.00</td><td align=\"right\">31.50</td><td align=\"right\"><strong>27.50</strong></td></tr>")
 }
 
 func TestSaveStructuralPerformanceLinkReport(t *testing.T) {
@@ -325,9 +340,10 @@ func TestSaveStructuralPerformanceLinkReport(t *testing.T) {
 	}
 
 	content := string(contentBytes)
-	assertContains(t, content, "<tr><td>Strict MSA</td><td align=\"right\"><strong>71.43</strong></td><td align=\"right\">35.71</td><td align=\"right\">3.00</td><td align=\"right\">20.00</td></tr>")
-	assertContains(t, content, "<tr><td>Cycle cover</td><td align=\"right\">66.67</td><td align=\"right\">42.86</td><td align=\"right\">2.75</td><td align=\"right\"><strong>25.00</strong></td></tr>")
-	assertContains(t, content, "<tr><td>Cycle-cover MSA patching</td><td align=\"right\">63.64</td><td align=\"right\"><strong>50.00</strong></td><td align=\"right\"><strong>2.40</strong></td><td align=\"right\"><strong>25.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td>Strict MSA</td><td align=\"right\">71.43</td><td align=\"right\">35.71</td><td align=\"right\">3.00</td><td align=\"right\">20.00</td></tr>")
+	assertContains(t, content, "<tr><td>Cycle cover</td><td align=\"right\">66.67</td><td align=\"right\">42.86</td><td align=\"right\">2.75</td><td align=\"right\">25.00</td></tr>")
+	assertContains(t, content, "<tr><td>Cycle-cover patching</td><td align=\"right\"><strong>77.78</strong></td><td align=\"right\"><strong>50.00</strong></td><td align=\"right\">2.55</td><td align=\"right\"><strong>35.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td>Cycle-cover MSA patching</td><td align=\"right\">63.64</td><td align=\"right\"><strong>50.00</strong></td><td align=\"right\"><strong>2.40</strong></td><td align=\"right\">25.00</td></tr>")
 }
 
 func evaluationReportsTestConfig() EvaluationReportsConfig {
@@ -337,11 +353,13 @@ func evaluationReportsTestConfig() EvaluationReportsConfig {
 			testHeuristicStrictMsa,
 			testHeuristicRootedMsa,
 			testHeuristicCycleCover,
+			testHeuristicCycleCoverPatching,
 			testHeuristicCycleCoverMsaPatching,
 		},
 		BaselineHeuristic:              testHeuristicBaseline,
 		StrictMsaHeuristic:             testHeuristicStrictMsa,
 		CycleCoverHeuristic:            testHeuristicCycleCover,
+		CycleCoverPatchingHeuristic:    testHeuristicCycleCoverPatching,
 		CycleCoverMsaPatchingHeuristic: testHeuristicCycleCoverMsaPatching,
 		DisplayName:                    evaluationReportTestDisplayName,
 	}
@@ -357,6 +375,8 @@ func evaluationReportTestDisplayName(heuristic string) string {
 		return "Rooted MSA"
 	case testHeuristicCycleCover:
 		return "Cycle cover"
+	case testHeuristicCycleCoverPatching:
+		return "Cycle-cover patching"
 	case testHeuristicCycleCoverMsaPatching:
 		return "Cycle-cover MSA patching"
 	default:
@@ -387,6 +407,12 @@ func sampleEvaluationSummaryRows() []EvaluationResultsSummaryRow {
 					AverageBestIteration: 40.0,
 					Iterations:           100,
 				},
+				testHeuristicCycleCoverPatching: {
+					AverageMinDeviation:  1.9,
+					SuccessRate:          40.0,
+					AverageBestIteration: 38.0,
+					Iterations:           100,
+				},
 				testHeuristicCycleCoverMsaPatching: {
 					AverageMinDeviation:  1.8,
 					SuccessRate:          25.0,
@@ -414,6 +440,12 @@ func sampleEvaluationSummaryRows() []EvaluationResultsSummaryRow {
 					AverageMinDeviation:  3.5,
 					SuccessRate:          20.0,
 					AverageBestIteration: 30.0,
+					Iterations:           100,
+				},
+				testHeuristicCycleCoverPatching: {
+					AverageMinDeviation:  3.2,
+					SuccessRate:          30.0,
+					AverageBestIteration: 25.0,
 					Iterations:           100,
 				},
 				testHeuristicCycleCoverMsaPatching: {

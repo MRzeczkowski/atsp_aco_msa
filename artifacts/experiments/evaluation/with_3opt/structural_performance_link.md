@@ -7,8 +7,9 @@ This table links structural similarity to found optimal tours with evaluation MM
 <tr><th>Heuristic</th><th>Structural precision [%]</th><th>Structural recall [%]</th><th>Avg best dev. [%]</th><th>Success [%]</th></tr>
 </thead>
 <tbody>
-<tr><td>Strict MSA</td><td align="right">65.07</td><td align="right">2.90</td><td align="right">0.38</td><td align="right"><strong>48.33</strong></td></tr>
-<tr><td>Cycle cover</td><td align="right"><strong>70.61</strong></td><td align="right"><strong>4.42</strong></td><td align="right"><strong>0.19</strong></td><td align="right">38.92</td></tr>
+<tr><td>Strict MSA</td><td align="right">65.07</td><td align="right">2.90</td><td align="right">0.38</td><td align="right">48.33</td></tr>
+<tr><td>Cycle cover</td><td align="right">70.61</td><td align="right">4.42</td><td align="right"><strong>0.19</strong></td><td align="right">38.92</td></tr>
+<tr><td>Cycle-cover patching</td><td align="right"><strong>71.54</strong></td><td align="right"><strong>4.48</strong></td><td align="right">0.25</td><td align="right"><strong>54.42</strong></td></tr>
 <tr><td>Cycle-cover MSA patching</td><td align="right">70.34</td><td align="right">4.41</td><td align="right">0.25</td><td align="right">40.67</td></tr>
 </tbody>
 </table>

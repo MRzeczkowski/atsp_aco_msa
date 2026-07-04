@@ -22,6 +22,7 @@ func evaluationReportsConfig() reports.EvaluationReportsConfig {
 		BaselineHeuristic:              heuristicBaseline,
 		StrictMsaHeuristic:             heuristicStrictMsa,
 		CycleCoverHeuristic:            heuristicCycleCover,
+		CycleCoverPatchingHeuristic:    heuristicCycleCoverPatching,
 		CycleCoverMsaPatchingHeuristic: heuristicCycleCoverMsaPatching,
 		DisplayName:                    heuristicDisplayName,
 	}

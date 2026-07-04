@@ -39,6 +39,7 @@ type InstanceMetrics struct {
 
 	CycleCoverMetrics               EdgeSetMetrics
 	HighMsaHeuristicMetrics         EdgeSetMetrics
+	CycleCoverPatchingMetrics       EdgeSetMetrics
 	CycleCoverMsaPatchingMetrics    EdgeSetMetrics
 	CycleCoverHighMsaHeuristicEdges int
 
@@ -138,6 +139,7 @@ func calculateAnalysis(instance string, dimension int, matrix, msaHeuristic [][]
 	cycleCoverSet := buildEdgeSet(cycleCoverEdges)
 	highMsaHeuristicSet := buildMsaHeuristicThresholdSet(msaHeuristic, highThreshold, true)
 	cycleCoverHighMsaHeuristicSet := intersectEdgeSets(cycleCoverSet, highMsaHeuristicSet)
+	cycleCoverPatchingSet := buildMatrixEdgeSet(heuristics.BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, nil, cycleCoverMatrix, 0.0))
 	cycleCoverMsaPatchingSet := buildMatrixEdgeSet(heuristics.BuildCycleCoverMsaPatchingMatrixWithMsaPatchBias(matrix, msaHeuristic, cycleCoverMatrix, msaPatchBias))
 
 	metrics := InstanceMetrics{
@@ -145,6 +147,7 @@ func calculateAnalysis(instance string, dimension int, matrix, msaHeuristic [][]
 		UniqueFoundOptimalEdgeCount:     len(optimalEdges),
 		CycleCoverMetrics:               calculateEdgeSetMetrics(cycleCoverSet, optimalEdges),
 		HighMsaHeuristicMetrics:         calculateEdgeSetMetrics(highMsaHeuristicSet, optimalEdges),
+		CycleCoverPatchingMetrics:       calculateEdgeSetMetrics(cycleCoverPatchingSet, optimalEdges),
 		CycleCoverMsaPatchingMetrics:    calculateEdgeSetMetrics(cycleCoverMsaPatchingSet, optimalEdges),
 		CycleCoverHighMsaHeuristicEdges: len(cycleCoverHighMsaHeuristicSet),
 	}

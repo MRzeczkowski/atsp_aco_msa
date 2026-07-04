@@ -19,7 +19,7 @@ func SaveStructuralSimilarity(path string, analyses []structure.InstanceAnalysis
 
 	var builder strings.Builder
 	builder.WriteString("# Structural Similarity To Found Optimal Tours\n\n")
-	builder.WriteString("This table compares the current MSA heuristic, minimum cycle-cover, and cycle-cover MSA-patching edge sets against the found optimal tours saved in `solutions.csv`.\n\n")
+	builder.WriteString("This table compares the current MSA heuristic, minimum cycle-cover, GKS patching, and cycle-cover MSA-patching edge sets against the found optimal tours saved in `solutions.csv`.\n\n")
 	builder.WriteString("Instances without found optimal tours are omitted because precision and recall cannot be interpreted without a reference edge set.\n\n")
 	writeStructuralSimilarityFindings(&builder, totals)
 	builder.WriteString("\n")
@@ -31,35 +31,41 @@ func SaveStructuralSimilarity(path string, analyses []structure.InstanceAnalysis
 func writeStructuralSimilarityFindings(builder *strings.Builder, totals structuralSimilaritySummary) {
 	msaPrecision := ratio(totals.msaOptimalEdges, totals.msaEdges)
 	cycleCoverPrecision := ratio(totals.cycleCoverOptimalEdges, totals.cycleCoverEdges)
-	patchingPrecision := ratio(totals.patchingOptimalEdges, totals.patchingEdges)
+	cycleCoverPatchingPrecision := ratio(totals.cycleCoverPatchingOptimalEdges, totals.cycleCoverPatchingEdges)
+	cycleCoverMsaPatchingPrecision := ratio(totals.cycleCoverMsaPatchingOptimalEdges, totals.cycleCoverMsaPatchingEdges)
 	msaRecall := ratio(totals.msaOptimalEdges, totals.foundOptimalEdges)
 	cycleCoverRecall := ratio(totals.cycleCoverOptimalEdges, totals.foundOptimalEdges)
-	patchingRecall := ratio(totals.patchingOptimalEdges, totals.foundOptimalEdges)
+	cycleCoverPatchingRecall := ratio(totals.cycleCoverPatchingOptimalEdges, totals.foundOptimalEdges)
+	cycleCoverMsaPatchingRecall := ratio(totals.cycleCoverMsaPatchingOptimalEdges, totals.foundOptimalEdges)
 
 	builder.WriteString("## Findings\n\n")
-	fmt.Fprintf(builder, "- **Precision vs found-optimal tours: MSA heuristic %.2f%%, cycle cover %.2f%%, cycle-cover MSA patching %.2f%%.**\n", 100*msaPrecision, 100*cycleCoverPrecision, 100*patchingPrecision)
-	fmt.Fprintf(builder, "- **Recall vs found-optimal tours: MSA heuristic %.2f%%, cycle cover %.2f%%, cycle-cover MSA patching %.2f%%.**\n", 100*msaRecall, 100*cycleCoverRecall, 100*patchingRecall)
-	fmt.Fprintf(builder, "- **Best-or-tied precision counts: MSA heuristic %d/%d, cycle cover %d/%d, cycle-cover MSA patching %d/%d.**\n",
+	fmt.Fprintf(builder, "- **Precision vs found-optimal tours: MSA heuristic %.2f%%, cycle cover %.2f%%, GKS patching %.2f%%, cycle-cover MSA patching %.2f%%.**\n", 100*msaPrecision, 100*cycleCoverPrecision, 100*cycleCoverPatchingPrecision, 100*cycleCoverMsaPatchingPrecision)
+	fmt.Fprintf(builder, "- **Recall vs found-optimal tours: MSA heuristic %.2f%%, cycle cover %.2f%%, GKS patching %.2f%%, cycle-cover MSA patching %.2f%%.**\n", 100*msaRecall, 100*cycleCoverRecall, 100*cycleCoverPatchingRecall, 100*cycleCoverMsaPatchingRecall)
+	fmt.Fprintf(builder, "- **Best-or-tied precision counts: MSA heuristic %d/%d, cycle cover %d/%d, GKS patching %d/%d, cycle-cover MSA patching %d/%d.**\n",
 		totals.msaPrecisionWins,
 		totals.instanceCount,
 		totals.cycleCoverPrecisionWins,
 		totals.instanceCount,
-		totals.patchingPrecisionWins,
+		totals.cycleCoverPatchingPrecisionWins,
+		totals.instanceCount,
+		totals.cycleCoverMsaPatchingPrecisionWins,
 		totals.instanceCount)
-	fmt.Fprintf(builder, "- **Best-or-tied recall counts: MSA heuristic %d/%d, cycle cover %d/%d, cycle-cover MSA patching %d/%d.**\n",
+	fmt.Fprintf(builder, "- **Best-or-tied recall counts: MSA heuristic %d/%d, cycle cover %d/%d, GKS patching %d/%d, cycle-cover MSA patching %d/%d.**\n",
 		totals.msaRecallWins,
 		totals.instanceCount,
 		totals.cycleCoverRecallWins,
 		totals.instanceCount,
-		totals.patchingRecallWins,
+		totals.cycleCoverPatchingRecallWins,
+		totals.instanceCount,
+		totals.cycleCoverMsaPatchingRecallWins,
 		totals.instanceCount)
 }
 
 func writeStructuralSimilarityTable(builder *strings.Builder, rows []structure.InstanceAnalysis, totals structuralSimilaritySummary) {
 	builder.WriteString("<table>\n")
 	builder.WriteString("<thead>\n")
-	builder.WriteString("<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">MSA heuristic</th><th colspan=\"2\">Cycle cover</th><th colspan=\"2\">Cycle-cover MSA patching</th></tr>\n")
-	builder.WriteString("<tr><th>Precision [%]</th><th>Recall [%]</th><th>Precision [%]</th><th>Recall [%]</th><th>Precision [%]</th><th>Recall [%]</th></tr>\n")
+	builder.WriteString("<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">MSA heuristic</th><th colspan=\"2\">Cycle cover</th><th colspan=\"2\">GKS patching</th><th colspan=\"2\">Cycle-cover MSA patching</th></tr>\n")
+	builder.WriteString("<tr><th>Precision [%]</th><th>Recall [%]</th><th>Precision [%]</th><th>Recall [%]</th><th>Precision [%]</th><th>Recall [%]</th><th>Precision [%]</th><th>Recall [%]</th></tr>\n")
 	builder.WriteString("</thead>\n")
 	builder.WriteString("<tbody>\n")
 
@@ -76,9 +82,10 @@ func writeStructuralSimilarityRow(builder *strings.Builder, analysis structure.I
 	metrics := analysis.Metrics
 	msaMetrics := metrics.HighMsaHeuristicMetrics
 	cycleCoverMetrics := metrics.CycleCoverMetrics
-	patchingMetrics := metrics.CycleCoverMsaPatchingMetrics
-	precisionHighlights := bestStructuralMetricHighlights(msaMetrics.Precision, cycleCoverMetrics.Precision, patchingMetrics.Precision)
-	recallHighlights := bestStructuralMetricHighlights(msaMetrics.Recall, cycleCoverMetrics.Recall, patchingMetrics.Recall)
+	cycleCoverPatchingMetrics := metrics.CycleCoverPatchingMetrics
+	cycleCoverMsaPatchingMetrics := metrics.CycleCoverMsaPatchingMetrics
+	precisionHighlights := bestStructuralMetricHighlights(msaMetrics.Precision, cycleCoverMetrics.Precision, cycleCoverPatchingMetrics.Precision, cycleCoverMsaPatchingMetrics.Precision)
+	recallHighlights := bestStructuralMetricHighlights(msaMetrics.Recall, cycleCoverMetrics.Recall, cycleCoverPatchingMetrics.Recall, cycleCoverMsaPatchingMetrics.Recall)
 
 	writeStructuralSimilarityTableRow(
 		builder,
@@ -87,8 +94,10 @@ func writeStructuralSimilarityRow(builder *strings.Builder, analysis structure.I
 		msaMetrics.Recall,
 		cycleCoverMetrics.Precision,
 		cycleCoverMetrics.Recall,
-		patchingMetrics.Precision,
-		patchingMetrics.Recall,
+		cycleCoverPatchingMetrics.Precision,
+		cycleCoverPatchingMetrics.Recall,
+		cycleCoverMsaPatchingMetrics.Precision,
+		cycleCoverMsaPatchingMetrics.Recall,
 		precisionHighlights,
 		recallHighlights)
 }
@@ -96,12 +105,14 @@ func writeStructuralSimilarityRow(builder *strings.Builder, analysis structure.I
 func writeStructuralSimilarityTotalRow(builder *strings.Builder, totals structuralSimilaritySummary) {
 	msaPrecision := ratio(totals.msaOptimalEdges, totals.msaEdges)
 	cycleCoverPrecision := ratio(totals.cycleCoverOptimalEdges, totals.cycleCoverEdges)
-	patchingPrecision := ratio(totals.patchingOptimalEdges, totals.patchingEdges)
+	cycleCoverPatchingPrecision := ratio(totals.cycleCoverPatchingOptimalEdges, totals.cycleCoverPatchingEdges)
+	cycleCoverMsaPatchingPrecision := ratio(totals.cycleCoverMsaPatchingOptimalEdges, totals.cycleCoverMsaPatchingEdges)
 	msaRecall := ratio(totals.msaOptimalEdges, totals.foundOptimalEdges)
 	cycleCoverRecall := ratio(totals.cycleCoverOptimalEdges, totals.foundOptimalEdges)
-	patchingRecall := ratio(totals.patchingOptimalEdges, totals.foundOptimalEdges)
-	precisionHighlights := bestStructuralMetricHighlights(msaPrecision, cycleCoverPrecision, patchingPrecision)
-	recallHighlights := bestStructuralMetricHighlights(msaRecall, cycleCoverRecall, patchingRecall)
+	cycleCoverPatchingRecall := ratio(totals.cycleCoverPatchingOptimalEdges, totals.foundOptimalEdges)
+	cycleCoverMsaPatchingRecall := ratio(totals.cycleCoverMsaPatchingOptimalEdges, totals.foundOptimalEdges)
+	precisionHighlights := bestStructuralMetricHighlights(msaPrecision, cycleCoverPrecision, cycleCoverPatchingPrecision, cycleCoverMsaPatchingPrecision)
+	recallHighlights := bestStructuralMetricHighlights(msaRecall, cycleCoverRecall, cycleCoverPatchingRecall, cycleCoverMsaPatchingRecall)
 
 	writeStructuralSimilarityTableRow(
 		builder,
@@ -110,41 +121,49 @@ func writeStructuralSimilarityTotalRow(builder *strings.Builder, totals structur
 		msaRecall,
 		cycleCoverPrecision,
 		cycleCoverRecall,
-		patchingPrecision,
-		patchingRecall,
+		cycleCoverPatchingPrecision,
+		cycleCoverPatchingRecall,
+		cycleCoverMsaPatchingPrecision,
+		cycleCoverMsaPatchingRecall,
 		precisionHighlights,
 		recallHighlights)
 }
 
-func writeStructuralSimilarityTableRow(builder *strings.Builder, instanceCell string, msaPrecision, msaRecall, cycleCoverPrecision, cycleCoverRecall, patchingPrecision, patchingRecall float64, precisionHighlights, recallHighlights []bool) {
+func writeStructuralSimilarityTableRow(builder *strings.Builder, instanceCell string, msaPrecision, msaRecall, cycleCoverPrecision, cycleCoverRecall, cycleCoverPatchingPrecision, cycleCoverPatchingRecall, cycleCoverMsaPatchingPrecision, cycleCoverMsaPatchingRecall float64, precisionHighlights, recallHighlights []bool) {
 	fmt.Fprintf(builder,
-		"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td></tr>\n",
+		"<tr><td>%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td><td align=\"right\">%s</td></tr>\n",
 		instanceCell,
 		metricCell(100*msaPrecision, precisionHighlights[0]),
 		metricCell(100*msaRecall, recallHighlights[0]),
 		metricCell(100*cycleCoverPrecision, precisionHighlights[1]),
 		metricCell(100*cycleCoverRecall, recallHighlights[1]),
-		metricCell(100*patchingPrecision, precisionHighlights[2]),
-		metricCell(100*patchingRecall, recallHighlights[2]))
+		metricCell(100*cycleCoverPatchingPrecision, precisionHighlights[2]),
+		metricCell(100*cycleCoverPatchingRecall, recallHighlights[2]),
+		metricCell(100*cycleCoverMsaPatchingPrecision, precisionHighlights[3]),
+		metricCell(100*cycleCoverMsaPatchingRecall, recallHighlights[3]))
 }
 
 type structuralSimilaritySummary struct {
-	instanceCount           int
-	foundOptimalTours       int
-	foundOptimalEdges       int
-	tourEdges               int
-	msaEdges                int
-	msaOptimalEdges         int
-	cycleCoverEdges         int
-	cycleCoverOptimalEdges  int
-	patchingEdges           int
-	patchingOptimalEdges    int
-	msaPrecisionWins        int
-	cycleCoverPrecisionWins int
-	patchingPrecisionWins   int
-	msaRecallWins           int
-	cycleCoverRecallWins    int
-	patchingRecallWins      int
+	instanceCount                      int
+	foundOptimalTours                  int
+	foundOptimalEdges                  int
+	tourEdges                          int
+	msaEdges                           int
+	msaOptimalEdges                    int
+	cycleCoverEdges                    int
+	cycleCoverOptimalEdges             int
+	cycleCoverPatchingEdges            int
+	cycleCoverPatchingOptimalEdges     int
+	cycleCoverMsaPatchingEdges         int
+	cycleCoverMsaPatchingOptimalEdges  int
+	msaPrecisionWins                   int
+	cycleCoverPrecisionWins            int
+	cycleCoverPatchingPrecisionWins    int
+	cycleCoverMsaPatchingPrecisionWins int
+	msaRecallWins                      int
+	cycleCoverRecallWins               int
+	cycleCoverPatchingRecallWins       int
+	cycleCoverMsaPatchingRecallWins    int
 }
 
 func structuralSimilarityTotals(rows []structure.InstanceAnalysis) structuralSimilaritySummary {
@@ -155,9 +174,10 @@ func structuralSimilarityTotals(rows []structure.InstanceAnalysis) structuralSim
 		metrics := analysis.Metrics
 		msaMetrics := metrics.HighMsaHeuristicMetrics
 		cycleCoverMetrics := metrics.CycleCoverMetrics
-		patchingMetrics := metrics.CycleCoverMsaPatchingMetrics
-		precisionWins := bestStructuralMetricHighlights(msaMetrics.Precision, cycleCoverMetrics.Precision, patchingMetrics.Precision)
-		recallWins := bestStructuralMetricHighlights(msaMetrics.Recall, cycleCoverMetrics.Recall, patchingMetrics.Recall)
+		cycleCoverPatchingMetrics := metrics.CycleCoverPatchingMetrics
+		cycleCoverMsaPatchingMetrics := metrics.CycleCoverMsaPatchingMetrics
+		precisionWins := bestStructuralMetricHighlights(msaMetrics.Precision, cycleCoverMetrics.Precision, cycleCoverPatchingMetrics.Precision, cycleCoverMsaPatchingMetrics.Precision)
+		recallWins := bestStructuralMetricHighlights(msaMetrics.Recall, cycleCoverMetrics.Recall, cycleCoverPatchingMetrics.Recall, cycleCoverMsaPatchingMetrics.Recall)
 
 		totals.foundOptimalTours += metrics.FoundOptimalTourCount
 		totals.foundOptimalEdges += metrics.UniqueFoundOptimalEdgeCount
@@ -166,8 +186,10 @@ func structuralSimilarityTotals(rows []structure.InstanceAnalysis) structuralSim
 		totals.msaOptimalEdges += msaMetrics.OptimalEdgeCount
 		totals.cycleCoverEdges += cycleCoverMetrics.EdgeCount
 		totals.cycleCoverOptimalEdges += cycleCoverMetrics.OptimalEdgeCount
-		totals.patchingEdges += patchingMetrics.EdgeCount
-		totals.patchingOptimalEdges += patchingMetrics.OptimalEdgeCount
+		totals.cycleCoverPatchingEdges += cycleCoverPatchingMetrics.EdgeCount
+		totals.cycleCoverPatchingOptimalEdges += cycleCoverPatchingMetrics.OptimalEdgeCount
+		totals.cycleCoverMsaPatchingEdges += cycleCoverMsaPatchingMetrics.EdgeCount
+		totals.cycleCoverMsaPatchingOptimalEdges += cycleCoverMsaPatchingMetrics.OptimalEdgeCount
 		if precisionWins[0] {
 			totals.msaPrecisionWins++
 		}
@@ -175,7 +197,10 @@ func structuralSimilarityTotals(rows []structure.InstanceAnalysis) structuralSim
 			totals.cycleCoverPrecisionWins++
 		}
 		if precisionWins[2] {
-			totals.patchingPrecisionWins++
+			totals.cycleCoverPatchingPrecisionWins++
+		}
+		if precisionWins[3] {
+			totals.cycleCoverMsaPatchingPrecisionWins++
 		}
 		if recallWins[0] {
 			totals.msaRecallWins++
@@ -184,7 +209,10 @@ func structuralSimilarityTotals(rows []structure.InstanceAnalysis) structuralSim
 			totals.cycleCoverRecallWins++
 		}
 		if recallWins[2] {
-			totals.patchingRecallWins++
+			totals.cycleCoverPatchingRecallWins++
+		}
+		if recallWins[3] {
+			totals.cycleCoverMsaPatchingRecallWins++
 		}
 	}
 

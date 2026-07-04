@@ -16,6 +16,7 @@ type EvaluationReportsConfig struct {
 	BaselineHeuristic              string
 	StrictMsaHeuristic             string
 	CycleCoverHeuristic            string
+	CycleCoverPatchingHeuristic    string
 	CycleCoverMsaPatchingHeuristic string
 	DisplayName                    func(string) string
 }
@@ -773,20 +774,24 @@ func SaveStructuralPerformanceLinkReport(path string, rows []EvaluationResultsSu
 	performance := averagePerformanceByHeuristic(rows, allowedInstances, config)
 	msaPrecision := ratio(structuralTotals.msaOptimalEdges, structuralTotals.msaEdges)
 	cycleCoverPrecision := ratio(structuralTotals.cycleCoverOptimalEdges, structuralTotals.cycleCoverEdges)
-	patchingPrecision := ratio(structuralTotals.patchingOptimalEdges, structuralTotals.patchingEdges)
+	cycleCoverPatchingPrecision := ratio(structuralTotals.cycleCoverPatchingOptimalEdges, structuralTotals.cycleCoverPatchingEdges)
+	cycleCoverMsaPatchingPrecision := ratio(structuralTotals.cycleCoverMsaPatchingOptimalEdges, structuralTotals.cycleCoverMsaPatchingEdges)
 	msaRecall := ratio(structuralTotals.msaOptimalEdges, structuralTotals.foundOptimalEdges)
 	cycleCoverRecall := ratio(structuralTotals.cycleCoverOptimalEdges, structuralTotals.foundOptimalEdges)
-	patchingRecall := ratio(structuralTotals.patchingOptimalEdges, structuralTotals.foundOptimalEdges)
+	cycleCoverPatchingRecall := ratio(structuralTotals.cycleCoverPatchingOptimalEdges, structuralTotals.foundOptimalEdges)
+	cycleCoverMsaPatchingRecall := ratio(structuralTotals.cycleCoverMsaPatchingOptimalEdges, structuralTotals.foundOptimalEdges)
 
 	structuralPrecision := map[string]float64{
 		config.StrictMsaHeuristic:             msaPrecision,
 		config.CycleCoverHeuristic:            cycleCoverPrecision,
-		config.CycleCoverMsaPatchingHeuristic: patchingPrecision,
+		config.CycleCoverPatchingHeuristic:    cycleCoverPatchingPrecision,
+		config.CycleCoverMsaPatchingHeuristic: cycleCoverMsaPatchingPrecision,
 	}
 	structuralRecall := map[string]float64{
 		config.StrictMsaHeuristic:             msaRecall,
 		config.CycleCoverHeuristic:            cycleCoverRecall,
-		config.CycleCoverMsaPatchingHeuristic: patchingRecall,
+		config.CycleCoverPatchingHeuristic:    cycleCoverPatchingRecall,
+		config.CycleCoverMsaPatchingHeuristic: cycleCoverMsaPatchingRecall,
 	}
 
 	includedHeuristics := make([]string, 0, len(config.comparisonHeuristics()))

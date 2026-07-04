@@ -22,11 +22,11 @@ func TestSaveStructuralSimilarityReport(t *testing.T) {
 	}
 
 	content := string(contentBytes)
-	assertContains(t, content, "- **Precision vs found-optimal tours: MSA heuristic 71.43%, cycle cover 66.67%, cycle-cover MSA patching 63.64%.**")
-	assertContains(t, content, "- **Recall vs found-optimal tours: MSA heuristic 35.71%, cycle cover 42.86%, cycle-cover MSA patching 50.00%.**")
-	assertContains(t, content, "<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">MSA heuristic</th><th colspan=\"2\">Cycle cover</th><th colspan=\"2\">Cycle-cover MSA patching</th></tr>")
-	assertContains(t, content, "<tr><td>a</td><td align=\"right\">50.00</td><td align=\"right\">25.00</td><td align=\"right\"><strong>75.00</strong></td><td align=\"right\"><strong>75.00</strong></td><td align=\"right\">60.00</td><td align=\"right\"><strong>75.00</strong></td></tr>")
-	assertContains(t, content, "<tr><td><strong>Total</strong></td><td align=\"right\"><strong>71.43</strong></td><td align=\"right\">35.71</td><td align=\"right\">66.67</td><td align=\"right\">42.86</td><td align=\"right\">63.64</td><td align=\"right\"><strong>50.00</strong></td></tr>")
+	assertContains(t, content, "- **Precision vs found-optimal tours: MSA heuristic 71.43%, cycle cover 66.67%, GKS patching 77.78%, cycle-cover MSA patching 63.64%.**")
+	assertContains(t, content, "- **Recall vs found-optimal tours: MSA heuristic 35.71%, cycle cover 42.86%, GKS patching 50.00%, cycle-cover MSA patching 50.00%.**")
+	assertContains(t, content, "<tr><th rowspan=\"2\">Instance</th><th colspan=\"2\">MSA heuristic</th><th colspan=\"2\">Cycle cover</th><th colspan=\"2\">GKS patching</th><th colspan=\"2\">Cycle-cover MSA patching</th></tr>")
+	assertContains(t, content, "<tr><td>a</td><td align=\"right\">50.00</td><td align=\"right\">25.00</td><td align=\"right\"><strong>75.00</strong></td><td align=\"right\"><strong>75.00</strong></td><td align=\"right\">50.00</td><td align=\"right\">50.00</td><td align=\"right\">60.00</td><td align=\"right\"><strong>75.00</strong></td></tr>")
+	assertContains(t, content, "<tr><td><strong>Total</strong></td><td align=\"right\">71.43</td><td align=\"right\">35.71</td><td align=\"right\">66.67</td><td align=\"right\">42.86</td><td align=\"right\"><strong>77.78</strong></td><td align=\"right\"><strong>50.00</strong></td><td align=\"right\">63.64</td><td align=\"right\"><strong>50.00</strong></td></tr>")
 }
 
 func TestSaveMsaHeuristicCycleCoverOverlapReport(t *testing.T) {
@@ -171,6 +171,12 @@ func sampleStructuralAnalyses() []structure.InstanceAnalysis {
 					Precision:        0.6,
 					Recall:           0.3,
 				},
+				CycleCoverPatchingMetrics: structure.EdgeSetMetrics{
+					EdgeCount:        5,
+					OptimalEdgeCount: 5,
+					Precision:        1.0,
+					Recall:           0.5,
+				},
 				CycleCoverMsaPatchingMetrics: structure.EdgeSetMetrics{
 					EdgeCount:        6,
 					OptimalEdgeCount: 4,
@@ -201,6 +207,12 @@ func sampleStructuralAnalyses() []structure.InstanceAnalysis {
 					OptimalEdgeCount: 3,
 					Precision:        0.75,
 					Recall:           0.75,
+				},
+				CycleCoverPatchingMetrics: structure.EdgeSetMetrics{
+					EdgeCount:        4,
+					OptimalEdgeCount: 2,
+					Precision:        0.5,
+					Recall:           0.5,
 				},
 				CycleCoverMsaPatchingMetrics: structure.EdgeSetMetrics{
 					EdgeCount:        5,

@@ -36,6 +36,8 @@ func TestCalculateAnalysisStructuralMetrics(t *testing.T) {
 	assertFloat(t, "cycle-cover recall", metrics.CycleCoverMetrics.Recall, 1)
 	assertFloat(t, "high-MSA heuristic precision", metrics.HighMsaHeuristicMetrics.Precision, 0.5)
 	assertFloat(t, "high-MSA heuristic recall", metrics.HighMsaHeuristicMetrics.Recall, 0.25)
+	assertFloat(t, "cycle-cover patching precision", metrics.CycleCoverPatchingMetrics.Precision, 1)
+	assertFloat(t, "cycle-cover patching recall", metrics.CycleCoverPatchingMetrics.Recall, 1)
 	assertFloat(t, "cycle-cover MSA-patching precision", metrics.CycleCoverMsaPatchingMetrics.Precision, 1)
 	assertFloat(t, "cycle-cover MSA-patching recall", metrics.CycleCoverMsaPatchingMetrics.Recall, 1)
 
