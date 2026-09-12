@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
 )
 
@@ -251,6 +252,10 @@ func saveOptimalToursStatistics(optimalUniqueToursCsvPath string, toursStatistic
 		"Min commonality with MSA",
 		"Avg commonality with MSA",
 		"Max commonality with MSA",
+	}
+
+	if err := os.MkdirAll(filepath.Dir(optimalUniqueToursCsvPath), 0700); err != nil {
+		return err
 	}
 
 	file, err := os.Create(optimalUniqueToursCsvPath)

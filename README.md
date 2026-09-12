@@ -1,139 +1,300 @@
-# Hybrid algorithm for ATSP
+# ATSP ACO MSA
 
-## ATSP
+Program uruchamia eksperymenty dla asymetrycznego problemu komiwojażera. Porównuje wariant bazowy MMAS z heurystykami opartymi na MSA i pokryciu cyklowym.
 
-- Paper detailing ATSP: https://www.diva-portal.org/smash/get/diva2:358638/fulltext01.pdf
+## Wymagania
 
-- Analysis of Heuristics for the ATSP: https://www.researchgate.net/publication/2404400_Experimental_Analysis_of_Heuristics_for_the_ATSP
+Potrzebne są:
 
-- Asadpours paper on approximation: https://homes.cs.washington.edu/~shayan/atsp.pdf
+- Go w wersji 1.22.1 lub nowszej;
+- terminal;
+- pliki instancji ATSP w katalogu `tsplib_files`.
 
-- NetworkX on ATSP: https://blog.scientific-python.org/posts/networkx/atsp/
+Wymagane instancje są już zapisane w repozytorium. Pozostałe biblioteki pobiera narzędzie Go.
 
-- TSPLib test data: http://comopt.ifi.uni-heidelberg.de/software/TSPLIB95/atsp/
+## Instalacja Go
 
-- More test data for ATSP: https://sites.google.com/site/atspinstances/home?authuser=0
+1. Pobierz instalator ze strony <https://go.dev/dl/>.
+2. Zainstaluj Go.
+3. Otwórz terminal.
+4. Sprawdź instalację:
 
-## MSA
+```bash
+go version
+```
 
-- https://en.wikipedia.org/wiki/Arborescence_(graph_theory)
+Polecenie powinno wyświetlić wersję Go. Jeżeli system nie rozpoznaje polecenia `go`, uruchom ponownie terminal albo dodaj Go do zmiennej `PATH`.
 
-- https://en.wikipedia.org/wiki/Edmonds%27_algorithm
+## Przygotowanie projektu
 
-- https://en.wikipedia.org/wiki/Multitree
+W terminalu przejdź do głównego katalogu repozytorium. Musi to być katalog zawierający pliki `go.mod` i `main.go`.
 
-- MSA presentation: https://homes.di.unimi.it/righini/Didattica/OttimizzazioneCombinatoria/MaterialeOC/5%20-%20Minimum%20spanning%20r-arborescence.pdf
+Pobierz zależności:
 
-- Example in Python with some explanations: https://wendy-xiao.github.io/posts/2020-07-10-chuliuemdond_algorithm/
+```bash
+go mod download
+```
 
-- Gabow et. al. improved version of Edmonds' algorithm: https://sci-hub.se/10.1007/BF02579168
+Uruchom testy:
 
-- Implementation with ideas from Trajan, maybe also Gabow: https://github.com/atofigh/edmonds-alg
+```bash
+go test ./...
+```
 
-- Disjoint-set implementation in Go: https://github.com/spakin/disjoint
+## Kompilacja
 
-- https://github.com/ferasboulala/chu-liu-edmond/blob/master/msa.py
+macOS lub Linux:
 
-## ACO
+```bash
+go build -o atsp_aco_msa .
+```
 
-- Hybrid ACS for TSP: https://sci-hub.se/10.1109/ICICTA.2010.731
+Windows:
 
-- MMAS paper: https://sci-hub.se/https://doi.org/10.1016/S0167-739X(00)00043-1
+```powershell
+go build -o atsp_aco_msa.exe .
+```
 
-- Another paper on MMAS, with info on 3-opt: https://lia.disi.unibo.it/Courses/SistInt/articoli/max-min-ant.pdf
+Po kompilacji plik wykonywalny znajduje się w głównym katalogu repozytorium.
 
-- ACO for TSP: https://faculty.washington.edu/paymana/swarm/stutzle99-eaecs.pdf
+## Uruchamianie
 
-- ACO for TSP parameter analysis: http://article.nadiapub.com/IJUNESST/vol7_no4/16.pdf
+Program należy uruchamiać z głównego katalogu repozytorium. Korzysta on ze ścieżek względnych do katalogów `tsplib_files` i `artifacts`.
 
-- More on parameter tuning: https://sci-hub.se/https://doi.org/10.1109/CSNT.2018.8820263
+Bez kompilacji:
 
-- Something about pheromones: https://sci-hub.se/10.1109/PIC.2014.6972311
+```bash
+go run . [flagi]
+```
 
-- Model induced MMAS: https://sci-hub.se/https://doi.org/10.1016/j.asoc.2012.04.008
+Po kompilacji na macOS lub Linux:
 
-- ACO variants overview: https://sci-hub.se/http://dx.doi.org/10.17485/ijst/2015/v8i31/87296
+```bash
+./atsp_aco_msa [flagi]
+```
 
-- Ant-Q: https://sci-hub.se/http://dx.doi.org/10.1016/b978-1-55860-377-6.50039-6
+Po kompilacji na Windows:
 
-- Ant-Q presentation: https://csc.csudh.edu/btang/seminar/PDDC/Ant-Q.pdf
+```powershell
+.\atsp_aco_msa.exe [flagi]
+```
 
-- Less ants == better results?: https://www.diva-portal.org/smash/get/diva2:1214402/FULLTEXT01.pdf
+Lista wszystkich flag:
 
-## 3-opt
+```bash
+go run . -h
+```
 
-- Algorithms for TSP, some info on 3-opt: https://sci-hub.se/https://doi.org/10.1287/ijoc.4.4.387
+Samo `go run .` uruchamia strojenie wszystkich heurystyk na całym zbiorze `tuning`. Do pierwszego sprawdzenia programu użyj krótszego polecenia z następnej sekcji.
 
-- Local optimizations for TSP, 3.3 is useful: https://www.cs.ubc.ca/~hutter/previous-earg/EmpAlgReadingGroup/TSP-JohMcg97.pdf
+## Szybki test
 
-- Markov chains for TSP: https://content.wolfram.com/sites/13/2018/02/05-3-3.pdf
+To polecenie uruchamia strojenie jednej heurystyki dla małej instancji `br17` przy użyciu jednego zadania wykonywanego w danym momencie:
 
-- Implementation in C: https://github.com/ozanyerli/tsp3opt
+```bash
+go run . -mode experiment -instances smoke -heuristic strict-msa -workers 1
+```
 
-- Implementation in Python: https://github.com/BraveDistribution/pytsp/blob/master/pytsp/k_opt_tsp.py
+Program automatycznie utworzy brakujące dane MSA i zapisze wynik w katalogu `artifacts`.
 
-- Article related to the Python implementation: https://github.com/BraveDistribution/pytsp/blob/master/pytsp/k_opt_tsp.py
+## Tryby pracy
 
-- Best (still bad) explanation of reduced 3-opt, 3.3 is useful: https://www.cs.ubc.ca/labs/algorithms/Courses/CPSC532D-03/Resources/StuHoo99.pdf
+Tryb wybiera flaga `-mode`.
 
-- Pointer to the reduced 3-opt algorithm was found here: https://www.es.ele.tue.nl/cps/publications/pinxten2016mogtsp.pdf
+### `experiment`
 
-- Blog about TSP and in big part about k-opt algorithms: https://github.com/BraveDistribution/pytsp/blob/master/pytsp/k_opt_tsp.py
+Uruchamia strojenie parametrów heurystyk bez 3-opt. Dla każdego zestawu parametrów wykonuje 30 uruchomień MMAS.
 
-## Others
+```bash
+go run . -mode experiment -instances tuning
+```
 
-- "Ghouila-Houri from 1960 asserts that every directed graph on n vertices with minimum out-degree and in-degree at least n/2 contains a directed Hamilton cycle."
+Wyniki są zapisywane w:
 
-- On Hamiltonian cycles in directed graphs: https://www.sciencedirect.com/science/article/pii/S0195669811001788
+```text
+artifacts/experiments/tuning
+```
 
+Jeżeli flaga `-heuristic` zostanie pominięta, program sprawdzi wszystkie cztery heurystyki dostępne w tym trybie.
 
-Co dalej?
+### `evaluation`
 
-Wskaźnik pokazujący czy heurystykę warto zastosować!
+Uruchamia końcową ewaluację bez 3-opt. Dla każdej konfiguracji wykonuje 50 uruchomień MMAS. Domyślnie wykorzystuje zbiór instancji `evaluation`.
 
-Ile iteracji robi 3-opt?
- - dodać to wyników, zdaje się że MSA support skłania do globalnego optimum, ale po drodze do niego ścieżki są suboptymalne
- - może w postaci wykresu? czy może to przesada? Na później jeśli będzie czas/miejsce w pracy!
+```bash
+go run . -mode evaluation
+```
 
-Sprawdzić zachłanny zamiast drugiej ruletki i 3-opt dla najlepszej trasy znalezionej przez mrówki.
+Wyniki są zapisywane w:
 
-FDC:
- - policzyć!
+```text
+artifacts/experiments/evaluation/no_3opt
+```
 
-0. Ile iteracji robi 3-opt? - póki co w postaci tabeli bez wykresu
-1. Porównanie map termicznych - zrobić automatycznie
-2. Wykres tego jak zmienia się podobieństwo do MSA support? - zobaczymy jak z czasem, jeśli w weekend się nie uda to nie
-3. Zapisywać to jakie jest odchylenie w każdej iteracji - żeby tworzenie wykresów zbieżności tyle czasu nie zajmowało!
+Po wykonaniu wszystkich podstawowych wariantów program automatycznie uruchamia analizę wyników.
 
-Rozdziały:
+### `evaluation+3opt`
 
-1. TSP
-    1. Opis problemu
-    2. Związek z MST
-        1. Algorytmy
+Działa tak samo jak `evaluation`, ale po zbudowaniu cyklu stosuje zredukowany 3-opt.
 
-2. ATSP
-    1. Opis problemu - różnice względem TSP
-    2. MSA
-        1. Algorytm Edmondsa
-    3. Niezbadany związek z MSA
+```bash
+go run . -mode evaluation+3opt
+```
 
-3. ACO
-    1. Zasada działania
-    2. MMAS
-    3. W połączeniu z innymi algorytmami (MSA + 3-opt)
+Wyniki są zapisywane w:
 
-4. Algorytm hybrydowy - mój
-    1. MSA support
-    2. Wykorzystanie MSA support - feromony zależne od MSA support: niewiele dało, usunąłem, opisać po krótce
-    3. "reduced 3-opt"
+```text
+artifacts/experiments/evaluation/with_3opt
+```
 
-5. Metodyka
-    1. Dane testowe
-        1. FDC
-    2. Eksperymenty
+### `analyze`
 
-6. Wyniki
+Nie uruchamia eksperymentów MMAS. Odczytuje istniejące wyniki i tworzy raporty, podsumowania oraz wykresy.
 
-7. Podsumowanie
+Pełna analiza wyników ewaluacji:
 
+```bash
+go run . -mode analyze -instances evaluation -analysis all
+```
+
+Samo podsumowanie strojenia:
+
+```bash
+go run . -mode analyze -analysis tuning
+```
+
+Sama analiza odchylenia GKS:
+
+```bash
+go run . -mode analyze -analysis gks-deviation
+```
+
+### `all`
+
+Najpierw uruchamia tryb `experiment`, a następnie `analyze` dla wybranego zbioru instancji. Nie uruchamia trybów `evaluation` ani `evaluation+3opt`.
+
+```bash
+go run . -mode all -instances tuning
+```
+
+### `rebuild-cache`
+
+Ponownie wyznacza MSA i minimalne pokrycia cyklowe, a następnie odtwarza związane z nimi wykresy. Bez flagi `-instances` przetwarza wszystkie instancje ze znanym optimum.
+
+```bash
+go run . -mode rebuild-cache
+```
+
+Ten tryb nadpisuje dane w katalogach:
+
+```text
+artifacts/cache/msa
+artifacts/cache/cycle_cover
+```
+
+## Zbiory instancji
+
+Zbiór wybiera flaga `-instances`:
+
+- `smoke` - tylko mała instancja `br17`, przeznaczona do szybkiego sprawdzenia programu;
+- `tuning` - instancje używane do strojenia parametrów;
+- `evaluation` - instancje używane do końcowej ewaluacji;
+- `all-known` - wszystkie dostępne instancje ze znanym optimum.
+
+Przykład:
+
+```bash
+go run . -mode rebuild-cache -instances smoke
+```
+
+## Wybór heurystyki podczas strojenia
+
+Flaga `-heuristic` działa w trybach `experiment` i `all`.
+
+Dostępne wartości:
+
+- `all` - wszystkie poniższe heurystyki;
+- `strict-msa` - Heurystyka MSA;
+- `rooted-msa` - Zakorzenione MSA;
+- `cycle-cover` - heurystyka pokrycia cyklowego;
+- `cycle-cover-msa-patching` - GKS+MSA.
+
+Przykład:
+
+```bash
+go run . -mode experiment -instances tuning -heuristic rooted-msa
+```
+
+Pominięcie flagi oznacza to samo co `-heuristic all`.
+
+## Wybór wariantu podczas ewaluacji
+
+Flaga `-evaluation-heuristic` działa w trybach `evaluation` i `evaluation+3opt`.
+
+Dostępne wartości:
+
+- `all` - wszystkie podstawowe warianty;
+- `controls` - wszystkie warianty kontrolne;
+- `baseline`;
+- `strict-msa`;
+- `rooted-msa`;
+- `random-sparse`;
+- `distance-ranked-sparse`;
+- `shuffled-msa`;
+- `cycle-cover`;
+- `cycle-cover-patching`;
+- `cycle-cover-msa-patching`.
+
+Przykład uruchomienia samych kontroli:
+
+```bash
+go run . -mode evaluation -evaluation-heuristic controls
+```
+
+## Liczba równoległych zadań
+
+Flaga `-workers` określa maksymalną liczbę konfiguracji wykonywanych jednocześnie.
+
+- `-workers 1` - wykonywanie sekwencyjne;
+- `-workers 4` - maksymalnie cztery zadania jednocześnie;
+- `-workers 0` albo brak flagi - połowa dostępnych procesorów logicznych.
+
+Przykład:
+
+```bash
+go run . -mode evaluation -workers 4
+```
+
+Większa wartość może skrócić czas obliczeń, ale zwiększa wykorzystanie procesora i pamięci.
+
+## Pliki wynikowe
+
+Program zapisuje wszystkie wygenerowane dane w katalogu `artifacts`:
+
+- `artifacts/cache/msa` - drzewa MSA, macierze heurystyki i wykresy;
+- `artifacts/cache/cycle_cover` - minimalne pokrycia cyklowe i wykresy;
+- `artifacts/experiments/tuning` - wyniki strojenia;
+- `artifacts/experiments/evaluation/no_3opt` - ewaluacja bez 3-opt;
+- `artifacts/experiments/evaluation/with_3opt` - ewaluacja z 3-opt;
+- `artifacts/experiments/evaluation/controls` - wyniki wariantów kontrolnych;
+- `artifacts/solutions` - znalezione cykle optymalne i ich analiza.
+
+Ponowne uruchomienie eksperymentu może nadpisać istniejące wyniki dla tej samej konfiguracji.
+
+## Przygotowanie paczki z kodem
+
+Paczka nie musi zawierać katalogu `.git`, pliku wykonywalnego ani katalogu `artifacts`. Program odtworzy potrzebne artefakty podczas uruchamiania.
+
+macOS lub Linux:
+
+```bash
+zip -r atsp_aco_msa.zip README.md go.mod go.sum main.go modules tsplib_files
+```
+
+Windows PowerShell:
+
+```powershell
+Compress-Archive -Path README.md,go.mod,go.sum,main.go,modules,tsplib_files -DestinationPath atsp_aco_msa.zip
+```
+
+Po rozpakowaniu paczki należy wykonać instrukcje z sekcji „Przygotowanie projektu”.

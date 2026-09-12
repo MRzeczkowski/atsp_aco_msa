@@ -54,6 +54,16 @@ func TestReadOptimal(t *testing.T) {
 	}
 }
 
+func TestSaveStatisticsCreatesParentDirectory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "solutions.csv")
+
+	if err := SaveStatistics(path, "", map[string][]int{}); err != nil {
+		t.Fatalf("SaveStatistics returned unexpected error: %v", err)
+	}
+
+	assertFileExists(t, path)
+}
+
 func TestAnalyzeInstancesWritesTourPlots(t *testing.T) {
 	dir := t.TempDir()
 	msaHeuristicDir := filepath.Join(dir, "msa_heuristic")

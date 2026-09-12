@@ -47,7 +47,7 @@ func NewACO(alpha, beta, rho float64, iterations int, targetTourLength float64, 
 	localSearchNeighborsListSize := min(maxLocalSearchNeighborsListSize, dimension-1)
 	localSearchNeighborsLists := neighbors.BuildLists(distances, localSearchNeighborsListSize)
 
-	// We use smaller lists for tour construction than for local search. Just like: https://sci-hub.se/https://doi.org/10.1016/S0167-739X(00)00043-1
+	// Tour construction uses shorter candidate lists than local search.
 	tourConstructionNeighborsListSize := min(maxLocalSearchNeighborsListSize/2, dimension-1)
 	tourConstructionNeighborsLists := neighbors.BuildLists(distances, tourConstructionNeighborsListSize)
 	heuristicNeighborsLists := buildConstructionHeuristicNeighborsLists(heuristicModifiers)
