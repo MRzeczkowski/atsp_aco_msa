@@ -280,21 +280,3 @@ Program zapisuje wszystkie wygenerowane dane w katalogu `artifacts`:
 - `artifacts/solutions` - znalezione cykle optymalne i ich analiza.
 
 Ponowne uruchomienie eksperymentu może nadpisać istniejące wyniki dla tej samej konfiguracji.
-
-## Przygotowanie paczki z kodem
-
-Paczka nie musi zawierać katalogu `.git`, pliku wykonywalnego ani katalogu `artifacts`. Program odtworzy potrzebne artefakty podczas uruchamiania.
-
-macOS lub Linux:
-
-```bash
-zip -r atsp_aco_msa.zip README.md go.mod go.sum main.go modules tsplib_files
-```
-
-Windows PowerShell:
-
-```powershell
-Compress-Archive -Path README.md,go.mod,go.sum,main.go,modules,tsplib_files -DestinationPath atsp_aco_msa.zip
-```
-
-Po rozpakowaniu paczki należy wykonać instrukcje z sekcji „Przygotowanie projektu”.
